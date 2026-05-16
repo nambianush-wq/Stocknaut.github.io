@@ -352,6 +352,10 @@ input:focus, select:focus { border-color: var(--accent); }
   /* push rank down so it doesn't collide with actions */
   top: 38px;
 }
+/* Reserve space inside tile-head so the sector chip never extends under the
+   absolutely-positioned row-actions / tile-rank in the top-right corner. */
+.stock-tile .tile-head { padding-right: 60px; min-height: 30px; }
+.stock-tile .tile-sector-chip { max-width: calc(100% - 0px); }
 .pick-line1 .row-actions { margin-left: auto; }
 
 .empty-watchlist {
@@ -8277,7 +8281,8 @@ body.whatif-mode #sidebar { display: none; }
               <option value="5" selected="">Last 5 years</option>
             </select>
           </div>
-          <button class="btn btn-primary wi-build-btn" onclick="buildPortfolioClick()">Build Portfolio</button>
+          <button class="btn btn-primary wi-build-btn" onclick="buildPortfolioClick()" title="Build using the catalog-wide top picks for the selected goal">Build Portfolio</button>
+          <button class="btn wi-build-btn" id="wi-build-simset-btn" onclick="buildPortfolioFromSimSetClick()" title="Build using only the tickers in your Simulation Set" style="background:rgba(0,113,227,.15); border:1px solid rgba(0,113,227,.5); color:var(--accent);">Build from Sim Set</button>
         </div>
       </div>
       <div id="saved-bundles-container"></div>
@@ -9684,25 +9689,43 @@ async function fetchFinnhubMetrics(ticker) {
   } catch (e) { return null; }
 }
 
-// Latest news via Finnhub /company-news — cached 5 minutes per ticker
+// Latest news via Finnhub /company-news — cached 5 minutes per ticker.
+// Returns a structured result so the UI can surface auth / rate-limit / paywall
+// failures instead of silently falling through to an empty "no headlines" panel.
 const _newsCache = {};
 async function fetchFinnhubNews(ticker) {
-  if (!isLive()) return null;
+  if (!isLive()) return { ok: false, reason: 'no_key', news: [] };
   const cached = _newsCache[ticker];
-  if (cached && (Date.now() - cached.ts) < 5 * 60 * 1000) return cached.news;
+  if (cached && (Date.now() - cached.ts) < 5 * 60 * 1000) return cached.result;
+  let result;
   try {
     const to = new Date();
     const from = new Date(to.getTime() - 14 * 86400000);
     const fmt = d => d.toISOString().slice(0, 10);
     const url = `https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(ticker)}&from=${fmt(from)}&to=${fmt(to)}&token=${encodeURIComponent(API_KEY)}`;
     const res = await fetch(url);
-    if (!res.ok) return null;
-    const arr = await res.json();
-    if (!Array.isArray(arr)) return null;
-    const sorted = arr.sort((a, b) => (b.datetime || 0) - (a.datetime || 0)).slice(0, 6);
-    _newsCache[ticker] = { news: sorted, ts: Date.now() };
-    return sorted;
-  } catch (e) { return null; }
+    if (!res.ok) {
+      let detail = '';
+      try { const j = await res.json(); detail = (j && j.error) || ''; } catch (_) {}
+      const reason = res.status === 401 ? 'auth'
+                   : res.status === 403 ? 'forbidden'
+                   : res.status === 429 ? 'rate_limit'
+                   : `http_${res.status}`;
+      result = { ok: false, reason, status: res.status, detail, news: [] };
+    } else {
+      const arr = await res.json();
+      if (Array.isArray(arr)) {
+        const sorted = arr.sort((a, b) => (b.datetime || 0) - (a.datetime || 0)).slice(0, 6);
+        result = { ok: true, news: sorted };
+      } else {
+        result = { ok: false, reason: 'api_error', detail: (arr && arr.error) || 'unexpected response', news: [] };
+      }
+    }
+  } catch (e) {
+    result = { ok: false, reason: 'network', error: (e && e.message) || 'fetch failed', news: [] };
+  }
+  _newsCache[ticker] = { result, ts: Date.now() };
+  return result;
 }
 
 // Headline sentiment heuristic — turns a headline into ▲ / ▼ / ●
@@ -9733,15 +9756,39 @@ function _escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function renderNewsCard(ticker, news) {
+function renderNewsCard(ticker, result) {
   const slot = document.getElementById('news-slot');
   if (!slot) return;
-  if (!news || news.length === 0) {
-    if (!isLive()) {
-      slot.innerHTML = `<div class="news-empty">Add a Finnhub key in <b>⚙ Settings</b> to surface real headlines for ${ticker}. Until then: <a href="https://finance.yahoo.com/quote/${encodeURIComponent(ticker)}/news" target="_blank" rel="noopener">read latest news on Yahoo Finance ↗</a></div>`;
+  // Back-compat: a bare array still works
+  if (Array.isArray(result)) result = { ok: true, news: result };
+  const yahooLink = `<a href="https://finance.yahoo.com/quote/${encodeURIComponent(ticker)}/news" target="_blank" rel="noopener">read latest news on Yahoo Finance ↗</a>`;
+  if (!result || (!result.ok && !result.news)) {
+    slot.innerHTML = `<div class="news-empty">Loading news…</div>`;
+    return;
+  }
+  if (!result.ok) {
+    let msg;
+    if (result.reason === 'no_key') {
+      msg = `Add a Finnhub key in <b>⚙ Settings</b> to surface real headlines for ${ticker}. Until then: ${yahooLink}`;
+    } else if (result.reason === 'auth') {
+      msg = `<strong style="color:var(--bear)">⚠ Finnhub returned HTTP 401 — your API key is invalid or expired.</strong>${result.detail ? ` <span style="color:var(--muted)">("${_escapeHtml(result.detail)}")</span>` : ''}<br>Open <b>⚙ Settings</b> to paste a fresh key, then refresh. In the meantime: ${yahooLink}`;
+    } else if (result.reason === 'forbidden') {
+      msg = `<strong style="color:var(--warn)">⚠ Finnhub HTTP 403 — this endpoint may not be available on the free tier for your key.</strong> ${yahooLink}`;
+    } else if (result.reason === 'rate_limit') {
+      msg = `Finnhub rate limit hit (HTTP 429). Wait ~60 seconds and refresh. ${yahooLink}`;
+    } else if (result.reason === 'api_error') {
+      msg = `Finnhub error: <code>${_escapeHtml(result.detail || 'unknown')}</code>. ${yahooLink}`;
+    } else if (result.reason === 'network') {
+      msg = `Network error: <code>${_escapeHtml(result.error || 'fetch failed')}</code>. ${yahooLink}`;
     } else {
-      slot.innerHTML = `<div class="news-empty">No recent headlines for ${ticker} in the last 14 days. <a href="https://finance.yahoo.com/quote/${encodeURIComponent(ticker)}/news" target="_blank" rel="noopener">Check Yahoo Finance ↗</a></div>`;
+      msg = `News fetch failed (${_escapeHtml(result.reason)}). ${yahooLink}`;
     }
+    slot.innerHTML = `<div class="news-empty">${msg}</div>`;
+    return;
+  }
+  const news = result.news || [];
+  if (news.length === 0) {
+    slot.innerHTML = `<div class="news-empty">No recent headlines for ${ticker} in the last 14 days. <a href="https://finance.yahoo.com/quote/${encodeURIComponent(ticker)}/news" target="_blank" rel="noopener">Check Yahoo Finance ↗</a></div>`;
     return;
   }
   const counts = { pos: 0, neg: 0, neutral: 0 };
@@ -9769,10 +9816,10 @@ function renderNewsCard(ticker, news) {
 async function loadNewsFor(ticker) {
   const slot = document.getElementById('news-slot');
   if (!slot) return;
-  if (!isLive()) { renderNewsCard(ticker, null); return; }
+  if (!isLive()) { renderNewsCard(ticker, { ok: false, reason: 'no_key', news: [] }); return; }
   slot.innerHTML = `<div class="news-loading">Loading latest news for ${ticker}…</div>`;
-  const news = await fetchFinnhubNews(ticker);
-  if (_selected === ticker) renderNewsCard(ticker, news);
+  const result = await fetchFinnhubNews(ticker);
+  if (_selected === ticker) renderNewsCard(ticker, result);
 }
 
 // ---- Synthetic profile/metrics for DEMO ----
@@ -11269,6 +11316,112 @@ function buildPortfolioClick() {
       renderWhatIfResults(p);
     } catch (e) {
       $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg">Could not build portfolio: ${e.message}</div></div>`;
+    }
+  }));
+}
+
+// Build a portfolio from the user's Simulation Set instead of the catalog.
+// Allocates 100% across the sim-set tickers, score-weighted by the chosen
+// goal's rank function. Position size clipped to the goal's min/max.
+function buildPortfolioFromSimSet(amount, goalKey, horizon, historyYears) {
+  historyYears = historyYears || 5;
+  const def = STRATEGY_DEFS[goalKey];
+  if (!def) throw new Error(`Unknown goal '${goalKey}'`);
+  const tickers = [...SIM_SET];
+  if (tickers.length === 0) throw new Error('Sim Set is empty — add stocks via the + button on Watchlist / Sectors / Top Picks first.');
+  // Compute metrics for each sim-set ticker (re-use What-If cache shape via computeWhatIfMetrics)
+  const marketBars = getMarketBars();
+  const universe = tickers.map(t => {
+    try {
+      const cat = STOCK_CATALOG.find(s => s.t === t);
+      const s = cat || { t, n: t, i: 'Other' };
+      return computeWhatIfMetrics(s, historyYears, marketBars);
+    } catch (e) { return null; }
+  }).filter(Boolean);
+  if (universe.length === 0) throw new Error('Could not compute metrics for any sim-set ticker.');
+  // Rank by the goal's rank function
+  let ranked = universe.map(m => ({ ...m, _w: def.rank(m) })).sort((a, b) => b._w - a._w);
+  // Score-weighted allocation: 100% of capital across the sim set (no ETF core split)
+  const scores = ranked.map(m => Math.max(5, m._w + 100));
+  const totalScore = scores.reduce((s, x) => s + x, 0);
+  let holdings = ranked.map((m, i) => ({
+    ...m,
+    kind: m.isETF ? 'etf' : 'stock',
+    pct: (scores[i] / totalScore) * 100,
+  }));
+  // Clip per-stock to min/max — relax min to 1% for sim-set since user-curated
+  const minPct = Math.min(def.minPct, 100 / Math.max(1, holdings.length));
+  for (const h of holdings) {
+    if (h.kind === 'stock') h.pct = Math.max(minPct, Math.min(def.maxPct, h.pct));
+  }
+  // Renormalise
+  const total = holdings.reduce((s, h) => s + h.pct, 0);
+  for (const h of holdings) {
+    h.pct = h.pct / total * 100;
+    h.amount = h.pct / 100 * amount;
+    h.shares = h.amount / h.last;
+  }
+  holdings.sort((a, b) => b.pct - a.pct);
+  // Portfolio-level stats (mirror buildPortfolio)
+  const weighted = (months) => holdings.reduce((s, h) => {
+    const f = (h.forecasts || []).find(x => x.months === months);
+    return s + (f ? f.expReturn : 0) * h.pct;
+  }, 0) / 100;
+  const expected12 = weighted(12);
+  const expected24 = weighted(24);
+  const expected36 = weighted(36);
+  const avgConfidence = holdings.reduce((s, h) => {
+    const f = (h.forecasts || []).find(x => x.months === horizon);
+    return s + (f ? f.confidence : 0) * h.pct;
+  }, 0) / 100;
+  const stockPct = holdings.filter(h => h.kind === 'stock').reduce((s, h) => s + h.pct, 0);
+  const etfPct   = holdings.filter(h => h.kind === 'etf').reduce((s, h) => s + h.pct, 0);
+  const sectorMixObj = {};
+  for (const h of holdings) {
+    const sec = h.kind === 'etf' ? (h.industry || 'ETF') : (h.industry || 'Other');
+    sectorMixObj[sec] = (sectorMixObj[sec] || 0) + h.pct;
+  }
+  const sectorMix = Object.entries(sectorMixObj).sort((a, b) => b[1] - a[1]).map(([sec, pct]) => ({ sec, pct }));
+  const portfolioBeta   = holdings.reduce((s, h) => s + (h.beta || 1) * h.pct, 0) / 100;
+  const portfolioMaxDd  = holdings.reduce((s, h) => s + ((h.risk && h.risk.maxDd) || 0) * h.pct, 0) / 100;
+  const portfolioSharpe = holdings.reduce((s, h) => s + ((h.risk && h.risk.sharpe) || 0) * h.pct, 0) / 100;
+  const portfolioVol    = holdings.reduce((s, h) => s + (h.volatility || 0) * h.pct, 0) / 100;
+  const portfolioPeriodReturn = holdings.reduce((s, h) => s + ((h.risk && h.risk.periodReturn) || 0) * h.pct, 0) / 100;
+  const hhi = computeHHI(holdings);
+  const builtPortfolio = {
+    strategy: { ...def, label: `${def.label} · Sim Set`, summary: `${def.summary} (built from your ${tickers.length}-ticker Simulation Set instead of the catalog)` },
+    goalKey, amount, horizon, historyYears,
+    fromSimSet: true,
+    holdings,
+    stats: { expected12, expected24, expected36, avgConfidence, stockPct, etfPct, nHoldings: holdings.length, sectorMix,
+             portfolioBeta, portfolioMaxDd, portfolioSharpe, portfolioVol, portfolioPeriodReturn,
+             hhi, hhiText: hhiLabel(hhi) },
+  };
+  _lastBuiltPortfolio = builtPortfolio;
+  return builtPortfolio;
+}
+
+function buildPortfolioFromSimSetClick() {
+  if (!SIM_SET || SIM_SET.size === 0) {
+    showToast({ title: 'Sim Set is empty', body: 'Add stocks via the + button on Watchlist / Sectors / Top Picks first.', type: 'bear' });
+    return;
+  }
+  const raw = ($('wi-amount').value || '').replace(/[$,\s]/g, '');
+  const amount = parseFloat(raw);
+  if (isNaN(amount) || amount <= 0 || amount < 100) {
+    showToast({ title: 'Enter a valid amount', body: 'Use at least $100.', type: 'bear' });
+    return;
+  }
+  const goal = $('wi-goal').value;
+  const horizon = parseInt($('wi-horizon').value, 10);
+  const historyYears = parseInt(($('wi-history') && $('wi-history').value) || '5', 10);
+  $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg">Building portfolio from your <b>Sim Set</b> (${SIM_SET.size} ticker${SIM_SET.size === 1 ? '' : 's'}), grounded on last ${historyYears} year${historyYears===1?'':'s'}…</div></div>`;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    try {
+      const p = buildPortfolioFromSimSet(amount, goal, horizon, historyYears);
+      renderWhatIfResults(p);
+    } catch (e) {
+      $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg" style="color:var(--bear)">Could not build portfolio: ${_escapeHtml(e.message)}</div></div>`;
     }
   }));
 }
