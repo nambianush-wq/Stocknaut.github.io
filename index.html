@@ -2720,6 +2720,49 @@ body.whatif-mode #sidebar { display: none; }
 .vf-pill.vf-hold.active { background: var(--muted); border-color: var(--muted); color: var(--bg); }
 .vf-pill b { font-variant-numeric: tabular-nums; opacity: .85; margin-left: 2px; }
 .vf-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Color-coded sector jump-bar links on Top Picks — match each sector's mood */
+.picks-jump-link.jump-strong   { background: rgba(48,209,88,.20);  color: var(--bull);  border: 1px solid rgba(48,209,88,.45); }
+.picks-jump-link.jump-healthy  { background: rgba(48,209,88,.10);  color: var(--bull);  border: 1px solid rgba(48,209,88,.30); }
+.picks-jump-link.jump-mixed    { background: var(--raised);        color: var(--muted); border: 1px solid var(--line); }
+.picks-jump-link.jump-soft     { background: rgba(255,159,10,.14); color: var(--warn);  border: 1px solid rgba(255,159,10,.40); }
+.picks-jump-link.jump-weak     { background: rgba(255,69,58,.16);  color: var(--bear);  border: 1px solid rgba(255,69,58,.45); }
+.picks-jump-link.jump-strong:hover,
+.picks-jump-link.jump-healthy:hover,
+.picks-jump-link.jump-soft:hover,
+.picks-jump-link.jump-weak:hover { filter: brightness(1.15); }
+.picks-jump-link .count {
+  /* Brighten count chip inside coloured pills so it stays readable */
+  color: currentColor;
+  opacity: .85;
+}
+
+/* Jump-bar legend */
+.picks-jump-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: .04em;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.picks-jump-legend .lbl {
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: .08em;
+}
+.picks-jump-legend .swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.picks-jump-legend .swatch-dot {
+  width: 10px; height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
 .bundle-details { margin-top: 4px; padding-top: 4px; }
 .bundle-details summary {
   cursor: pointer;
@@ -3088,6 +3131,7 @@ body.whatif-mode #sidebar { display: none; }
       </div>
       <div id="sidebar-counters" class="sidebar-counters"></div>
       <div id="verdict-filter" class="verdict-filter"></div>
+      <div id="type-filter" class="verdict-filter" style="margin-top:6px"></div>
     </div>
     <div id="watchlist"><div class="wl-item heat-hot  " data-ticker="AMAT" onclick="selectTicker(&#39;AMAT&#39;)" title="Heat score: +70">
       <div class="wl-heat" style="--heat-color: rgb(255, 150, 0)"></div>
@@ -9458,6 +9502,44 @@ function setVerdictFilter(mode) {
   updateVerdictFilterPills();
   renderWatchlist($('search') ? $('search').value : '');
 }
+// Stock-type filter (dividend / high-yield / ETF / non-ETF) — separate dimension
+let _watchlistTypeFilter = null;   // null | 'dividend' | 'hi_yield' | 'etf' | 'stock'
+function setTypeFilter(mode) {
+  _watchlistTypeFilter = (_watchlistTypeFilter === mode) ? null : mode;
+  updateTypeFilterPills();
+  renderWatchlist($('search') ? $('search').value : '');
+}
+function getStockTypeInfo(ticker) {
+  const d = _data[ticker];
+  const industry = (d && d.profile && d.profile.finnhubIndustry) || '';
+  const isETF = /^ETF/i.test(industry);
+  const dy = (d && d.metrics && d.metrics.dividendYieldIndicatedAnnual) || 0;
+  return { isETF, dy, hasDividend: dy > 0.1, isHighYield: dy >= 4 };
+}
+function countByType() {
+  let div = 0, hi = 0, etf = 0, stk = 0;
+  for (const t of WATCHLIST) {
+    const i = getStockTypeInfo(t);
+    if (i.hasDividend) div++;
+    if (i.isHighYield) hi++;
+    if (i.isETF) etf++;
+    else stk++;
+  }
+  return { div, hi, etf, stk };
+}
+function updateTypeFilterPills() {
+  const host = document.getElementById('type-filter');
+  if (!host) return;
+  const c = countByType();
+  const mode = _watchlistTypeFilter;
+  host.innerHTML = `
+    <button class="vf-pill ${mode === 'dividend' ? 'active' : ''}" onclick="setTypeFilter('dividend')" title="Show only stocks that pay any dividend (yield > 0).\n\nDividends = cash payments to shareholders, usually quarterly. Sign of a mature, profitable company.">Div <b>${c.div}</b></button>
+    <button class="vf-pill ${mode === 'hi_yield' ? 'active' : ''}" onclick="setTypeFilter('hi_yield')" title="Show only stocks with dividend yield ≥ 4%.\n\nHigh yield = bigger income but often signals: (a) mature/slow-growth company, (b) recently fallen price, or (c) sustainability concern. Check the trend before buying.">Hi-Yld <b>${c.hi}</b></button>
+    <button class="vf-pill ${mode === 'etf' ? 'active' : ''}" onclick="setTypeFilter('etf')" title="Show only ETFs (basket funds).\n\nETFs hold dozens or hundreds of stocks in one ticker. Lower risk than single stocks; lower max upside too.">ETF <b>${c.etf}</b></button>
+    <button class="vf-pill ${mode === 'stock' ? 'active' : ''}" onclick="setTypeFilter('stock')" title="Show only individual stocks (no ETFs / funds).\n\nDirect ownership in one company. Higher potential return AND higher risk than ETFs.">Stocks <b>${c.stk}</b></button>
+  `;
+}
+
 function countByVerdictBucket() {
   let buy = 0, hold = 0, sell = 0;
   for (const t of WATCHLIST) {
@@ -12574,13 +12656,26 @@ function renderPicksList() {
   const countEl = $('picks-count');
   if (countEl) countEl.textContent = `${totalPicks} picks · ${finalEntries.length} sectors`;
 
-  // Jump bar
+  // Jump bar — color-coded by each sector's mood
   const jump = $('picks-jump');
-  if (jump) jump.innerHTML = finalEntries.map(e => `
-    <a class="picks-jump-link" href="#sec-${slug(e.sector)}" onclick="document.getElementById('sec-${slug(e.sector)}').scrollIntoView({behavior:'smooth',block:'start'});return false;">
-      ${e.sector}<span class="count">${e.picks.length}</span>
-    </a>
-  `).join('');
+  if (jump) {
+    const legend = `<div class="picks-jump-legend" title="Each chip is colored by its sector's mood — quick visual scan for hot/cold sectors.">
+      <span class="lbl">Sector mood:</span>
+      <span class="swatch"><span class="swatch-dot" style="background:rgba(48,209,88,.45)"></span>Strong</span>
+      <span class="swatch"><span class="swatch-dot" style="background:rgba(48,209,88,.20)"></span>Healthy</span>
+      <span class="swatch"><span class="swatch-dot" style="background:rgba(138,146,166,.4)"></span>Mixed</span>
+      <span class="swatch"><span class="swatch-dot" style="background:rgba(255,159,10,.4)"></span>Soft</span>
+      <span class="swatch"><span class="swatch-dot" style="background:rgba(255,69,58,.5)"></span>Weak</span>
+    </div>`;
+    const links = finalEntries.map(e => {
+      const mood = moodFor(e.avgScore);
+      const moodKey = mood.cls.replace('mood-', 'jump-');
+      return `<a class="picks-jump-link ${moodKey}" href="#sec-${slug(e.sector)}" onclick="document.getElementById('sec-${slug(e.sector)}').scrollIntoView({behavior:'smooth',block:'start'});return false;" title="${e.sector}: ${mood.label} mood · avg score ${e.avgScore >= 0 ? '+' : ''}${e.avgScore.toFixed(0)}\n\n${mood.desc}">
+        ${e.sector}<span class="count">${e.picks.length}</span>
+      </a>`;
+    }).join('');
+    jump.innerHTML = legend + links;
+  }
 
   if (finalEntries.length === 0) {
     host.innerHTML = `<div class="sectors-empty"><div class="sectors-empty-glyph">∅</div><div class="sectors-empty-msg">No qualifying sectors in the catalog right now.</div></div>`;
@@ -12964,9 +13059,21 @@ function renderWatchlist(filter = '') {
       return true;
     });
   }
+  // Stock-type filter: dividend / hi_yield / etf / stock
+  if (_watchlistTypeFilter) {
+    subFiltered = subFiltered.filter(t => {
+      const i = getStockTypeInfo(t);
+      if (_watchlistTypeFilter === 'dividend') return i.hasDividend;
+      if (_watchlistTypeFilter === 'hi_yield') return i.isHighYield;
+      if (_watchlistTypeFilter === 'etf')      return i.isETF;
+      if (_watchlistTypeFilter === 'stock')    return !i.isETF;
+      return true;
+    });
+  }
   const visible = subFiltered.filter(t => !f || t.toUpperCase().includes(f));
-  // Keep verdict pill counts fresh whenever the watchlist re-renders
+  // Keep filter pill counts fresh whenever the watchlist re-renders
   updateVerdictFilterPills();
+  updateTypeFilterPills();
 
   host.innerHTML = visible.map(t => {
     const d = _data[t];
@@ -13768,6 +13875,7 @@ async function init() {
   const synced = syncFavoritesToWatchlist();
   updateSidebarCounters();
   updateVerdictFilterPills();
+  updateTypeFilterPills();
   renderWatchlist();
   _selected = WATCHLIST[0] || null;
   renderMain();
