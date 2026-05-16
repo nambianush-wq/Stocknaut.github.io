@@ -276,6 +276,84 @@ input:focus, select:focus { border-color: var(--accent); }
 .wl-item:hover .wl-remove { display: flex; }
 .wl-remove:hover { background: var(--bear); color: white; }
 
+/* Favorite + Sim-Set buttons (reusable across Watchlist, Sectors tile, Top Picks row) */
+.row-actions {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.fav-btn, .sim-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color .15s, background .15s, border-color .15s, transform .1s;
+  padding: 0;
+  font-weight: 700;
+  font-family: inherit;
+}
+.fav-btn:hover { color: var(--warn); border-color: rgba(255,159,10,.6); background: rgba(255,159,10,.08); }
+.sim-btn:hover { color: var(--accent); border-color: rgba(0,113,227,.6); background: rgba(0,113,227,.08); }
+.fav-btn:active, .sim-btn:active { transform: scale(.92); }
+.fav-btn.active {
+  background: rgba(255,159,10,.18);
+  color: var(--warn);
+  border-color: rgba(255,159,10,.5);
+}
+.sim-btn.active {
+  background: rgba(0,113,227,.18);
+  color: var(--accent);
+  border-color: rgba(0,113,227,.5);
+}
+.fav-btn:focus-visible, .sim-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Sidebar counters showing how many starred / in sim set */
+.sidebar-counters {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.sidebar-counter {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border-radius: 6px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: default;
+  letter-spacing: .02em;
+}
+.sidebar-counter.fav .icn { color: var(--warn); }
+.sidebar-counter.sim .icn { color: var(--accent); }
+.sidebar-counter b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* Top Picks + Sectors tile — actions row positioning */
+.stock-tile .row-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+}
+.stock-tile .tile-rank {
+  /* push rank down so it doesn't collide with actions */
+  top: 38px;
+}
+.pick-line1 .row-actions { margin-left: auto; }
+
 .empty-watchlist {
   padding: 40px 20px;
   text-align: center;
@@ -2579,6 +2657,7 @@ body.whatif-mode #sidebar { display: none; }
           <span>COLD</span><span>NEUTRAL</span><span>HOT</span>
         </div>
       </div>
+      <div id="sidebar-counters" class="sidebar-counters"></div>
     </div>
     <div id="watchlist"><div class="wl-item heat-hot  " data-ticker="AMAT" onclick="selectTicker(&#39;AMAT&#39;)" title="Heat score: +70">
       <div class="wl-heat" style="--heat-color: rgb(255, 150, 0)"></div>
@@ -8746,6 +8825,61 @@ const LS_KEY_REFRESH = 'sp_refresh_seconds';
 const LS_KEY_NOTIFY = 'sp_notify_on_change';
 const LS_KEY_VERDICTS = 'sp_last_verdicts';
 const LS_KEY_BUNDLES  = 'sp_simulation_bundles';
+const LS_KEY_FAVS     = 'sp_favorites';
+const LS_KEY_SIMSET   = 'sp_sim_set';
+
+let FAVORITES = loadStringSet(LS_KEY_FAVS);
+let SIM_SET   = loadStringSet(LS_KEY_SIMSET);
+
+function loadStringSet(key) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '[]');
+    return new Set(Array.isArray(v) ? v : []);
+  } catch (e) { return new Set(); }
+}
+function persistSet(key, set) {
+  try { localStorage.setItem(key, JSON.stringify([...set])); } catch (e) {}
+}
+function isFavorite(t) { return FAVORITES.has(t); }
+function isInSimSet(t) { return SIM_SET.has(t); }
+function toggleFavorite(t) {
+  if (FAVORITES.has(t)) FAVORITES.delete(t); else FAVORITES.add(t);
+  persistSet(LS_KEY_FAVS, FAVORITES);
+  refreshAllListRenders();
+  showToast({ title: isFavorite(t) ? `${t} starred` : `${t} unstarred`, body: `Favorites: ${FAVORITES.size}` });
+}
+function toggleSimSet(t) {
+  if (SIM_SET.has(t)) SIM_SET.delete(t); else SIM_SET.add(t);
+  persistSet(LS_KEY_SIMSET, SIM_SET);
+  refreshAllListRenders();
+  showToast({ title: isInSimSet(t) ? `${t} added to Sim Set` : `${t} removed from Sim Set`, body: `Sim Set: ${SIM_SET.size} ticker${SIM_SET.size === 1 ? '' : 's'}` });
+}
+function refreshAllListRenders() {
+  // Re-render whichever list view is showing
+  if (typeof renderWatchlist === 'function') renderWatchlist($('search') ? $('search').value : '');
+  if (typeof renderTilesFromCache === 'function' && document.getElementById('tile-grid') && document.body.classList.contains('sectors-mode')) renderTilesFromCache();
+  if (typeof renderPicksList === 'function' && document.body.classList.contains('picks-mode')) renderPicksList();
+  updateSidebarCounters();
+}
+function rowActionsHtml(ticker) {
+  const fav = isFavorite(ticker);
+  const sim = isInSimSet(ticker);
+  return `<span class="row-actions">
+    <button class="fav-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleFavorite('${ticker}')" title="${fav ? 'Unstar' : 'Star favorite'}" aria-label="Toggle favorite">★</button>
+    <button class="sim-btn${sim ? ' active' : ''}" onclick="event.stopPropagation(); toggleSimSet('${ticker}')" title="${sim ? 'Remove from Simulation Set' : 'Add to Simulation Set'}" aria-label="Toggle simulation set">${sim ? '✓' : '+'}</button>
+  </span>`;
+}
+function updateSidebarCounters() {
+  const host = document.getElementById('sidebar-counters');
+  if (!host) return;
+  host.innerHTML = `
+    <div class="sidebar-counter fav" title="Stocks you've starred">
+      <span class="icn">★</span><span>Favorites <b>${FAVORITES.size}</b></span>
+    </div>
+    <div class="sidebar-counter sim" title="Stocks in your Simulation Set — feeds into the What-If portfolio builder">
+      <span class="icn">⊕</span><span>Sim Set <b>${SIM_SET.size}</b></span>
+    </div>`;
+}
 
 let WATCHLIST = loadWatchlist();
 let API_KEY = localStorage.getItem(LS_KEY_API) || '';
@@ -11349,6 +11483,7 @@ function renderPickRow(m, rank) {
         <span class="pick-name">${m.name}</span>
         <span class="pick-verdict ${verdictClass}">${m.verdict}</span>
         <span class="pos-neg-pill ${pn.cls}"><span class="pn-sym">${pn.sym}</span>${pn.label}</span>
+        ${rowActionsHtml(m.ticker)}
       </div>
       <div class="pick-stats">
         <span class="pick-stat"><b>$${fmt(m.last)}</b></span>
@@ -11499,6 +11634,7 @@ function renderTilesFromCache() {
     const pn = posNegFor(m);
     return `<div class="stock-tile fc-${fcdir} ${inWl ? 'is-in-watch' : ''}" tabindex="0" onclick="tileClick('${m.ticker}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();tileClick('${m.ticker}')}" title="${m.name.replace(/"/g, '&quot;')}">
       <div class="tile-heat" style="--heat-color: ${heat}"></div>
+      ${rowActionsHtml(m.ticker)}
       <div class="tile-rank">#${i + 1}</div>
       <div class="tile-head">
         <div class="tile-sym">${m.ticker}</div>
@@ -11658,6 +11794,7 @@ function renderWatchlist(filter = '') {
       <div class="wl-row2">
         <div class="wl-change ${direction}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</div>
         <div class="wl-verdict ${verdictClass}">${d.verdict.label}</div>
+        ${rowActionsHtml(t)}
       </div>
     </div>`;
   }).join('');
@@ -12300,6 +12437,7 @@ function updateModeIndicators() {
 
 async function init() {
   updateModeIndicators();
+  updateSidebarCounters();
   renderWatchlist();
   _selected = WATCHLIST[0] || null;
   renderMain();
