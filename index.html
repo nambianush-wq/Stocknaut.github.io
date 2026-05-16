@@ -2291,6 +2291,114 @@ body.whatif-mode #sidebar { display: none; }
 .bundle-spark-lbl { font-size: 9.5px; color: var(--muted); letter-spacing: .07em; text-transform: uppercase; font-weight: 600; margin-bottom: 2px; }
 .bundle-spark-sub { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .bundle-spark svg.sparkline { width: 100%; max-width: 240px; }
+
+/* Forecast-vs-Actual trend chart */
+.bundle-trend {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px 10px;
+  margin-bottom: 10px;
+}
+.bundle-trend-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.bundle-trend-title {
+  font-size: 9.5px;
+  color: var(--muted);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.bundle-trend-legend {
+  display: flex;
+  gap: 12px;
+  font-size: 10.5px;
+  color: var(--muted);
+  align-items: center;
+}
+.bundle-trend-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.bundle-trend-legend-line { width: 14px; height: 2px; border-radius: 1px; }
+.bundle-trend-line-fc { background: rgba(191,90,242,.7); border-top: 1.5px dashed rgba(191,90,242,.7); height: 0; width: 14px; }
+.bundle-trend-svg {
+  display: block;
+  width: 100%;
+  max-height: 90px;
+}
+.bundle-trend-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.bundle-trend-foot b { color: var(--text); font-weight: 600; }
+.bundle-trend-foot .ahead { color: var(--bull); font-weight: 600; }
+.bundle-trend-foot .behind { color: var(--bear); font-weight: 600; }
+.bundle-trend-foot .on-pace { color: var(--muted); font-weight: 600; }
+
+/* Highlights row — one quick-scan strip per bundle */
+.bundle-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.bundle-hl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+}
+.bundle-hl-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.bundle-hl-icon.up { background: rgba(48,209,88,.15); color: var(--bull); }
+.bundle-hl-icon.down { background: rgba(255,69,58,.15); color: var(--bear); }
+.bundle-hl-icon.neutral { background: rgba(138,146,166,.15); color: var(--muted); }
+.bundle-hl-icon.accent { background: rgba(0,113,227,.15); color: var(--accent); }
+.bundle-hl-icon.violet { background: rgba(191,90,242,.15); color: var(--violet); }
+.bundle-hl-body { min-width: 0; flex: 1; }
+.bundle-hl-lbl {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.bundle-hl-val {
+  font-size: 11.5px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+.bundle-hl-val b { font-weight: 700; }
+.bundle-hl-val .up { color: var(--bull); }
+.bundle-hl-val .down { color: var(--bear); }
 .bundle-details { margin-top: 4px; padding-top: 4px; }
 .bundle-details summary {
   cursor: pointer;
@@ -10916,6 +11024,85 @@ function renderSavedBundles() {
   </div>`;
 }
 
+// Forecast-vs-Actual chart for a bundle: dashed violet line = expected straight-line
+// path from inception to the 12M-forecast value at horizon, overlaid with the actual
+// value history (solid green/red).
+function forecastVsActualSvg(bundle, stats, fwd12, width, height) {
+  width = width || 400; height = height || 80;
+  const initial = bundle.amount;
+  const horizonMonths = bundle.horizon || 12;
+  const horizonMs = horizonMonths * 30.44 * 86400000;
+  const xStart = bundle.createdAt;
+  const xEnd = xStart + horizonMs;
+  const forecastEnd = initial * (1 + (fwd12 / 100) * (horizonMonths / 12));
+  const actuals = (bundle.history || []).map(e => ({ t: new Date(e.date + 'T12:00:00').getTime(), v: e.value }));
+  if (!actuals.length || actuals[0].t > xStart) actuals.unshift({ t: xStart, v: initial });
+  // Add today's current value as the final actual point if last entry is from earlier
+  const now = Date.now();
+  if (actuals[actuals.length - 1].t < now - 60000) actuals.push({ t: now, v: stats.curValue });
+  // y range
+  const allVals = [initial, forecastEnd, ...actuals.map(a => a.v)];
+  let vMin = Math.min(...allVals);
+  let vMax = Math.max(...allVals);
+  if (vMin === vMax) { vMin = vMin * 0.98; vMax = vMax * 1.02; }
+  const vPad = (vMax - vMin) * 0.12;
+  const yMin = vMin - vPad, yMax = vMax + vPad;
+  const xPos = t => ((t - xStart) / horizonMs) * (width - 4) + 2;
+  const yPos = v => height - 4 - ((v - yMin) / (yMax - yMin)) * (height - 8);
+  const fcPath = `M${xPos(xStart).toFixed(1)},${yPos(initial).toFixed(1)} L${xPos(xEnd).toFixed(1)},${yPos(forecastEnd).toFixed(1)}`;
+  const acPts = actuals.map(a => `${xPos(a.t).toFixed(1)},${yPos(a.v).toFixed(1)}`);
+  const acPath = acPts.length >= 2 ? `M${acPts.join(' L')}` : '';
+  const todayX = xPos(now).toFixed(1);
+  const initX = xPos(xStart).toFixed(1);
+  const endX = xPos(xEnd).toFixed(1);
+  const initY = yPos(initial).toFixed(1);
+  const fcEndY = yPos(forecastEnd).toFixed(1);
+  const curY = yPos(stats.curValue).toFixed(1);
+  const actualColor = stats.cumGain >= 0 ? '#30d158' : '#ff453a';
+  const forecastColor = 'rgba(191,90,242,.85)';
+  const initialRefY = yPos(initial).toFixed(1);
+  return `<svg class="bundle-trend-svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" aria-hidden="true">
+    <line x1="0" y1="${initialRefY}" x2="${width}" y2="${initialRefY}" stroke="rgba(138,146,166,.18)" stroke-dasharray="2,4" stroke-width="1"/>
+    <line x1="${todayX}" y1="0" x2="${todayX}" y2="${height}" stroke="rgba(0,113,227,.45)" stroke-dasharray="3,3" stroke-width="1"/>
+    <path d="${fcPath}" fill="none" stroke="${forecastColor}" stroke-width="1.8" stroke-dasharray="5,3" stroke-linecap="round"/>
+    ${acPath ? `<path d="${acPath}" fill="none" stroke="${actualColor}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
+    <circle cx="${initX}" cy="${initY}" r="3" fill="${actualColor}"/>
+    <circle cx="${todayX}" cy="${curY}" r="3" fill="${actualColor}"/>
+    <circle cx="${endX}" cy="${fcEndY}" r="3" fill="${forecastColor}"/>
+  </svg>`;
+}
+
+// Compute headline insights for a bundle: best/worst holding, vs-forecast pace,
+// snapshot count, concentration peak. Pure function — no DOM.
+function bundleHighlights(bundle, stats, fwd12) {
+  const enriched = (bundle.holdings || []).map(h => {
+    const bars = getBars(h.ticker);
+    const cur = bars[bars.length - 1].close;
+    const initValue = h.shares * h.entryPrice;
+    const curValue = h.shares * cur;
+    const gain = curValue - initValue;
+    const gainPct = initValue > 0 ? (gain / initValue) * 100 : 0;
+    return { ticker: h.ticker, pct: h.pct, gain, gainPct, cur };
+  });
+  const sorted = [...enriched].sort((a, b) => b.gainPct - a.gainPct);
+  const best = sorted[0] || null;
+  const worst = sorted[sorted.length - 1] || null;
+  const days = Math.max(0.25, (Date.now() - bundle.createdAt) / 86400000);
+  const elapsedYrs = days / 365.25;
+  const horizonYrs = (bundle.horizon || 12) / 12;
+  // Expected cumulative return prorated by elapsed fraction
+  const expectedCumPct = fwd12 * Math.min(1, elapsedYrs / horizonYrs);
+  const actualCumPct = stats.cumGainPct || 0;
+  const paceDelta = actualCumPct - expectedCumPct;
+  let paceStatus;
+  if (Math.abs(paceDelta) < 0.3) paceStatus = 'on-pace';
+  else if (paceDelta > 0) paceStatus = 'ahead';
+  else paceStatus = 'behind';
+  const snapshots = (bundle.history || []).length;
+  const maxHolding = [...(bundle.holdings || [])].sort((a, b) => b.pct - a.pct)[0] || null;
+  return { best, worst, days: Math.floor(days), snapshots, paceStatus, paceDelta, expectedCumPct, actualCumPct, maxHolding };
+}
+
 function renderBundleCard(b) {
   const stats = valueBundle(b);
   const def = STRATEGY_DEFS[b.goalKey] || { label: b.goalKey };
@@ -10976,12 +11163,64 @@ function renderBundleCard(b) {
         <div class="sub">Weighted across holdings</div>
       </div>
     </div>
-    <div class="bundle-spark">
-      <div class="bundle-spark-main">
-        <div class="bundle-spark-lbl">Value trend</div>
-        <div class="bundle-spark-sub">${sparkRange}${daySourceNote}</div>
+    ${(() => {
+      const hl = bundleHighlights(b, stats, fwd12);
+      const paceCls = hl.paceStatus;
+      const paceLbl = hl.paceStatus === 'on-pace' ? 'On pace' : (hl.paceStatus === 'ahead' ? 'Ahead of forecast' : 'Behind forecast');
+      const paceTxt = hl.paceStatus === 'on-pace' ? `actual ${hl.actualCumPct.toFixed(2)}% ≈ expected ${hl.expectedCumPct.toFixed(2)}%` : `${hl.paceDelta >= 0 ? '+' : ''}${hl.paceDelta.toFixed(2)}% vs expected ${hl.expectedCumPct.toFixed(2)}%`;
+      return `<div class="bundle-highlights">
+        ${hl.best ? `<div class="bundle-hl" title="Best-performing holding since entry">
+          <div class="bundle-hl-icon ${hl.best.gainPct >= 0 ? 'up' : 'down'}">▲</div>
+          <div class="bundle-hl-body">
+            <div class="bundle-hl-lbl">Top performer</div>
+            <div class="bundle-hl-val"><b>${hl.best.ticker}</b> <span class="${hl.best.gainPct >= 0 ? 'up' : 'down'}">${hl.best.gainPct >= 0 ? '+' : ''}${hl.best.gainPct.toFixed(2)}%</span></div>
+          </div>
+        </div>` : ''}
+        ${hl.worst && hl.worst.ticker !== (hl.best && hl.best.ticker) ? `<div class="bundle-hl" title="Worst-performing holding since entry">
+          <div class="bundle-hl-icon ${hl.worst.gainPct >= 0 ? 'up' : 'down'}">▼</div>
+          <div class="bundle-hl-body">
+            <div class="bundle-hl-lbl">Worst performer</div>
+            <div class="bundle-hl-val"><b>${hl.worst.ticker}</b> <span class="${hl.worst.gainPct >= 0 ? 'up' : 'down'}">${hl.worst.gainPct >= 0 ? '+' : ''}${hl.worst.gainPct.toFixed(2)}%</span></div>
+          </div>
+        </div>` : ''}
+        <div class="bundle-hl" title="Actual cumulative return compared to the 12M forecast prorated by elapsed time">
+          <div class="bundle-hl-icon ${paceCls === 'ahead' ? 'up' : paceCls === 'behind' ? 'down' : 'neutral'}">${paceCls === 'ahead' ? '↗' : paceCls === 'behind' ? '↘' : '→'}</div>
+          <div class="bundle-hl-body">
+            <div class="bundle-hl-lbl">vs Forecast pace</div>
+            <div class="bundle-hl-val"><b>${paceLbl}</b> · ${paceTxt}</div>
+          </div>
+        </div>
+        ${hl.maxHolding ? `<div class="bundle-hl" title="Largest position in this bundle by weight">
+          <div class="bundle-hl-icon accent">★</div>
+          <div class="bundle-hl-body">
+            <div class="bundle-hl-lbl">Largest position</div>
+            <div class="bundle-hl-val"><b>${hl.maxHolding.ticker}</b> · ${hl.maxHolding.pct.toFixed(1)}% weight</div>
+          </div>
+        </div>` : ''}
+        <div class="bundle-hl" title="Days since save + how many daily snapshots have been captured">
+          <div class="bundle-hl-icon violet">⏱</div>
+          <div class="bundle-hl-body">
+            <div class="bundle-hl-lbl">Tracking</div>
+            <div class="bundle-hl-val"><b>${hl.days}</b> day${hl.days === 1 ? '' : 's'} · ${hl.snapshots} snapshot${hl.snapshots === 1 ? '' : 's'}</div>
+          </div>
+        </div>
+      </div>`;
+    })()}
+    <div class="bundle-trend">
+      <div class="bundle-trend-head">
+        <div class="bundle-trend-title">Forecast vs Actual · value path</div>
+        <div class="bundle-trend-legend">
+          <span class="bundle-trend-legend-item"><span class="bundle-trend-legend-line" style="background:${stats.cumGain >= 0 ? 'var(--bull)' : 'var(--bear)'}"></span>Actual</span>
+          <span class="bundle-trend-legend-item"><span class="bundle-trend-legend-line bundle-trend-line-fc"></span>Forecast</span>
+          <span class="bundle-trend-legend-item"><span class="bundle-trend-legend-line" style="background:rgba(0,113,227,.45)"></span>Today</span>
+        </div>
       </div>
-      ${spark || '<div class="news-card-sub" style="text-align:right;">Sparkline appears after 2nd daily snapshot</div>'}
+      ${forecastVsActualSvg(b, stats, fwd12, 720, 88)}
+      <div class="bundle-trend-foot">
+        <span><b>Inception</b> $${fmt(b.amount)} on ${new Date(b.createdAt).toLocaleDateString(undefined, {month:'short', day:'numeric', year:'numeric'})}</span>
+        <span><b>Current</b> $${fmt(stats.curValue)} · ${samples.length} snapshot${samples.length === 1 ? '' : 's'}</span>
+        <span><b>Forecast endpoint</b> $${fmt(b.amount * (1 + (fwd12 / 100) * ((b.horizon || 12) / 12)))} at ${b.horizon || 12}M</span>
+      </div>
     </div>
     <details class="bundle-details">
       <summary>Show ${b.holdings.length} holding${b.holdings.length === 1 ? '' : 's'}</summary>
