@@ -2764,6 +2764,270 @@ body.whatif-mode #sidebar { display: none; }
   display: inline-block;
 }
 
+/* Sectors-page discovery filter pills (multi-row exclusive-within-group). */
+.sec-filters-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.sec-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.sec-filter-row.sec-filter-foot {
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 11px;
+}
+.sec-filter-lbl {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  font-weight: 600;
+  margin-right: 6px;
+  min-width: 120px;
+}
+.sec-filter-pill {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 14px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.sec-filter-pill:hover { color: var(--fg); border-color: rgba(0,113,227,.45); }
+.sec-filter-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  font-weight: 600;
+}
+.sec-filter-pill.sec-filter-reset {
+  border-color: rgba(255,69,58,.4);
+  color: var(--bear);
+  margin-left: 6px;
+}
+.sec-filter-pill.sec-filter-reset:hover { background: rgba(255,69,58,.12); border-color: var(--bear); }
+.sec-filter-pill.sec-filter-reset[disabled] {
+  opacity: .35;
+  cursor: not-allowed;
+  border-color: var(--line);
+  color: var(--dim);
+}
+.sec-filter-legend {
+  margin-left: auto;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--dim);
+  cursor: help;
+}
+.sec-filter-legend b { color: var(--muted); font-style: normal; font-weight: 700; }
+
+/* Cross-goal badge — small G P I V M dot strip on each tile showing the
+   ticker's top-20 inclusion across the 5 investment goals. */
+.tile-crossgoal {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 4px 6px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: help;
+}
+.tile-crossgoal-lbl {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--dim);
+  font-weight: 700;
+}
+.tile-crossgoal-dots { display: inline-flex; gap: 4px; }
+.tile-crossgoal-dot {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  background: rgba(255,255,255,.04);
+  color: var(--dim);
+  border: 1px solid var(--line);
+  line-height: 1;
+}
+.tile-crossgoal-dot.lit {
+  background: rgba(0,113,227,.18);
+  color: var(--accent);
+  border-color: rgba(0,113,227,.5);
+}
+.tile-crossgoal-dot.current {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.tile-crossgoal-count {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.tile-crossgoal-count.strong { color: var(--bull); }
+.tile-crossgoal-count.allrounder {
+  color: white;
+  background: var(--bull);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+/* No-matches empty state for sectors when filters exclude every catalog row */
+.sectors-no-matches {
+  grid-column: 1 / -1;
+  padding: 40px 24px;
+  text-align: center;
+  background: rgba(255,255,255,.02);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+.sectors-no-matches-glyph {
+  font-size: 32px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.sectors-no-matches-msg {
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.sectors-no-matches-sub { color: var(--muted); font-size: 12px; }
+.sectors-no-matches-btn {
+  margin-top: 14px;
+  padding: 8px 16px;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: white;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Bundle corrections panel — diagnostic view for "what to fix to hit goal". */
+.bundle-corrections-toggle {
+  margin-top: 10px;
+  padding: 8px 14px;
+  background: rgba(191,90,242,.10);
+  border: 1px solid rgba(191,90,242,.35);
+  color: rgba(191,90,242,1);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.bundle-corrections-toggle:hover { background: rgba(191,90,242,.18); }
+.bundle-corrections-toggle.behind { border-color: rgba(255,69,58,.45); color: var(--bear); background: rgba(255,69,58,.08); }
+.bundle-corrections-toggle.behind:hover { background: rgba(255,69,58,.15); }
+.bundle-corrections-toggle.ahead { border-color: rgba(48,209,88,.45); color: var(--bull); background: rgba(48,209,88,.08); }
+.bundle-corrections-panel {
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid var(--line);
+  border-left: 3px solid rgba(191,90,242,.7);
+  border-radius: 8px;
+}
+.bundle-corrections-panel.behind { border-left-color: var(--bear); }
+.bundle-corrections-panel.ahead { border-left-color: var(--bull); }
+.bundle-corrections-section { margin-bottom: 14px; }
+.bundle-corrections-section:last-child { margin-bottom: 0; }
+.bundle-corrections-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bundle-corrections-headline {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fg);
+  margin-bottom: 4px;
+}
+.bundle-corrections-sub {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.bundle-corrections-move-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.bundle-corrections-move {
+  padding: 8px 12px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.bundle-corrections-move .move-kind {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-weight: 800;
+  padding: 3px 7px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.bundle-corrections-move .move-kind.trim { background: rgba(255,159,10,.18); color: var(--warn); }
+.bundle-corrections-move .move-kind.exit { background: rgba(255,69,58,.18); color: var(--bear); }
+.bundle-corrections-move .move-kind.add  { background: rgba(48,209,88,.18); color: var(--bull); }
+.bundle-corrections-move .move-kind.tilt { background: rgba(0,113,227,.18); color: var(--accent); }
+.bundle-corrections-move .move-body { flex:1; font-size: 12px; line-height: 1.55; color: var(--fg); }
+.bundle-corrections-move .move-body b { color: white; }
+.bundle-corrections-move .move-rationale { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); }
+.bundle-corrections-math {
+  padding: 10px 12px;
+  background: rgba(0,0,0,.25);
+  border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.bundle-corrections-math .lbl { color: var(--dim); }
+.bundle-corrections-math b { color: var(--fg); }
+.bundle-corrections-math .ok { color: var(--bull); }
+.bundle-corrections-math .bad { color: var(--bear); }
+
 /* Cockpit (real-time dashboard view) */
 #cockpit-page { padding: 24px 28px; display: none; }
 body.cockpit-mode #sidebar { display: none; }
@@ -3825,6 +4089,7 @@ body.cockpit-mode #sidebar { display: none; }
           <button class="picks-period-pill" data-yrs="5" onclick="selectSectorsHistory(5)">5 Years</button>
           <div class="picks-filter-lbl" style="margin-left:auto;text-transform:none;letter-spacing:.02em;font-weight:400;color:var(--dim);font-style:italic;">Past performance for the selected window appears in every tile.</div>
         </div>
+        <div class="sec-filters-wrap" id="sectors-discovery-filters" role="region" aria-label="Discovery filters"></div>
       </div>
       <div class="tile-grid" id="tile-grid"><div class="stock-tile fc-up " tabindex="0" onclick="tileClick(&#39;SNAP&#39;)" onkeydown="if(event.key===&#39;Enter&#39;||event.key===&#39; &#39;){event.preventDefault();tileClick(&#39;SNAP&#39;)}" title="Snap Inc.">
       <div class="tile-heat" style="--heat-color: rgb(255, 150, 0)"></div>
@@ -9625,14 +9890,20 @@ const LS_KEY_BUNDLES_BACKUP  = 'sp_simulation_bundles_backup';
 const LS_KEY_FAVS_BACKUP     = 'sp_favorites_backup';
 const LS_KEY_SIMSET_BACKUP   = 'sp_sim_set_backup';
 const LS_KEY_DATA_SAVED_AT   = 'sp_data_saved_at';
+// Sectors-page discovery filters — let the user narrow the catalog universe
+// before the goal-based ranking runs. Persisted dual-slot so filters survive
+// refresh / origin migration.
+const LS_KEY_SECTORS_FILTERS        = 'sp_sectors_filters';
+const LS_KEY_SECTORS_FILTERS_BACKUP = 'sp_sectors_filters_backup';
 // Primary → backup lookup, used by loadStringSet / persistSet. Defined here
 // (top of script) so initialisation code (`let FAVORITES = loadStringSet(...)`)
 // can reach it without hitting the temporal-dead-zone.
 const LS_BACKUP_MAP = {
-  [LS_KEY_FAVS]:    LS_KEY_FAVS_BACKUP,
-  [LS_KEY_SIMSET]:  LS_KEY_SIMSET_BACKUP,
-  [LS_KEY_WL]:      LS_KEY_WL_BACKUP,
-  [LS_KEY_BUNDLES]: LS_KEY_BUNDLES_BACKUP,
+  [LS_KEY_FAVS]:             LS_KEY_FAVS_BACKUP,
+  [LS_KEY_SIMSET]:           LS_KEY_SIMSET_BACKUP,
+  [LS_KEY_WL]:               LS_KEY_WL_BACKUP,
+  [LS_KEY_BUNDLES]:          LS_KEY_BUNDLES_BACKUP,
+  [LS_KEY_SECTORS_FILTERS]:  LS_KEY_SECTORS_FILTERS_BACKUP,
 };
 
 // Resilient API-key storage — writes to BOTH a primary slot and a backup slot
@@ -11487,6 +11758,176 @@ let _currentGoal = 'growth';
 let _sectorsCache = null;
 let _sectorsHistoryYears = 3;
 
+// Sectors-page discovery filters. Persisted dual-slot. Default: nothing filtered.
+const _DEFAULT_SECTORS_FILTERS = {
+  sector:   'all',   // all | tech | fin | hc | consumer | ind | etf
+  verdict:  'all',   // all | buy_plus | strong_buy
+  fcMin:    0,       // 0 | 10 | 20  (min 12M forecast %)
+  confMin:  0,       // 0 | 40 | 60  (min 12M confidence %)
+  div:      'all',   // all | pays | hi_yield
+  cross:    'all',   // all | cross2 | cross3  (top-20 in >=2 or >=3 goals)
+};
+let _sectorsFilters = (function () {
+  const stored = loadJsonResilient(LS_KEY_SECTORS_FILTERS, LS_KEY_SECTORS_FILTERS_BACKUP, null);
+  if (stored && typeof stored === 'object') {
+    return { ..._DEFAULT_SECTORS_FILTERS, ...stored };
+  }
+  return { ..._DEFAULT_SECTORS_FILTERS };
+})();
+function _persistSectorsFilters() {
+  persistJsonResilient(LS_KEY_SECTORS_FILTERS, LS_KEY_SECTORS_FILTERS_BACKUP, _sectorsFilters);
+}
+
+// Industry string → broad sector bucket. Fuzzy keyword match — the catalog
+// emits dozens of industry labels (Finnhub returns full descriptive strings),
+// so we group them into the 6 buckets a layperson recognises.
+function _industryToSector(industry) {
+  if (!industry) return 'other';
+  const lc = industry.toLowerCase();
+  if (lc.startsWith('etf')) return 'etf';
+  if (/(semi|software|internet|computer|electronic|tech|communication\s*eq|cloud|social\s*media|interactive\s*media|it\s*services)/.test(lc)) return 'tech';
+  if (/(bank|insur|capital\s*market|credit|asset\s*manag|financ|stock\s*exch|reit)/.test(lc)) return 'fin';
+  if (/(drug|biotech|medical|health|pharma|life\s*sci)/.test(lc)) return 'hc';
+  if (/(retail|restaurant|beverage|food|apparel|footwear|auto|tobacco|household|personal\s*product|grocery|leisure|hotel|lodging|travel|gambling|entertainment|toys|recreation|discount|specialty\s*stores|department\s*store|home\s*improvement|furnishings|luxury\s*goods|consumer)/.test(lc)) return 'consumer';
+  if (/(oil|gas|util|industrial|aerospace|machin|engineering|chemical|metal|mining|railroad|airline|freight|construction|materials|paper|packag|defense|farm|trucking|transport)/.test(lc)) return 'ind';
+  return 'other';
+}
+
+// Pre-compute each ticker's rank under EVERY goal. A "cross-cutting" stock is
+// one that ranks in the top 20 across multiple goals — a strong all-rounder.
+// Mutates each cache entry to attach .crossGoals + .crossCount fields.
+function _attachCrossGoalIndex(cache) {
+  if (!Array.isArray(cache) || cache.length === 0) return cache;
+  const goalKeys = Object.keys(GOAL_DEFS);
+  const TOP_N = 20;
+  // For each goal, rank the catalog and stamp inclusion + position back onto
+  // the cache entry. Two passes so we don't disturb the existing rank field.
+  const tickerRanks = {};   // ticker -> { goalKey: rank (1-based) }
+  for (const gk of goalKeys) {
+    const def = GOAL_DEFS[gk];
+    const ranked = cache
+      .map(m => ({ ticker: m.ticker, w: def.rank(m) }))
+      .sort((a, b) => b.w - a.w);
+    for (let i = 0; i < ranked.length; i++) {
+      const t = ranked[i].ticker;
+      if (!tickerRanks[t]) tickerRanks[t] = {};
+      tickerRanks[t][gk] = i + 1;       // 1-based rank
+    }
+  }
+  for (const m of cache) {
+    const ranks = tickerRanks[m.ticker] || {};
+    m.crossGoals = {};
+    let inTop = 0;
+    for (const gk of goalKeys) {
+      const r = ranks[gk] || 9999;
+      m.crossGoals[gk] = { rank: r, inTop: r <= TOP_N };
+      if (r <= TOP_N) inTop++;
+    }
+    m.crossCount = inTop;
+  }
+  return cache;
+}
+
+// Apply the active filter set to a cache array (pre-rank, pre-slice).
+function _applySectorsFilters(cache) {
+  const f = _sectorsFilters;
+  return cache.filter(m => {
+    if (f.sector !== 'all' && _industryToSector(m.industry) !== f.sector) return false;
+    if (f.verdict === 'strong_buy' && m.verdict !== 'STRONG BUY') return false;
+    if (f.verdict === 'buy_plus' && !(m.verdict === 'BUY' || m.verdict === 'STRONG BUY')) return false;
+    if (f.fcMin > 0 && (!isFinite(m.forecast12) || m.forecast12 < f.fcMin)) return false;
+    if (f.confMin > 0 && (!isFinite(m.forecastConf) || m.forecastConf < f.confMin)) return false;
+    if (f.div === 'pays' && !(m.divYield > 0.1)) return false;
+    if (f.div === 'hi_yield' && !(m.divYield >= 4)) return false;
+    if (f.cross === 'cross2' && !(m.crossCount >= 2)) return false;
+    if (f.cross === 'cross3' && !(m.crossCount >= 3)) return false;
+    return true;
+  });
+}
+
+function setSectorsFilter(group, value) {
+  // Toggle off if clicking the active value (except for sector "all" which
+  // serves as the off state for that group already).
+  if (_sectorsFilters[group] === value && value !== _DEFAULT_SECTORS_FILTERS[group]) {
+    _sectorsFilters[group] = _DEFAULT_SECTORS_FILTERS[group];
+  } else {
+    _sectorsFilters[group] = value;
+  }
+  _persistSectorsFilters();
+  renderSectorsFilterPills();
+  renderTilesFromCache();
+}
+
+function clearSectorsFilters() {
+  _sectorsFilters = { ..._DEFAULT_SECTORS_FILTERS };
+  _persistSectorsFilters();
+  renderSectorsFilterPills();
+  renderTilesFromCache();
+}
+
+function _countActiveSectorsFilters() {
+  let n = 0;
+  for (const k of Object.keys(_DEFAULT_SECTORS_FILTERS)) {
+    if (_sectorsFilters[k] !== _DEFAULT_SECTORS_FILTERS[k]) n++;
+  }
+  return n;
+}
+
+// Render the discovery filter pill rows into #sectors-discovery-filters.
+function renderSectorsFilterPills() {
+  const host = document.getElementById('sectors-discovery-filters');
+  if (!host) return;
+  const f = _sectorsFilters;
+  const row = (label, groupKey, options) => {
+    const pills = options.map(o =>
+      `<button class="sec-filter-pill${f[groupKey] === o.v ? ' active' : ''}" title="${o.t || ''}" onclick="setSectorsFilter('${groupKey}','${o.v}')">${o.l}</button>`
+    ).join('');
+    return `<div class="sec-filter-row"><span class="sec-filter-lbl">${label}</span>${pills}</div>`;
+  };
+  const activeCount = _countActiveSectorsFilters();
+  host.innerHTML = `
+    ${row('Sector', 'sector', [
+      { v:'all',      l:'All',         t:'Every sector in the catalog' },
+      { v:'tech',     l:'Tech',        t:'Semiconductors · Software · Internet · Communication · IT Services' },
+      { v:'fin',      l:'Financial',   t:'Banks · Insurance · Capital Markets · Credit · REITs' },
+      { v:'hc',       l:'Healthcare',  t:'Pharma · Biotech · Medical Devices · Health Plans' },
+      { v:'consumer', l:'Consumer',    t:'Retail · Restaurants · Food/Bev · Apparel · Auto · Leisure' },
+      { v:'ind',      l:'Ind / Energy',t:'Industrials · Oil/Gas · Utilities · Materials · Aerospace · Mining · Transport' },
+      { v:'etf',      l:'ETF',         t:'Basket funds — sector / index / strategy ETFs' },
+    ])}
+    ${row('Verdict floor', 'verdict', [
+      { v:'all',         l:'Any',          t:'No verdict filter' },
+      { v:'buy_plus',    l:'Buy or better',t:'Only BUY or STRONG BUY tickers' },
+      { v:'strong_buy',  l:'Strong Buy',   t:'Only STRONG BUY tickers' },
+    ])}
+    ${row('Min 12M forecast', 'fcMin', [
+      { v:0,  l:'Any',     t:'No floor on 12-month expected return' },
+      { v:10, l:'≥ +10%',  t:'Only stocks with expected 12-month return ≥ 10%' },
+      { v:20, l:'≥ +20%',  t:'Only stocks with expected 12-month return ≥ 20% (aggressive)' },
+    ])}
+    ${row('Min confidence', 'confMin', [
+      { v:0,  l:'Any',   t:'No floor on forecast confidence' },
+      { v:40, l:'≥ 40%', t:'Filter out the noisiest forecasts (confidence ≥ 40%)' },
+      { v:60, l:'≥ 60%', t:'Only high-conviction forecasts (confidence ≥ 60%)' },
+    ])}
+    ${row('Dividend', 'div', [
+      { v:'all',      l:'Any',        t:'No dividend filter' },
+      { v:'pays',     l:'Pays',       t:'Only stocks that pay any dividend' },
+      { v:'hi_yield', l:'High yield', t:'Only stocks with dividend yield ≥ 4%' },
+    ])}
+    ${row('Cross-goal strength', 'cross', [
+      { v:'all',    l:'Any',                       t:'No cross-goal filter' },
+      { v:'cross2', l:'Strong in ≥ 2 goals',       t:'Stocks that rank in the top 20 across at least 2 of the 5 investment goals — versatile picks' },
+      { v:'cross3', l:'All-rounders (≥ 3 goals)',  t:'Stocks that rank in the top 20 across at least 3 of the 5 goals — strongest cross-style picks' },
+    ])}
+    <div class="sec-filter-row sec-filter-foot">
+      <span class="sec-filter-lbl">${activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? '' : 's'} active` : 'No filters active'}</span>
+      <button class="sec-filter-pill sec-filter-reset" onclick="clearSectorsFilters()" title="Clear every filter and show the full catalog ranking"${activeCount === 0 ? ' disabled' : ''}>Reset all</button>
+      <span class="sec-filter-legend" title="The G P I V M badge on each tile shows that ticker's top-20 inclusion across Growth · Preservation · Income · Value · Momentum. Lit letters = ticker ranks top-20 in that goal.">Tile badge: <b>G</b> Growth · <b>P</b> Preservation · <b>I</b> Income · <b>V</b> Value · <b>M</b> Momentum</span>
+    </div>
+  `;
+}
+
 function selectSectorsHistory(yrs) {
   if (_sectorsHistoryYears === yrs) return;
   _sectorsHistoryYears = yrs;
@@ -12339,6 +12780,242 @@ function forecastVsActualSvg(bundle, stats, fwd12, width, height) {
 
 // Compute headline insights for a bundle: best/worst holding, vs-forecast pace,
 // snapshot count, concentration peak. Pure function — no DOM.
+// Translate the bundle's saved goalKey to the matching ranker in GOAL_DEFS.
+// Bundle goalKeys come from STRATEGY_DEFS (the What-If strategy list); GOAL_DEFS
+// is the Sectors-page ranker. Maps strategy → ranking goal.
+const _BUNDLE_GOAL_TO_RANK_GOAL = {
+  growth: 'growth', aggressive: 'growth',
+  preservation: 'preservation', conservative: 'preservation', defensive: 'preservation',
+  income: 'income', dividend: 'income',
+  value: 'value',
+  momentum: 'momentum',
+  balanced: 'growth',
+};
+function _rankGoalForBundle(bundle) {
+  const gk = (bundle && bundle.goalKey || '').toLowerCase();
+  return _BUNDLE_GOAL_TO_RANK_GOAL[gk] || 'growth';
+}
+
+// Identify the corrections a user could make to push the bundle back toward
+// its forecast endpoint. Returns a structured list of moves: TRIM dragging
+// holdings, EXIT broken positions, ADD top-ranked replacements from the same
+// goal. Also computes required-return math on the surviving capital.
+function computeBundleCorrections(bundle, stats, fwd12) {
+  const holdings = bundle.holdings || [];
+  if (!holdings.length) {
+    return { paceStatus: 'on-pace', moves: [], requiredAnnualReturn: 0, daysRemaining: 0, summary: 'No holdings to analyse.' };
+  }
+  const enriched = holdings.map(h => {
+    const bars = getBars(h.ticker);
+    const cur = bars[bars.length - 1].close;
+    const initValue = h.shares * h.entryPrice;
+    const curValue = h.shares * cur;
+    const gain = curValue - initValue;
+    const gainPct = initValue > 0 ? (gain / initValue) * 100 : 0;
+    let f12 = null;
+    const cacheArr = (_whatIfCache && _whatIfCache.get && _whatIfCache.get(bundle.historyYears)) || null;
+    if (cacheArr) {
+      const m = cacheArr.find(x => x.ticker === h.ticker);
+      if (m && m.forecasts) f12 = (m.forecasts.find(f => f.months === 12) || {}).expReturn;
+    }
+    if (f12 == null) f12 = h.entryForecast12 || 0;
+    return { ...h, cur, initValue, curValue, gain, gainPct, fwd12: f12 };
+  });
+  const days = Math.max(0.25, (Date.now() - bundle.createdAt) / 86400000);
+  const horizonDays = (bundle.horizon || 12) * 30.44;
+  const daysRemaining = Math.max(0, Math.floor(horizonDays - days));
+  const elapsedFrac = Math.min(1, days / horizonDays);
+  const expectedCumPct = fwd12 * elapsedFrac;
+  const actualCumPct = stats.cumGainPct || 0;
+  const paceDelta = actualCumPct - expectedCumPct;
+  const paceStatus = Math.abs(paceDelta) < 0.3 ? 'on-pace' : (paceDelta > 0 ? 'ahead' : 'behind');
+
+  const moves = [];
+
+  // EXIT — holdings down ≥25% with materially weight (≥3%) AND negative forward forecast
+  const exitCandidates = enriched
+    .filter(h => h.gainPct <= -25 && h.pct >= 3 && h.fwd12 < 0)
+    .sort((a, b) => a.gainPct - b.gainPct);
+
+  // TRIM — holdings down ≥10% (or weight ≥18% concentrated even if not down — concentration risk)
+  // exclude any we already flagged for exit
+  const exitedSet = new Set(exitCandidates.map(h => h.ticker));
+  const trimCandidates = enriched
+    .filter(h => !exitedSet.has(h.ticker))
+    .filter(h => (h.gainPct <= -10 && h.pct >= 4) || h.pct >= 18)
+    .sort((a, b) => {
+      // Weight by drag = pct * -gainPct (worst drag first)
+      const da = a.pct * Math.max(0, -a.gainPct);
+      const db = b.pct * Math.max(0, -b.gainPct);
+      if (db !== da) return db - da;
+      return b.pct - a.pct;
+    });
+
+  // Cap exit + trim suggestions to 3 combined so the panel stays readable
+  let suggestedExit = exitCandidates.slice(0, 2);
+  let suggestedTrim = trimCandidates.slice(0, Math.max(0, 3 - suggestedExit.length));
+
+  // ADD — top-ranked tickers under this bundle's goal that aren't already in the bundle
+  const goalKey = _rankGoalForBundle(bundle);
+  const goalDef = GOAL_DEFS[goalKey];
+  const presentTickers = new Set(enriched.map(h => h.ticker));
+  let topCandidates = [];
+  if (goalDef && typeof STOCK_CATALOG !== 'undefined' && Array.isArray(STOCK_CATALOG)) {
+    try {
+      const cache = buildSectorsCache();
+      const ranked = cache
+        .filter(m => !presentTickers.has(m.ticker))
+        .map(m => ({ ...m, _w: goalDef.rank(m) }))
+        .sort((a, b) => b._w - a._w)
+        .slice(0, 3);
+      topCandidates = ranked;
+    } catch (e) { /* tolerate — corrections still useful without ADDs */ }
+  }
+
+  // Tilt — overweighting an existing star performer that already aligns with goal
+  let suggestedTilt = null;
+  if (paceStatus !== 'behind') {
+    const stars = enriched
+      .filter(h => h.gainPct >= 10 && h.fwd12 > 0 && h.pct < 15)
+      .sort((a, b) => (b.gainPct + b.fwd12) - (a.gainPct + a.fwd12));
+    if (stars.length) suggestedTilt = stars[0];
+  }
+
+  // Assemble move list
+  for (const h of suggestedExit) {
+    moves.push({
+      kind: 'exit',
+      ticker: h.ticker,
+      detail: `Exit <b>${h.ticker}</b> (${h.pct.toFixed(1)}% weight, currently ${h.gainPct.toFixed(1)}%)`,
+      rationale: `Position is down ${Math.abs(h.gainPct).toFixed(0)}% since entry AND its 12M forward forecast is ${h.fwd12.toFixed(1)}% — the model expects further drag. Free $${fmt(h.curValue)} of capital for redeployment.`,
+    });
+  }
+  for (const h of suggestedTrim) {
+    const target = h.pct >= 18 ? Math.max(5, h.pct - 8) : Math.max(2, h.pct - 5);
+    const concentration = h.pct >= 18;
+    moves.push({
+      kind: 'trim',
+      ticker: h.ticker,
+      detail: `Trim <b>${h.ticker}</b> from <b>${h.pct.toFixed(1)}%</b> → <b>${target.toFixed(1)}%</b>`,
+      rationale: concentration
+        ? `Position is ${h.pct.toFixed(1)}% of the bundle — concentration risk. Diversify by reducing weight.`
+        : `Position is down ${Math.abs(h.gainPct).toFixed(0)}% since entry and dragging the bundle. ${h.fwd12 < 0 ? 'Forward forecast is also negative.' : 'Forward forecast is ' + h.fwd12.toFixed(1) + '% — modest recovery, but capital is better deployed elsewhere.'}`,
+    });
+  }
+  const capitalFreed = [...suggestedExit, ...suggestedTrim].reduce((s, h) => {
+    const target = h.pct >= 18 ? Math.max(5, h.pct - 8) : Math.max(2, h.pct - 5);
+    const reduction = (suggestedExit.indexOf(h) >= 0) ? h.pct : (h.pct - target);
+    return s + (reduction / 100) * stats.curValue;
+  }, 0);
+  if (topCandidates.length && (suggestedExit.length || suggestedTrim.length)) {
+    const each = capitalFreed / topCandidates.length;
+    for (const c of topCandidates) {
+      moves.push({
+        kind: 'add',
+        ticker: c.ticker,
+        detail: `Add <b>${c.ticker}</b> (${c.name}) at ~$${fmt(each)} (${(each / stats.curValue * 100).toFixed(1)}% of bundle)`,
+        rationale: `Top-ranked ${_GOAL_LABELS[goalKey] || goalKey} pick: ${c.score.toFixed(0)} heat score, ${c.forecast12 >= 0 ? '+' : ''}${c.forecast12.toFixed(1)}% 12M forecast at ${c.forecastConf}% confidence${c.crossCount >= 3 ? ' · all-rounder across ' + c.crossCount + '/5 goals' : (c.crossCount >= 2 ? ' · strong in ' + c.crossCount + '/5 goals' : '')}.`,
+      });
+    }
+  } else if (topCandidates.length) {
+    // No exit/trim moves — still surface 1 ADD if we're on/behind pace, as discovery
+    const c = topCandidates[0];
+    moves.push({
+      kind: 'add',
+      ticker: c.ticker,
+      detail: `Consider adding <b>${c.ticker}</b> (${c.name})`,
+      rationale: `Top ${_GOAL_LABELS[goalKey] || goalKey} pick not currently in your bundle: ${c.score.toFixed(0)} heat score, ${c.forecast12 >= 0 ? '+' : ''}${c.forecast12.toFixed(1)}% 12M forecast at ${c.forecastConf}% confidence. Funded by trimming the lowest-conviction current holding.`,
+    });
+  }
+  if (suggestedTilt) {
+    moves.push({
+      kind: 'tilt',
+      ticker: suggestedTilt.ticker,
+      detail: `Tilt toward <b>${suggestedTilt.ticker}</b> — increase weight by 2–4%`,
+      rationale: `${suggestedTilt.ticker} is up ${suggestedTilt.gainPct.toFixed(1)}% since entry with a ${suggestedTilt.fwd12 >= 0 ? '+' : ''}${suggestedTilt.fwd12.toFixed(1)}% forward forecast, but only ${suggestedTilt.pct.toFixed(1)}% of the bundle. Riding a working position is a low-friction way to close the gap.`,
+    });
+  }
+
+  // Required-return math on what remains
+  const horizonYrs = (bundle.horizon || 12) / 12;
+  const forecastEndpoint = bundle.amount * (1 + (fwd12 / 100) * horizonYrs);
+  const gapToForecast = forecastEndpoint - stats.curValue;
+  const yearsRemaining = Math.max(1/365, daysRemaining / 365.25);
+  // Compound rate required to go from curValue → forecastEndpoint over yearsRemaining
+  let requiredAnnualReturn = 0;
+  if (stats.curValue > 0 && forecastEndpoint > 0 && yearsRemaining > 0) {
+    requiredAnnualReturn = (Math.pow(forecastEndpoint / stats.curValue, 1 / yearsRemaining) - 1) * 100;
+  }
+
+  let summary;
+  if (paceStatus === 'behind') {
+    summary = `Bundle is <b class="bad">${paceDelta.toFixed(2)}%</b> behind its expected pace. Forecast endpoint <b>$${fmt(forecastEndpoint)}</b> would require the current $${fmt(stats.curValue)} to compound at <b>${requiredAnnualReturn.toFixed(1)}% / year</b> for the remaining ${daysRemaining} days. Below are the highest-impact moves the model recommends.`;
+  } else if (paceStatus === 'ahead') {
+    summary = `Bundle is <b class="ok">+${paceDelta.toFixed(2)}%</b> ahead of pace. Forecast endpoint <b>$${fmt(forecastEndpoint)}</b> is within reach; the moves below are optional optimisations to lock in or extend the lead.`;
+  } else {
+    summary = `Bundle is on pace (within ±0.3% of expected). The moves below are housekeeping suggestions; no urgent corrections are required.`;
+  }
+
+  return {
+    paceStatus, paceDelta, expectedCumPct, actualCumPct,
+    requiredAnnualReturn, gapToForecast, daysRemaining,
+    forecastEndpoint, summary, moves,
+    goalLabel: _GOAL_LABELS[goalKey] || goalKey,
+  };
+}
+
+// Per-bundle toggle state for the corrections panel
+const _correctionsExpanded = new Set();
+function toggleBundleCorrections(id) {
+  if (_correctionsExpanded.has(id)) _correctionsExpanded.delete(id);
+  else _correctionsExpanded.add(id);
+  renderSavedBundles();
+}
+
+function _renderBundleCorrectionsPanel(b, stats, fwd12) {
+  const isOpen = _correctionsExpanded.has(b.id);
+  const corr = computeBundleCorrections(b, stats, fwd12);
+  const cls = corr.paceStatus;
+  const icon = cls === 'behind' ? '⚠' : (cls === 'ahead' ? '✓' : '→');
+  const btnLabel = isOpen ? 'Hide corrections' : (cls === 'behind' ? 'Show corrections to hit goal' : 'Show optimisation moves');
+  if (!isOpen) {
+    return `<button class="bundle-corrections-toggle ${cls}" onclick="toggleBundleCorrections('${b.id}')" title="View concrete moves the model suggests to push this bundle toward its ${corr.goalLabel} goal">${icon} ${btnLabel}${corr.moves.length ? ` · ${corr.moves.length} suggested move${corr.moves.length === 1 ? '' : 's'}` : ''}</button>`;
+  }
+  const movesHtml = corr.moves.length === 0
+    ? `<div class="bundle-corrections-sub" style="font-style:italic;">No high-impact corrections detected — every holding is roughly tracking its expected contribution.</div>`
+    : `<div class="bundle-corrections-move-list">${corr.moves.map(mv => `
+        <div class="bundle-corrections-move">
+          <span class="move-kind ${mv.kind}">${mv.kind.toUpperCase()}</span>
+          <div class="move-body">${mv.detail}
+            <span class="move-rationale">${_escapeHtml(mv.rationale)}</span>
+          </div>
+        </div>
+      `).join('')}</div>`;
+  return `<button class="bundle-corrections-toggle ${cls}" onclick="toggleBundleCorrections('${b.id}')" title="Collapse the corrections panel">${icon} Hide corrections</button>
+    <div class="bundle-corrections-panel ${cls}">
+      <div class="bundle-corrections-section">
+        <div class="bundle-corrections-title">Diagnosis — ${corr.goalLabel} goal</div>
+        <div class="bundle-corrections-headline">${corr.paceStatus === 'behind' ? 'Behind expected pace' : (corr.paceStatus === 'ahead' ? 'Ahead of expected pace' : 'On expected pace')}</div>
+        <div class="bundle-corrections-sub">${corr.summary}</div>
+      </div>
+      <div class="bundle-corrections-section">
+        <div class="bundle-corrections-title">Suggested moves (${corr.moves.length})</div>
+        ${movesHtml}
+      </div>
+      <div class="bundle-corrections-section">
+        <div class="bundle-corrections-title">Required return — math</div>
+        <div class="bundle-corrections-math">
+<span class="lbl">Current value</span>          <b>$${fmt(stats.curValue)}</b>
+<span class="lbl">Forecast endpoint at ${b.horizon || 12}M</span>  <b>$${fmt(corr.forecastEndpoint)}</b>
+<span class="lbl">Gap to forecast</span>         <b class="${corr.gapToForecast > 0 ? 'bad' : 'ok'}">${corr.gapToForecast >= 0 ? '+' : ''}$${fmt(corr.gapToForecast)}</b>
+<span class="lbl">Days remaining</span>          <b>${corr.daysRemaining}</b>
+<span class="lbl">Required annual return on remaining capital</span>  <b class="${corr.requiredAnnualReturn > 25 ? 'bad' : (corr.requiredAnnualReturn > 12 ? '' : 'ok')}">${corr.requiredAnnualReturn.toFixed(1)}% / yr</b>
+<span class="lbl">Realistic without changes?</span>      <b class="${corr.requiredAnnualReturn > 18 ? 'bad' : 'ok'}">${corr.requiredAnnualReturn > 18 ? 'Hard — apply moves above' : (corr.requiredAnnualReturn > 10 ? 'Plausible if conditions hold' : 'Yes — modest pace required')}</b>
+        </div>
+      </div>
+    </div>`;
+}
+
 function bundleHighlights(bundle, stats, fwd12) {
   const enriched = (bundle.holdings || []).map(h => {
     const bars = getBars(h.ticker);
@@ -12472,6 +13149,7 @@ function renderBundleCard(b) {
         </div>
       </div>`;
     })()}
+    ${_renderBundleCorrectionsPanel(b, stats, fwd12)}
     <div class="bundle-trend">
       <div class="bundle-trend-head">
         <div class="bundle-trend-title">Forecast vs Actual · value path</div>
@@ -13258,12 +13936,23 @@ function renderTilesFromCache() {
   const host = $('tile-grid');
   if (!host) return;
   const all = buildSectorsCache();
+  _attachCrossGoalIndex(all);
+  const filtered = _applySectorsFilters(all);
   const def = GOAL_DEFS[_currentGoal];
-  const ranked = all.map(m => ({ ...m, _w: def.rank(m) }))
+  const ranked = filtered.map(m => ({ ...m, _w: def.rank(m) }))
                     .sort((a, b) => b._w - a._w)
                     .slice(0, 20);
   if (ranked.length === 0) {
-    host.innerHTML = `<div class="sectors-empty"><div class="sectors-empty-glyph">∅</div><div class="sectors-empty-msg">No stocks match this goal right now.</div></div>`;
+    if (_countActiveSectorsFilters() > 0) {
+      host.innerHTML = `<div class="sectors-no-matches">
+        <div class="sectors-no-matches-glyph">∅</div>
+        <div class="sectors-no-matches-msg">No stocks in the catalog match every active filter.</div>
+        <div class="sectors-no-matches-sub">Loosen one or more of the filters above to see results. The ${_currentGoal} ranking has ${all.length} tickers in the catalog before filters.</div>
+        <button class="sectors-no-matches-btn" onclick="clearSectorsFilters()">Reset all filters</button>
+      </div>`;
+    } else {
+      host.innerHTML = `<div class="sectors-empty"><div class="sectors-empty-glyph">∅</div><div class="sectors-empty-msg">No stocks match this goal right now.</div></div>`;
+    }
     return;
   }
   host.innerHTML = ranked.map((m, i) => {
@@ -13288,6 +13977,7 @@ function renderTilesFromCache() {
       <div style="display:flex;align-items:center;gap:8px;margin-top:-4px;">
         <span class="pos-neg-pill ${pn.cls}" title="${tip('posNeg')}" style="cursor:help"><span class="pn-sym">${pn.sym}</span>${pn.label}</span>
       </div>
+      ${_renderTileCrossGoalBadge(m)}
       ${(m.history1Y && m.history3Y && m.history5Y) ? (() => {
         const cell = (lbl, ret, dd, active, tipText) => {
           const d = ret >= 0 ? 'up' : 'down';
@@ -13336,9 +14026,39 @@ function renderTilesFromCache() {
   }).join('');
 }
 
+// Render the small G·P·I·V·M cross-goal badge on a tile. Each letter lights
+// up if the ticker ranks top-20 in that goal. The currently-selected goal is
+// highlighted in accent colour. Tooltip lists exact rank under every goal.
+const _GOAL_LETTERS = { growth:'G', preservation:'P', income:'I', value:'V', momentum:'M' };
+const _GOAL_LABELS  = { growth:'Growth', preservation:'Preservation', income:'Income', value:'Value', momentum:'Momentum' };
+function _renderTileCrossGoalBadge(m) {
+  if (!m.crossGoals) return '';
+  const dots = Object.keys(_GOAL_LETTERS).map(gk => {
+    const cg = m.crossGoals[gk] || { rank: 9999, inTop: false };
+    const current = gk === _currentGoal;
+    const cls = current ? 'current' : (cg.inTop ? 'lit' : '');
+    return `<span class="tile-crossgoal-dot ${cls}" data-goal="${gk}">${_GOAL_LETTERS[gk]}</span>`;
+  }).join('');
+  const n = m.crossCount || 0;
+  const cntCls = n >= 3 ? 'allrounder' : (n >= 2 ? 'strong' : '');
+  const cntLabel = n >= 3 ? `${n}/5 ALL-ROUNDER` : (n >= 2 ? `${n}/5 strong` : `${n}/5`);
+  const tooltipLines = Object.keys(_GOAL_LETTERS).map(gk => {
+    const cg = m.crossGoals[gk];
+    if (!cg || cg.rank > 100) return `${_GOAL_LABELS[gk]}: outside top 100`;
+    return `${_GOAL_LABELS[gk]}: ranked #${cg.rank}${cg.inTop ? ' (top 20)' : ''}`;
+  }).join('\n');
+  const tip = `Cross-goal strength — top-20 inclusion across the 5 investment goals.\n\n${tooltipLines}\n\nThis ticker ranks in the top 20 of ${n} of the 5 goals. Higher = more versatile pick across investment styles.`;
+  return `<div class="tile-crossgoal" title="${tip.replace(/"/g, '&quot;')}">
+    <span class="tile-crossgoal-lbl">Cross-goal</span>
+    <span class="tile-crossgoal-dots">${dots}</span>
+    <span class="tile-crossgoal-count ${cntCls}">${cntLabel}</span>
+  </div>`;
+}
+
 function renderSectorsPage() {
   renderGoalPills();
   renderGoalDescription();
+  renderSectorsFilterPills();
   renderSectorsLoading();
   // Defer compute to next frame so the skeleton paints first
   requestAnimationFrame(() => requestAnimationFrame(renderTilesFromCache));
