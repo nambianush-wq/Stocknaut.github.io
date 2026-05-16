@@ -1621,6 +1621,76 @@ body.sectors-mode #sidebar { display: none; }
 .tile-history-stats .dd { color: var(--muted); margin-left: 6px; font-size: 11px; }
 .tile-history-spark { display: flex; align-items: center; opacity: .9; }
 
+/* Multi-period history + forecast rows inside Sectors tiles */
+.tile-multi {
+  padding-top: 10px;
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+}
+.tile-multi-label {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.tile-multi-label.past { color: var(--violet); }
+.tile-multi-label.future { color: var(--accent); }
+.tile-multi-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.tile-multi-cell {
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  text-align: center;
+  cursor: help;
+}
+.tile-multi-cell.active-period {
+  background: rgba(191,90,242,.10);
+  border-color: rgba(191,90,242,.35);
+}
+.tile-multi-cell .tm-lbl {
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.tile-multi-cell .tm-val {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.tile-multi-cell .tm-val.up { color: var(--bull); }
+.tile-multi-cell .tm-val.down { color: var(--bear); }
+
+.tile-trend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.tile-trend-row .trend-sparkline { flex: 1; max-width: 120px; }
+.tile-trend-row .trend-lbl {
+  font-size: 8.5px;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--violet);
+  white-space: nowrap;
+}
+
+/* Tile gets a bit taller to accommodate multi-period rows */
+.stock-tile { min-height: 280px; }
+
 /* Tile loading skeleton */
 .tile-skeleton {
   background: var(--panel);
@@ -9210,6 +9280,46 @@ const LS_KEY_FAVS     = 'sp_favorites';
 const LS_KEY_SIMSET   = 'sp_sim_set';
 const LS_KEY_TD       = 'sp_td_key';
 
+// Layman-friendly explanations for every indicator. All include a 'What this means'
+// section so non-finance users know how to act on the number.
+const TIP = {
+  rsi: "RSI (Relative Strength Index) — a 0-to-100 momentum gauge.\n\nWhat this means: Above 70 = stretched (often pulls back). Below 30 = oversold (sometimes bounces, but in a downtrend it usually keeps falling). 50 = neutral. Always pair RSI with the trend — never act on it alone.",
+  ma15: "MA15 — the average closing price of the last 15 weeks (~3 months).\n\nWhat this means: When today's price is above MA15, short-term momentum is positive. Stocks in uptrends often pull back to MA15 and bounce.",
+  ma40: "MA40 — the average closing price of the last 40 weeks (~1 year).\n\nWhat this means: The most-watched trend line on Wall Street. Above MA40 = the stock is in a confirmed uptrend. Below MA40 = downtrend. Crossing it is usually a regime change.",
+  ma100: "MA100 — the average closing price of the last 100 weeks (~2 years).\n\nWhat this means: The long-term trend line. Crossing this usually signals a multi-year structural shift in the stock.",
+  hi52: "52-Week High — highest closing price over the past 52 weeks.\n\nWhat this means: Stocks near their 52W high are in strong uptrends. Pros: momentum is your friend. Cons: also stretched and prone to short pullbacks.",
+  lo52: "52-Week Low — lowest closing price over the past 52 weeks.\n\nWhat this means: Near 52W lows = stock has been weak. Could be a value opportunity OR a falling knife. Combine with the verdict + trend reading before acting.",
+  verdict: "Our overall recommendation — STRONG BUY · BUY · HOLD · SELL · STRONG SELL.\n\nWhat this means: Composite of trend, momentum, volume, and forecast. BUY-tier = signals favor accumulation. HOLD = mixed, no edge. SELL-tier = signals favor reducing exposure.",
+  score: "Heat score — composite from −100 (worst) to +100 (best).\n\nWhat this means: Combines trend, momentum, volume, and forecast into one number. Quick way to rank stocks. Above +50 = strong. Below −50 = weak.",
+  beta: "Beta — how much this stock moves vs the S&P 500.\n\nWhat this means: 1.0 = same as the market. 1.5 = 50% bigger swings up AND down. 0.5 = half the market's moves (defensive). High beta = more upside AND more downside.",
+  sharpe: "Sharpe-like ratio — return earned per unit of risk taken.\n\nWhat this means: Above 1.0 = good (the volatility is being rewarded). 0.5 to 1.0 = okay. Below 0.5 = the swings aren't paying off; reconsider holding.",
+  maxDd: "Max Drawdown — worst peak-to-trough decline over the window.\n\nWhat this means: −40% means at the worst moment, you'd have lost 40% of value before it recovered. Lower (less negative) = safer. Tells you how bad it could get historically.",
+  vol: "Volatility — annualized standard deviation of returns (in %).\n\nWhat this means: 20% means typical year-on-year swings of ±20%. Higher = bigger swings (both ways). Tech stocks: usually 25-40%. Utilities: 12-18%. Indexes: 15-20%.",
+  hhi: "HHI (Herfindahl-Hirschman Index) — measures portfolio concentration.\n\nWhat this means: Below 1000 = well diversified. 1000-1800 = moderate. 1800-2500 = concentrated. Above 2500 = highly concentrated (one or two positions dominate the risk).",
+  periodReturn: "Total return over the selected history window.\n\nWhat this means: +50% means the stock doubled. −25% means it lost a quarter of its value. Pair with Max Drawdown to see the journey, not just the destination.",
+  forecast12: "12-Month Forecast — our model's expected return over the next year.\n\nWhat this means: Based on trend strength, momentum, and historical volatility. Forecasts are heuristic — directional only, not a price target. Use to compare relative attractiveness.",
+  forecast24: "24-Month Forecast — same model, longer horizon.\n\nWhat this means: Confidence drops with horizon. Longer forecasts mean-revert toward the historical 7% market baseline. Use as a multi-year direction signal.",
+  forecast36: "36-Month Forecast — 3-year directional estimate.\n\nWhat this means: Heavily weighted toward the long-term market average. The further out, the less precise — but useful for setting expectations on a buy-and-hold position.",
+  confidence: "Confidence — how reliable the forecast is (0-100%).\n\nWhat this means: Higher = stronger signal + tighter volatility band. Lower = mixed signals + wider potential outcomes. Above 60% is high; below 35% is speculative.",
+  posNeg: "Composite signal — Positive · Neutral · Negative.\n\nWhat this means: Combines heat score and 12-month forecast. POSITIVE = trend AND forecast both bullish. NEGATIVE = both bearish. NEUTRAL = mixed signals (wait for clarity).",
+  heatBar: "Heat indicator — visual temperature of the stock.\n\nWhat this means: Cold blue = strong sell signal. Cool cyan = leaning bearish. Green = neutral. Yellow = leaning bullish. Hot orange/red = strong buy signal. Hottest at top of the watchlist.",
+  oneWeek: "1-Week Change — price move over the last 7 days.\n\nWhat this means: Short-term momentum. Big moves (+5% or more) often continue for a few days, but can reverse just as fast. Don't chase a single week.",
+  oneMonth: "1-Month Change — price move over the last 4 weeks.\n\nWhat this means: Medium-term momentum. Sustained moves over 4 weeks are stronger signals than single-day spikes.",
+  threeMonth: "3-Month Change — price move over the last quarter.\n\nWhat this means: Real trend confirmation. Stocks up 15%+ over 3 months are typically in genuine uptrends, not just noise.",
+  marketCap: "Market Cap — total dollar value of all shares outstanding.\n\nWhat this means: Above $200B = mega-cap (stable, slow-growing). $10-200B = large-cap. $2-10B = mid-cap (more growth, more risk). Below $2B = small-cap (highest growth + risk).",
+  pe: "P/E Ratio — Price ÷ Earnings per share.\n\nWhat this means: How many years of current earnings it would take to pay back the share price. Below 15 = cheap (value). 15-25 = average. Above 30 = expensive (growth expected). Compare to sector average.",
+  eps: "EPS (TTM) — Earnings Per Share over trailing 12 months.\n\nWhat this means: Profit attributable to each share. Higher = more profitable per share. Compare to historical EPS to spot growth or decline.",
+  divYield: "Dividend Yield — annual dividend divided by current price.\n\nWhat this means: 3% yield means dividends pay 3% per year just from holding. Above 6% often signals trouble (price falling faster than dividend). Below 2% = growth-oriented.",
+  divAnnual: "Annual Dividend — total dividend per share over the year.\n\nWhat this means: Cash you'd receive per share each year. Tax-efficient income source for buy-and-hold investors.",
+  cumPnL: "Cumulative P&L — total gain or loss since you saved this bundle.\n\nWhat this means: Current value minus what you started with. The headline number for evaluating the bundle. Positive = winning. Negative = losing.",
+  latestPnL: "Latest P&L — change since the previous snapshot.\n\nWhat this means: How much value changed since the last time we tracked the bundle. Updated once per visit per day. Falls back to week-over-week when only one snapshot exists.",
+  vsForecast: "Pace vs Forecast — actual return compared to forecast prorated by elapsed time.\n\nWhat this means: 'Ahead of forecast' = you're doing better than predicted. 'Behind forecast' = underperforming the model. Helps spot whether the forecast was right.",
+  newsSent: "News sentiment — keyword-based classification of recent headlines.\n\nWhat this means: ▲ Positive = bullish words detected (beats, surge, upgrade). ▼ Negative = bearish words (miss, downgrade, lawsuit). ● Neutral = no strong signal. Cross-check with the headline.",
+  confidenceBar: "Forecast confidence bar — visual representation of the confidence %.\n\nWhat this means: Wider fill = more reliable forecast. Empty = highly uncertain. Color matches the forecast direction (green up, red/amber down).",
+  fibPos: "Fibonacci position — where the price sits in the 100-week swing high-to-low range.\n\nWhat this means: Below 38% = near recent low (potential value). 38-62% = mid-range. Above 62% = near recent high (closer to resistance). Used by traders to spot turning points.",
+};
+function tip(key) { return (TIP[key] || '').replace(/"/g, '&quot;'); }
+
 let FAVORITES = loadStringSet(LS_KEY_FAVS);
 let SIM_SET   = loadStringSet(LS_KEY_SIMSET);
 
@@ -12480,12 +12590,12 @@ function renderPickRow(m, rank) {
         ${rowActionsHtml(m.ticker)}
       </div>
       <div class="pick-stats">
-        <span class="pick-stat"><b>$${fmt(m.last)}</b></span>
-        <span class="pick-stat"><span class="lbl">1W</span><span class="${wkDir}">${m.wkChange >= 0 ? '+' : ''}${m.wkChange.toFixed(2)}%</span></span>
-        <span class="pick-stat"><span class="lbl">1M</span><span class="${mDir}">${m.monthChange >= 0 ? '+' : ''}${m.monthChange.toFixed(2)}%</span></span>
-        <span class="pick-stat"><span class="lbl">3M</span><span class="${q3Dir}">${m.threeMoChange >= 0 ? '+' : ''}${m.threeMoChange.toFixed(2)}%</span></span>
-        <span class="pick-stat"><span class="lbl">RSI</span><b>${m.lastRsi.toFixed(1)}</b></span>
-        <span class="pick-stat"><span class="lbl">SCORE</span><b>${m.score >= 0 ? '+' : ''}${m.score}</b></span>
+        <span class="pick-stat" title="Current closing price"><b>$${fmt(m.last)}</b></span>
+        <span class="pick-stat" title="${tip('oneWeek')}" style="cursor:help"><span class="lbl">1W</span><span class="${wkDir}">${m.wkChange >= 0 ? '+' : ''}${m.wkChange.toFixed(2)}%</span></span>
+        <span class="pick-stat" title="${tip('oneMonth')}" style="cursor:help"><span class="lbl">1M</span><span class="${mDir}">${m.monthChange >= 0 ? '+' : ''}${m.monthChange.toFixed(2)}%</span></span>
+        <span class="pick-stat" title="${tip('threeMonth')}" style="cursor:help"><span class="lbl">3M</span><span class="${q3Dir}">${m.threeMoChange >= 0 ? '+' : ''}${m.threeMoChange.toFixed(2)}%</span></span>
+        <span class="pick-stat" title="${tip('rsi')}" style="cursor:help"><span class="lbl">RSI</span><b>${m.lastRsi.toFixed(1)}</b></span>
+        <span class="pick-stat" title="${tip('score')}" style="cursor:help"><span class="lbl">SCORE</span><b>${m.score >= 0 ? '+' : ''}${m.score}</b></span>
       </div>
     </div>
     <div class="pick-forecasts">
@@ -12493,7 +12603,7 @@ function renderPickRow(m, rank) {
         const hr = m.history.periodReturn, dd = m.history.maxDd;
         const hrDir = hr >= 0 ? 'up' : 'down';
         const spark = sparklineSvg(m.history.sparkSamples, 100, 18);
-        return `<div class="pick-fc pick-fc-history" title="${m.historyYears}-year historical performance — return + worst peak-to-trough drawdown">
+        return `<div class="pick-fc pick-fc-history" title="${tip('periodReturn')}\n\n— Max Drawdown —\n${tip('maxDd')}" style="cursor:help">
           <div class="pick-fc-h">← ${m.historyYears}-Year History</div>
           <div class="pick-fc-pct ${hrDir}">${hr >= 0 ? '+' : ''}${hr.toFixed(1)}%</div>
           <div class="pick-fc-px">Max DD <span class="down">${dd.toFixed(1)}%</span></div>
@@ -12502,7 +12612,8 @@ function renderPickRow(m, rank) {
       })() : ''}
       ${m.forecasts.map(f => {
         const fdir = f.expReturn >= 0 ? 'up' : 'down';
-        return `<div class="pick-fc">
+        const tipKey = f.months === 12 ? 'forecast12' : f.months === 24 ? 'forecast24' : 'forecast36';
+        return `<div class="pick-fc" title="${tip(tipKey)}\n\n— Confidence —\n${tip('confidence')}" style="cursor:help">
           <div class="pick-fc-h">${f.months}-Month</div>
           <div class="pick-fc-pct ${fdir}">${f.expReturn >= 0 ? '+' : ''}${f.expReturn.toFixed(1)}%</div>
           <div class="pick-fc-px">→ $${fmt(f.expPrice)}</div>
@@ -12555,8 +12666,11 @@ function computeRankableMetrics(ticker, profileInput, historyYears) {
   const profile = getProfileFor(ticker, profileInput);
   const metrics = (_data[ticker] && _data[ticker].metrics) || demoMetrics(ticker, bars);
   const verdict = computeVerdict(bars);
-  const forecast = buildForecast(bars, verdict);
-  const f12 = forecast.find(f => f.months === 12) || forecast[1];
+  // Compute all three forecast horizons so the tile can show 12/24/36M
+  const forecasts = buildForecast(bars, verdict, [12, 24, 36]);
+  const f12 = forecasts.find(f => f.months === 12) || forecasts[0];
+  const f24 = forecasts.find(f => f.months === 24) || forecasts[1];
+  const f36 = forecasts.find(f => f.months === 36) || forecasts[2];
   const closes = bars.map(b => b.close);
   const n = closes.length - 1;
   const last = closes[n];
@@ -12569,7 +12683,11 @@ function computeRankableMetrics(ticker, profileInput, historyYears) {
   const meanR = rets.reduce((s, r) => s + r, 0) / rets.length;
   const varR = rets.reduce((s, r) => s + (r - meanR) ** 2, 0) / rets.length;
   const annVol = Math.sqrt(varR) * Math.sqrt(52) * 100;
-  const history = computeRiskMetrics(bars, historyYears);
+  // Compute history for all three periods so the tile can show 1Y/3Y/5Y inline
+  const history1Y = computeRiskMetrics(bars, 1);
+  const history3Y = computeRiskMetrics(bars, 3);
+  const history5Y = computeRiskMetrics(bars, 5);
+  const history = historyYears === 1 ? history1Y : historyYears === 5 ? history5Y : history3Y;
   return {
     ticker,
     name: profile.name || ticker,
@@ -12583,7 +12701,12 @@ function computeRankableMetrics(ticker, profileInput, historyYears) {
     forecast12: f12 ? f12.expReturn : 0,
     forecastConf: f12 ? f12.confidence : 0,
     forecastPrice: f12 ? f12.expPrice : last,
+    forecast24: f24 ? f24.expReturn : 0,
+    forecastConf24: f24 ? f24.confidence : 0,
+    forecast36: f36 ? f36.expReturn : 0,
+    forecastConf36: f36 ? f36.confidence : 0,
     history,
+    history1Y, history3Y, history5Y,
     historyYears,
   };
 }
@@ -12640,31 +12763,50 @@ function renderTilesFromCache() {
         <div class="tile-chg ${dir}">${m.wkChange >= 0 ? '+' : ''}${m.wkChange.toFixed(2)}% 1W</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:-4px;">
-        <span class="pos-neg-pill ${pn.cls}"><span class="pn-sym">${pn.sym}</span>${pn.label}</span>
+        <span class="pos-neg-pill ${pn.cls}" title="${tip('posNeg')}" style="cursor:help"><span class="pn-sym">${pn.sym}</span>${pn.label}</span>
       </div>
-      ${m.history ? (() => {
-        const hr = m.history.periodReturn, dd = m.history.maxDd;
-        const hrDir = hr >= 0 ? 'up' : 'down';
-        const spark = sparklineSvg(m.history.sparkSamples, 70, 18);
-        return `<div class="tile-history" title="${m.historyYears}-year period return + worst peak-to-trough drawdown">
-          <div class="tile-history-main">
-            <div class="tile-history-lbl">← ${m.historyYears}Y History</div>
-            <div class="tile-history-stats">
-              <span class="ret ${hrDir}">${hr >= 0 ? '+' : ''}${hr.toFixed(1)}%</span>
-              <span class="dd">DD ${dd.toFixed(1)}%</span>
-            </div>
+      ${(m.history1Y && m.history3Y && m.history5Y) ? (() => {
+        const cell = (lbl, ret, dd, active, tipText) => {
+          const d = ret >= 0 ? 'up' : 'down';
+          return `<div class="tile-multi-cell${active ? ' active-period' : ''}" title="${tipText}" style="cursor:help">
+            <div class="tm-lbl">${lbl}</div>
+            <div class="tm-val ${d}">${ret >= 0 ? '+' : ''}${ret.toFixed(1)}%</div>
+          </div>`;
+        };
+        const h1 = m.history1Y, h3 = m.history3Y, h5 = m.history5Y;
+        const activePeriod = m.historyYears || 3;
+        return `<div class="tile-multi">
+          <div class="tile-multi-label past" title="${tip('periodReturn')}\n\nMax Drawdown over each window:\n  1Y: ${h1.maxDd.toFixed(1)}%\n  3Y: ${h3.maxDd.toFixed(1)}%\n  5Y: ${h5.maxDd.toFixed(1)}%\n\n${tip('maxDd')}">← Past Performance (Total Return)</div>
+          <div class="tile-multi-row">
+            ${cell('1Y', h1.periodReturn, h1.maxDd, activePeriod === 1, '1-Year total return.\\n\\nMax Drawdown: ' + h1.maxDd.toFixed(1) + '%\\n\\n' + tip('periodReturn'))}
+            ${cell('3Y', h3.periodReturn, h3.maxDd, activePeriod === 3, '3-Year total return.\\n\\nMax Drawdown: ' + h3.maxDd.toFixed(1) + '%\\n\\n' + tip('periodReturn'))}
+            ${cell('5Y', h5.periodReturn, h5.maxDd, activePeriod === 5, '5-Year total return.\\n\\nMax Drawdown: ' + h5.maxDd.toFixed(1) + '%\\n\\n' + tip('periodReturn'))}
           </div>
-          <div class="tile-history-spark">${spark}</div>
+          <div class="tile-trend-row" title="Price trend over the selected window (filter at top of page)">
+            <span class="trend-lbl">Trend ${activePeriod}Y</span>
+            <span class="trend-sparkline">${sparklineSvg(m.history.sparkSamples, 120, 20)}</span>
+          </div>
         </div>`;
       })() : ''}
-      <div class="tile-forecast">
-        <div class="tile-fc-block">
-          <div class="tile-fc-lbl">1Y Forecast</div>
-          <div class="tile-fc-val ${fcdir}">${m.forecast12 >= 0 ? '+' : ''}${m.forecast12.toFixed(1)}%</div>
+      <div class="tile-multi">
+        <div class="tile-multi-label future" title="Multi-horizon forecast — directional estimate, not a price target.\n\n${tip('forecast12')}\n\n${tip('confidence')}">→ Forecast (Expected Return)</div>
+        <div class="tile-multi-row">
+          <div class="tile-multi-cell" title="${tip('forecast12')}\n\nConfidence: ${m.forecastConf}%\n\n${tip('confidence')}" style="cursor:help">
+            <div class="tm-lbl">12M</div>
+            <div class="tm-val ${m.forecast12 >= 0 ? 'up' : 'down'}">${m.forecast12 >= 0 ? '+' : ''}${m.forecast12.toFixed(1)}%</div>
+          </div>
+          <div class="tile-multi-cell" title="${tip('forecast24')}\n\nConfidence: ${m.forecastConf24}%" style="cursor:help">
+            <div class="tm-lbl">24M</div>
+            <div class="tm-val ${m.forecast24 >= 0 ? 'up' : 'down'}">${m.forecast24 >= 0 ? '+' : ''}${m.forecast24.toFixed(1)}%</div>
+          </div>
+          <div class="tile-multi-cell" title="${tip('forecast36')}\n\nConfidence: ${m.forecastConf36}%" style="cursor:help">
+            <div class="tm-lbl">36M</div>
+            <div class="tm-val ${m.forecast36 >= 0 ? 'up' : 'down'}">${m.forecast36 >= 0 ? '+' : ''}${m.forecast36.toFixed(1)}%</div>
+          </div>
         </div>
-        <div class="tile-fc-block right">
-          <div class="tile-fc-lbl">Confidence ${m.forecastConf}%</div>
-          <div class="tile-conf-bar"><div class="tile-conf-fill" style="width:${m.forecastConf}%"></div></div>
+        <div class="tile-trend-row" title="${tip('confidence')}">
+          <span class="trend-lbl">12M Conf ${m.forecastConf}%</span>
+          <div class="tile-conf-bar" style="flex:1;max-width:120px;"><div class="tile-conf-fill" style="width:${m.forecastConf}%"></div></div>
         </div>
       </div>
     </div>`;
@@ -12908,9 +13050,9 @@ function renderMain() {
           <div class="t-change ${dir}">${change >= 0 ? '+' : ''}${fmt(change)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)<span class="t-change-period" title="Change is week-over-week — our bar resolution is weekly">1W</span></div>
         </div>
       </div>
-      <div id="verdict-card" class="${verdictPolarity}" style="color:${meterColor}">
+      <div id="verdict-card" class="${verdictPolarity}" style="color:${meterColor}; cursor:help" title="${tip('verdict')}">
         <div id="verdict-label">${v.label}</div>
-        <div id="verdict-score">Score ${v.score >= 0 ? '+' : ''}${v.score} / 100</div>
+        <div id="verdict-score" title="${tip('score')}">Score ${v.score >= 0 ? '+' : ''}${v.score} / 100</div>
         <div id="verdict-meter">
           <div id="verdict-meter-fill" style="width:${meterWidth}%; ${v.score < 0 ? 'left:50%; transform:translateX(-100%); right:auto;' : 'left:50%;'}"></div>
         </div>
@@ -13039,12 +13181,12 @@ function renderMain() {
     </div>
 
     <div id="stats-strip">
-      <div class="stat"><div class="stat-lbl">RSI(14)</div><div class="stat-val ${v.lastRsi > 70 ? 'down' : v.lastRsi < 30 ? 'up' : ''}">${v.lastRsi.toFixed(1)}</div></div>
-      <div class="stat"><div class="stat-lbl">MA15</div><div class="stat-val">$${fmt(v.ma15)}</div></div>
-      <div class="stat"><div class="stat-lbl">MA40</div><div class="stat-val">$${fmt(v.ma40)}</div></div>
-      <div class="stat"><div class="stat-lbl">MA100</div><div class="stat-val">$${fmt(v.ma100)}</div></div>
-      <div class="stat"><div class="stat-lbl">52W High</div><div class="stat-val">$${fmt(w52hi)}</div></div>
-      <div class="stat"><div class="stat-lbl">52W Low</div><div class="stat-val">$${fmt(w52lo)}</div></div>
+      <div class="stat" title="${tip('rsi')}" style="cursor:help"><div class="stat-lbl">RSI(14)</div><div class="stat-val ${v.lastRsi > 70 ? 'down' : v.lastRsi < 30 ? 'up' : ''}">${v.lastRsi.toFixed(1)}</div></div>
+      <div class="stat" title="${tip('ma15')}" style="cursor:help"><div class="stat-lbl">MA15</div><div class="stat-val">$${fmt(v.ma15)}</div></div>
+      <div class="stat" title="${tip('ma40')}" style="cursor:help"><div class="stat-lbl">MA40</div><div class="stat-val">$${fmt(v.ma40)}</div></div>
+      <div class="stat" title="${tip('ma100')}" style="cursor:help"><div class="stat-lbl">MA100</div><div class="stat-val">$${fmt(v.ma100)}</div></div>
+      <div class="stat" title="${tip('hi52')}" style="cursor:help"><div class="stat-lbl">52W High</div><div class="stat-val">$${fmt(w52hi)}</div></div>
+      <div class="stat" title="${tip('lo52')}" style="cursor:help"><div class="stat-lbl">52W Low</div><div class="stat-val">$${fmt(w52lo)}</div></div>
     </div>
 
     <div class="chart-panel">
