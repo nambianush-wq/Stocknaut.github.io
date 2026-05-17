@@ -3581,10 +3581,48 @@ body { padding-bottom: 44px; }
   border-color: rgba(255,159,10,.4);
   color: var(--warn);
 }
+.timing-chip.timing-SELL {
+  /* Bearish but DISTINCT from AVOID — pinker red, signals "structural sell"
+     rather than "model bearish on every horizon". */
+  background: rgba(255,69,58,.10);
+  border-color: rgba(255,105,120,.55);
+  color: rgb(255,105,120);
+}
 .timing-chip.timing-AVOID {
   background: rgba(255,69,58,.14);
   border-color: rgba(255,69,58,.4);
   color: var(--bear);
+}
+
+/* 13F-holder badge — appears on every stock that's held by one or more of
+   the curated active managers. Same look across watchlist, sectors, picks,
+   and ticker dashboard. Gradient blue→violet to differentiate from timing
+   and verdict chips. */
+.ticker-13f-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  background: linear-gradient(135deg, rgba(0,113,227,.16), rgba(191,90,242,.16));
+  border: 1px solid rgba(0,113,227,.4);
+  color: var(--accent);
+  cursor: help;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ticker-13f-badge .ticker-13f-mark {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: rgb(191,90,242);
+  line-height: 1;
+}
+.ticker-13f-badge:hover {
+  border-color: rgb(191,90,242);
+  background: linear-gradient(135deg, rgba(0,113,227,.22), rgba(191,90,242,.22));
 }
 
 /* Full timing card on the Ticker dashboard — bigger, with rationale + window */
@@ -4326,6 +4364,7 @@ body { padding-bottom: 44px; }
       <div id="verdict-filter" class="verdict-filter"></div>
       <div id="type-filter" class="verdict-filter" style="margin-top:6px"></div>
       <div id="timing-filter" class="verdict-filter" style="margin-top:6px" title="Filter by buy-timing recommendation (Buy now / On dip / DCA / Wait / Avoid)"></div>
+      <div id="inst-filter" class="verdict-filter" style="margin-top:6px" title="Filter by 13F institutional ownership — how many top active managers hold this stock"></div>
     </div>
     <div id="watchlist"><div class="wl-item heat-hot  " data-ticker="AMAT" onclick="selectTicker(&#39;AMAT&#39;)" title="Heat score: +70">
       <div class="wl-heat" style="--heat-color: rgb(255, 150, 0)"></div>
@@ -5598,6 +5637,7 @@ body { padding-bottom: 44px; }
           <div class="picks-filter-lbl" style="margin-left:auto;text-transform:none;letter-spacing:.02em;font-weight:400;color:var(--dim);font-style:italic;">Historical performance over the selected window appears alongside the forecast cards.</div>
         </div>
         <div class="picks-filters" id="picks-timing-pills" style="margin-top:6px;"></div>
+        <div class="picks-filters" id="picks-inst-pills" style="margin-top:6px;"></div>
       </div>
       <div id="picks-list"><section class="sector-block" id="sec-technology">
     <div class="sector-block-head">
@@ -10944,6 +10984,38 @@ function setTypeFilter(mode) {
   updateTypeFilterPills();
   renderWatchlist($('search') ? $('search').value : '');
 }
+// 13F-institutional filter — composes with everything else. null = no filter;
+// else 'inst1' / 'inst2' / 'inst3' = held by ≥1 / ≥2 / ≥3 top active managers.
+let _watchlistInstFilter = null;
+function setInstFilter(mode) {
+  _watchlistInstFilter = (_watchlistInstFilter === mode) ? null : mode;
+  updateInstFilterPills();
+  renderWatchlist($('search') ? $('search').value : '');
+}
+function countByInstBucket() {
+  const c = { inst1: 0, inst2: 0, inst3: 0, total: 0 };
+  for (const t of WATCHLIST) {
+    const n = _13fHoldersFor(t).length;
+    if (n >= 1) c.inst1++;
+    if (n >= 2) c.inst2++;
+    if (n >= 3) c.inst3++;
+    c.total++;
+  }
+  return c;
+}
+function updateInstFilterPills() {
+  const host = document.getElementById('inst-filter');
+  if (!host) return;
+  const c = countByInstBucket();
+  const mode = _watchlistInstFilter;
+  host.innerHTML = `
+    <button class="vf-pill ${mode === null ? 'active' : ''}" onclick="setInstFilter(null)" title="Show all tickers regardless of 13F ownership">13F-Any <b>${c.total}</b></button>
+    <button class="vf-pill ${mode === 'inst1' ? 'active' : ''}" onclick="setInstFilter('inst1')" title="Show only stocks held by 1+ of the top active 13F managers">≥1 <b>${c.inst1}</b></button>
+    <button class="vf-pill ${mode === 'inst2' ? 'active' : ''}" onclick="setInstFilter('inst2')" title="Show only stocks held by 2+ top managers — shared conviction">≥2 <b>${c.inst2}</b></button>
+    <button class="vf-pill ${mode === 'inst3' ? 'active' : ''}" onclick="setInstFilter('inst3')" title="Show only stocks held by 3+ top managers — strong consensus">≥3 <b>${c.inst3}</b></button>
+  `;
+}
+
 // Buy-timing filter — also a separate dimension (composes with verdict + type).
 // Values mirror computeBuyTiming output: BUY_NOW / BUY_ON_DIP / DCA / WAIT / AVOID
 let _watchlistTimingFilter = null;
@@ -10964,7 +11036,7 @@ function _timingForWatchlistRow(ticker) {
   }
 }
 function countByTimingBucket() {
-  const c = { BUY_NOW: 0, BUY_ON_DIP: 0, DCA: 0, WAIT: 0, AVOID: 0, total: 0 };
+  const c = { BUY_NOW: 0, BUY_ON_DIP: 0, DCA: 0, WAIT: 0, SELL: 0, AVOID: 0, total: 0 };
   for (const t of WATCHLIST) {
     const a = _timingForWatchlistRow(t);
     if (!a) continue;
@@ -10985,7 +11057,8 @@ function updateTimingFilterPills() {
     ${pill('BUY_ON_DIP', 'Dip',  'Strong forecast but the stock is overbought / stretched — wait for 5–10% pullback')}
     ${pill('DCA',        'DCA',  'Positive forecast but high volatility — average in over 4–8 weeks')}
     ${pill('WAIT',       'Wait', 'Flat forecast / mixed signals — no clear trigger yet')}
-    ${pill('AVOID',      'Avoid','Negative forecast or Strong Sell — capital better deployed elsewhere')}
+    ${pill('SELL',       'Sell', 'Verdict SELL — trend bearish; if holding, consider trimming; do not enter on forecast alone')}
+    ${pill('AVOID',      'Avoid','Negative forecast OR Strong Sell verdict — capital better deployed elsewhere')}
   `;
 }
 function getStockTypeInfo(ticker) {
@@ -11662,8 +11735,20 @@ function computeBuyTiming(bars, verdict, forecasts) {
     action = 'AVOID';
     label  = 'Avoid';
     window = '—';
-    rationale = `Model expects ${exp12 >= 0 ? '+' : ''}${exp12.toFixed(1)}% over 12 months — capital is better deployed elsewhere. Re-evaluate when trend turns or forecast crosses zero.`;
-  } else if (exp12 < 1 && (verdict.label === 'SELL' || verdict.label === 'HOLD')) {
+    rationale = `Model expects ${exp12 >= 0 ? '+' : ''}${exp12.toFixed(1)}% over 12 months${verdict.label === 'STRONG SELL' ? ' AND verdict is STRONG SELL' : ''} — capital is better deployed elsewhere. Re-evaluate when trend turns or forecast crosses zero.`;
+  } else if (verdict.label === 'SELL') {
+    // SELL verdict short-circuit — even with a positive 12M forecast, the
+    // trend + momentum signals are bearish. The forecast might catch a
+    // mean-reversion bounce, but for most users the right play is don't
+    // enter / consider exiting if already holding. This is DELIBERATELY
+    // separate from AVOID so the user can distinguish "model is bearish
+    // structurally" (STRONG SELL → AVOID) from "trend bearish but forecast
+    // optimistic — risky entry" (SELL → SELL).
+    action = 'SELL';
+    label  = 'Sell signal';
+    window = 'Re-evaluate after the verdict turns';
+    rationale = `Verdict is SELL — trend + momentum signals are bearish. ${exp12 >= 5 ? `Forecast is +${exp12.toFixed(1)}% (model expects a mean-reversion bounce), but `: 'Forecast is ' + (exp12 >= 0 ? '+' : '') + exp12.toFixed(1) + '% and '}the structural setup is against a long. If holding, consider trimming or exiting; if not holding, do not enter on the forecast alone — wait for the verdict to turn neutral or better.`;
+  } else if (exp12 < 1 && verdict.label === 'HOLD') {
     action = 'WAIT';
     label  = 'Wait';
     window = 'Watch — no clear trigger';
@@ -11740,6 +11825,7 @@ const _TIMING_ICONS = {
   BUY_ON_DIP: '↘',
   DCA:        '≡',
   WAIT:       '◇',
+  SELL:       '▼',
   AVOID:      '✕',
 };
 // Render the timing as a chip. `compact=true` for the watchlist row (icon +
@@ -12859,6 +12945,7 @@ const _DEFAULT_SECTORS_FILTERS = {
   div:      'all',   // all | pays | hi_yield
   cross:    'all',   // all | cross2 | cross3  (top-20 in >=2 or >=3 goals)
   timing:   'all',   // all | BUY_NOW | BUY_ON_DIP | DCA | WAIT | AVOID
+  inst:     'all',   // all | inst1 | inst2 | inst3  (held by >=1/2/3 top 13F managers)
 };
 let _sectorsFilters = (function () {
   const stored = loadJsonResilient(LS_KEY_SECTORS_FILTERS, LS_KEY_SECTORS_FILTERS_BACKUP, null);
@@ -12941,8 +13028,13 @@ function _classifyTimingFromCache(m) {
   const score = isFinite(m.score) ? m.score : 0;
   const vol = isFinite(m.volatility) ? m.volatility : 0;
   const verdict = m.verdict || '';
+  // Verdict-first short-circuits: STRONG SELL → AVOID, SELL → SELL.
+  // Order matters — checking these BEFORE the forecast-positive branches
+  // ensures a SELL-verdict stock with a +15% forecast doesn't get labelled
+  // 'Buy now' (the user-reported bug 2026-05-17).
   if (f12 < -3 || verdict === 'STRONG SELL') return 'AVOID';
-  if (f12 < 1 && (verdict === 'HOLD' || verdict === 'SELL')) return 'WAIT';
+  if (verdict === 'SELL') return 'SELL';
+  if (f12 < 1 && verdict === 'HOLD') return 'WAIT';
   if (f12 >= 5 && vol > 50) return 'DCA';
   if (f12 >= 5 && score >= 70) return 'BUY_ON_DIP';  // very hot, likely extended
   if (f12 >= 5) return 'BUY_NOW';
@@ -12958,6 +13050,7 @@ function _timingShortLabel(action) {
     case 'BUY_ON_DIP': return 'On dip';
     case 'DCA':        return 'DCA';
     case 'WAIT':       return 'Wait';
+    case 'SELL':       return 'Sell';
     case 'AVOID':      return 'Avoid';
     default:           return '';
   }
@@ -12977,6 +13070,12 @@ function _applySectorsFilters(cache) {
     if (f.cross === 'cross2' && !(m.crossCount >= 2)) return false;
     if (f.cross === 'cross3' && !(m.crossCount >= 3)) return false;
     if (f.timing !== 'all' && _classifyTimingFromCache(m) !== f.timing) return false;
+    if (f.inst !== 'all') {
+      const n = _13fHoldersFor(m.ticker).length;
+      if (f.inst === 'inst1' && n < 1) return false;
+      if (f.inst === 'inst2' && n < 2) return false;
+      if (f.inst === 'inst3' && n < 3) return false;
+    }
     return true;
   });
 }
@@ -13068,7 +13167,14 @@ function renderSectorsFilterPills() {
       { v:'BUY_ON_DIP', l:'Buy on dip', t:'Strong forecast but the stock is overbought / stretched above MA40 — wait for a 5–10% pullback' },
       { v:'DCA',        l:'DCA',        t:'Positive forecast but high volatility — dollar-cost-average over 4–8 weeks rather than lump-sum' },
       { v:'WAIT',       l:'Wait',       t:'Flat forecast with mixed signals — no clear entry trigger yet, watch for a break' },
-      { v:'AVOID',      l:'Avoid',      t:'Negative 12M forecast or Strong Sell verdict — capital better deployed elsewhere' },
+      { v:'SELL',       l:'Sell',       t:'Verdict is SELL — trend + momentum bearish. Distinct from Avoid: model may forecast a bounce, but trend is against a long entry. If holding, consider trimming.' },
+      { v:'AVOID',      l:'Avoid',      t:'Negative 12M forecast OR Strong Sell verdict — capital better deployed elsewhere' },
+    ])}
+    ${row('Institutional (13F)', 'inst', [
+      { v:'all',   l:'Any',                                                                                  t:'No institutional-ownership filter' },
+      { v:'inst1', l:'Held by ≥ 1 manager',                                                                  t:'Stocks held by at least 1 of the top active 13F managers — institutional interest present' },
+      { v:'inst2', l:'Held by ≥ 2 managers',                                                                  t:'Stocks held by 2+ top managers — shared conviction' },
+      { v:'inst3', l:'Consensus (held by ≥ 3 managers)',                                                     t:'Stocks held by 3 or more top managers — strong institutional consensus' },
     ])}
     <div class="sec-filter-row sec-filter-foot">
       <span class="sec-filter-lbl">${activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? '' : 's'} active` : 'No filters active'}</span>
@@ -14784,6 +14890,39 @@ const _TOP_13F_INVESTORS = [
   },
 ];
 
+// Reverse-index — for each ticker, which of the top 13F managers hold it
+// and at what weight. Computed ONCE at script init since _TOP_13F_INVESTORS
+// is a static constant; used by render13FBadge() to surface a "held by N
+// active managers" indicator across every page that shows a stock.
+const _13F_TICKER_HOLDERS = (function () {
+  const idx = {};
+  for (const inv of _TOP_13F_INVESTORS) {
+    for (const h of inv.holdings) {
+      if (!idx[h.ticker]) idx[h.ticker] = [];
+      idx[h.ticker].push({ name: inv.name, firm: inv.firm, key: inv.key, pct: h.pct, note: h.note });
+    }
+  }
+  // Sort each ticker's holders by position size descending (biggest conviction first)
+  for (const t of Object.keys(idx)) idx[t].sort((a, b) => b.pct - a.pct);
+  return idx;
+})();
+const _13F_TOTAL_MANAGERS = _TOP_13F_INVESTORS.length;
+function _13fHoldersFor(ticker) { return _13F_TICKER_HOLDERS[ticker] || []; }
+
+// Compact "held by N managers" badge — same look across watchlist row,
+// sectors tile, top-picks row, ticker dashboard. Tooltip lists every
+// holder with their weight. Returns '' when no manager holds the ticker.
+function render13FBadge(ticker, compact) {
+  const holders = _13fHoldersFor(ticker);
+  if (holders.length === 0) return '';
+  const list = holders.map(h => `${h.name.split(' ').slice(-1)[0]} ${h.pct.toFixed(1)}%`).join(' · ');
+  const long = holders.map(h => `  ${h.name} (${h.firm}): ${h.pct.toFixed(1)}%${h.note ? ' — ' + h.note : ''}`).join('\n');
+  const tt = `Held by ${holders.length} of ${_13F_TOTAL_MANAGERS} top active 13F managers:\n${long}\n\n13F-HR public filings show institutional managers with $100M+ AUM. Stocks held by multiple top managers carry stronger institutional conviction.`;
+  // Compact form: just "⊕ 13F·N"; full form adds the rolled-up names
+  const labelInner = compact ? `13F·${holders.length}` : `13F · ${holders.length}/${_13F_TOTAL_MANAGERS} · ${list}`;
+  return `<span class="ticker-13f-badge" title="${tt.replace(/"/g,'&quot;')}"><span class="ticker-13f-mark">⊕</span>${labelInner}</span>`;
+}
+
 // ========================================================================
 // SEC EDGAR live freshness — for each investor with a CIK, fetch the
 // metadata of their most recent 13F-HR filing so we can:
@@ -14987,14 +15126,28 @@ function buildPortfolioFromInvestor(amount, investorIdx, historyYears) {
   const portfolioPeriodReturn = universe.reduce((s, h) => s + ((h.risk && h.risk.periodReturn) || 0) * h.pct, 0) / 100;
   const hhi = computeHHI(universe);
   // Synthesise a "strategy" descriptor so the rest of the renderer works.
+  // CRITICAL: renderWhatIfResults reads def.stockWeight / def.etfWeight /
+  // def.nStocks / def.etfTickers in the "Method & parameters" section.
+  // Earlier versions of this stub omitted those fields and the renderer
+  // crashed silently on `def.etfTickers.map(...)`, leaving the user with
+  // a "Could not clone portfolio" error message. Every field the renderer
+  // touches now has a real value computed from the realised holdings.
+  const stockHoldings = universe.filter(h => h.kind !== 'etf');
+  const etfHoldings   = universe.filter(h => h.kind === 'etf');
+  const stockWeight = (stockPct / 100) || 0;
+  const etfWeight   = (etfPct   / 100) || 0;
   const strategy = {
     label: `Clone · ${inv.name}`,
     summary: `Mirroring the long US-equity holdings of <b>${inv.name}</b> (${inv.firm}) per ${inv.asOf}. ${inv.rationale} <b>Source data:</b> SEC 13F-HR public filings — long positions only (no shorts/options/non-US). <b>Style:</b> ${inv.style}.`,
-    rankFormula: `13F-HR weights from ${inv.firm}, renormalised to 100%.`,
+    rankFormula: `13F-HR weights from ${inv.firm}, renormalised to 100%. No ranking applied — positions are the manager's own.`,
     minPct: 1, maxPct: 30,
+    nStocks: stockHoldings.length,
+    nEtfs:   etfHoldings.length,
+    stockWeight, etfWeight,
+    etfTickers: etfHoldings.map(h => h.ticker),
     riskLevel: 'Manager-defined',
     horizon: 'Match the manager (typically 1–5 years)',
-    inclusion: `Top ${inv.holdings.length} long equity positions from the most-recent 13F`,
+    inclusion: `Top ${inv.holdings.length} long equity positions from the most-recent 13F filing (${inv.asOf})`,
   };
   const builtPortfolio = {
     strategy,
@@ -15024,12 +15177,24 @@ function buildPortfolioFromInvestorClick(investorIdx) {
   }
   const historyYears = parseInt(($('wi-history') && $('wi-history').value) || '5', 10);
   $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg">Cloning ${_TOP_13F_INVESTORS[investorIdx].name}'s 13F long-equity holdings, grounding risk on last ${historyYears} year${historyYears===1?'':'s'} of weekly data…</div></div>`;
+  // Scroll the result panel into view immediately so the user knows their
+  // click registered — the strip is above the results panel and otherwise
+  // the "Cloning…" message and final output are below the fold.
+  const _r0 = document.getElementById('whatif-results');
+  if (_r0 && _r0.scrollIntoView) _r0.scrollIntoView({ behavior: 'smooth', block: 'start' });
   requestAnimationFrame(() => requestAnimationFrame(() => {
     try {
       const p = buildPortfolioFromInvestor(amount, investorIdx, historyYears);
       renderWhatIfResults(p);
+      // Re-scroll after render — the smooth scroll above may have completed
+      // before the final innerHTML landed, so the user might be looking at
+      // the wrong scroll position.
+      const r = document.getElementById('whatif-results');
+      if (r && r.scrollIntoView) r.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
-      $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg">Could not clone portfolio: ${e.message}</div></div>`;
+      $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg" style="color:var(--bear);">Could not clone portfolio: <b>${e.message}</b>. <br>Open DevTools → Console for the full stack. If this persists, try a different manager — some hold tickers not in the catalog and fall back to synthetic data.</div></div>`;
+      // Log to console too so the actual user can see it
+      console.error('[StockPulse] buildPortfolioFromInvestor failed:', e);
     }
   }));
 }
@@ -15722,7 +15887,29 @@ function _renderPicksTimingPills() {
     ${pill('BUY_ON_DIP', 'On dip',     'Show only picks that are stretched / overbought — wait for a pullback')}
     ${pill('DCA',        'DCA',        'Show only picks where high vol favours dollar-cost-averaging')}
     ${pill('WAIT',       'Wait',       'Show only picks with no clear entry trigger')}
+    ${pill('SELL',       'Sell',       'Show only picks with SELL verdict — bearish trend, distinct from Avoid')}
     ${pill('AVOID',      'Avoid',      'Show only picks the model flags as negative-expected')}
+  `;
+}
+// Top Picks 13F-ownership filter — same idea as the Watchlist one. null off,
+// 'inst1' / 'inst2' / 'inst3' = held by N+ top managers.
+let _picksInstFilter = null;
+function setPicksInstFilter(mode) {
+  _picksInstFilter = (_picksInstFilter === mode) ? null : mode;
+  _renderPicksInstPills();
+  renderPicksPage();
+}
+function _renderPicksInstPills() {
+  const host = document.getElementById('picks-inst-pills');
+  if (!host) return;
+  const mode = _picksInstFilter;
+  const pill = (key, label, full) => `<button class="picks-period-pill ${mode === key ? 'active' : ''}" onclick="setPicksInstFilter('${key}')" title="${full.replace(/"/g,'&quot;')}">${label}</button>`;
+  host.innerHTML = `
+    <span class="picks-period-lbl" style="margin-right:8px;">Institutional (13F)</span>
+    <button class="picks-period-pill ${mode === null ? 'active' : ''}" onclick="setPicksInstFilter(null)" title="Show all picks regardless of 13F ownership">Any</button>
+    ${pill('inst1', '≥1 mgr',     'Show only picks held by at least 1 of the top active 13F managers')}
+    ${pill('inst2', '≥2 mgrs',    'Show only picks held by 2 or more top managers — shared conviction')}
+    ${pill('inst3', 'Consensus ≥3', 'Show only picks held by 3 or more top managers — strong consensus')}
   `;
 }
 
@@ -15799,12 +15986,18 @@ function renderPicksLoading() {
 function renderPicksList() {
   const host = $('picks-list');
   if (!host) return;
-  // Re-render the timing-pill row so its active state stays in sync with state
+  // Re-render both filter rows so their active states stay in sync with state
   _renderPicksTimingPills();
+  _renderPicksInstPills();
   let all = STOCK_CATALOG.map(s => computeFullPickMetrics(s, _picksHistoryYears)).filter(Boolean);
   // Apply buy-timing filter (composable with everything below)
   if (_picksTimingFilter) {
     all = all.filter(m => m._timing === _picksTimingFilter);
+  }
+  // Apply 13F-ownership filter (composes with timing)
+  if (_picksInstFilter) {
+    const need = _picksInstFilter === 'inst3' ? 3 : _picksInstFilter === 'inst2' ? 2 : 1;
+    all = all.filter(m => _13fHoldersFor(m.ticker).length >= need);
   }
 
   // Group by industry
@@ -15937,6 +16130,7 @@ function renderPickRow(m, rank) {
         <span class="pick-verdict ${verdictClass}">${m.verdict}</span>
         <span class="pos-neg-pill ${pn.cls}"><span class="pn-sym">${pn.sym}</span>${pn.label}</span>
         ${m._timingFull ? renderTimingChip(m._timingFull, true) : ''}
+        ${render13FBadge(m.ticker, true)}
         ${rowActionsHtml(m.ticker)}
       </div>
       <div class="pick-stats">
@@ -16140,6 +16334,7 @@ function renderTilesFromCache() {
           const tt = `Buy timing: ${lbl}\n\nForecast 12M ${m.forecast12 >= 0 ? '+' : ''}${m.forecast12.toFixed(1)}% · verdict ${m.verdict} · volatility ${(m.volatility || 0).toFixed(0)}%.\n\nClick the tile to open the full analysis with detailed timing rationale + window.`;
           return `<span class="timing-chip timing-${action}" title="${tt.replace(/"/g,'&quot;')}"><span class="timing-icon">${icon}</span>${lbl}</span>`;
         })()}
+        ${render13FBadge(m.ticker, true)}
       </div>
       ${_renderTileCrossGoalBadge(m)}
       ${(m.history1Y && m.history3Y && m.history5Y) ? (() => {
@@ -16837,11 +17032,17 @@ function renderWatchlist(filter = '') {
   if (_watchlistTimingFilter) {
     subFiltered = subFiltered.filter(t => _timingForWatchlistRow(t) === _watchlistTimingFilter);
   }
+  // 13F-ownership filter: composable
+  if (_watchlistInstFilter) {
+    const need = _watchlistInstFilter === 'inst3' ? 3 : _watchlistInstFilter === 'inst2' ? 2 : 1;
+    subFiltered = subFiltered.filter(t => _13fHoldersFor(t).length >= need);
+  }
   const visible = subFiltered.filter(t => !f || t.toUpperCase().includes(f));
   // Keep filter pill counts fresh whenever the watchlist re-renders
   updateVerdictFilterPills();
   updateTypeFilterPills();
   updateTimingFilterPills();
+  updateInstFilterPills();
 
   host.innerHTML = visible.map(t => {
     const d = _data[t];
@@ -16887,6 +17088,7 @@ function renderWatchlist(filter = '') {
         <div class="wl-change ${direction}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</div>
         <div class="wl-verdict ${verdictClass}">${d.verdict.label}</div>
         ${timingChipHtml}
+        ${render13FBadge(t, true)}
         ${rowActionsHtml(t)}
       </div>
     </div>`;
@@ -16977,6 +17179,7 @@ function renderMain() {
           </div>
           ${(d.barsSource === 'hybrid' || d.barsSource === 'fallback') ? `<div class="data-warning ${d.barsSource === 'fallback' ? 'bad' : ''}" title="${(d.barsNote || '').replace(/"/g, '&quot;')}">${d.barsSource === 'hybrid' ? 'Hybrid data — live current price, synthetic history' : 'Synthetic data — live fetch failed'}</div>` : ''}
           <div id="cross-check-slot"></div>
+          ${render13FBadge(_selected, false)}
           <div class="verify-row">
             <span class="verify-lbl">Verify on</span>
             <a class="verify-link" href="https://finance.yahoo.com/quote/${encodeURIComponent(_selected)}" target="_blank" rel="noopener noreferrer">Yahoo Finance ↗</a>
@@ -17784,6 +17987,7 @@ async function init() {
   updateVerdictFilterPills();
   updateTypeFilterPills();
   updateTimingFilterPills();
+  updateInstFilterPills();
   _injectPageDisclaimers();
   renderWatchlist();
   _selected = WATCHLIST[0] || null;
