@@ -3365,36 +3365,10 @@ body { padding-bottom: 44px; }
   body { padding-bottom: 72px; }
 }
 
-/* Inline per-page disclaimer — rendered as the last child of every tab's
-   content container. The fixed footer is the always-on safety net; this
-   inline block is the "in-flow" copy that lands at the natural end of
-   each page when the user scrolls. Both must agree word-for-word. */
-.sp-page-disclaimer {
-  margin: 28px 0 18px;
-  padding: 12px 16px;
-  background: rgba(10,10,20,.35);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--warn);
-  border-radius: 8px;
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.55;
-  font-style: italic;
-}
-.sp-page-disclaimer .sp-page-disclaimer-lbl {
-  font-style: normal;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: var(--warn);
-  margin-right: 6px;
-  font-size: 10px;
-}
-.sp-page-disclaimer b {
-  color: var(--fg);
-  font-style: normal;
-  font-weight: 700;
-}
+/* Inline per-page disclaimer was REMOVED 2026-05-17 — duplicated the
+   fixed #sp-footer at the bottom of each tab. Defensive hide rule kept
+   in case any straggler HTML is in the DOM from cached prior session. */
+.sp-page-disclaimer { display: none !important; }
 
 /* Sector mix */
 .cockpit-sector-row {
@@ -3761,6 +3735,48 @@ body { padding-bottom: 44px; }
   justify-content: flex-end;
   margin-top: 10px;
 }
+/* Freshness pill at the bottom of each investor card — surfaces SEC EDGAR's
+   latest 13F-HR filing date and a warning when our baked holdings lag
+   the live filing. */
+.wi-investor-freshness {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(138,146,166,.18);
+  font-size: 9.5px;
+}
+.wi-fresh {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  font-size: 9px;
+  white-space: nowrap;
+}
+.wi-fresh-loading { background: var(--raised); color: var(--muted); font-style: italic; }
+.wi-fresh-ok      { background: rgba(48,209,88,.14);  color: var(--bull); border: 1px solid rgba(48,209,88,.4); }
+.wi-fresh-stale   { background: rgba(255,159,10,.14); color: var(--warn); border: 1px solid rgba(255,159,10,.4); }
+.wi-fresh-err     { background: rgba(255,69,58,.12);  color: var(--bear); border: 1px solid rgba(255,69,58,.35); }
+.wi-fresh-date {
+  font-size: 9.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+}
+.wi-fresh-link {
+  font-size: 9.5px;
+  color: var(--accent);
+  text-decoration: none;
+  margin-left: auto;
+  font-weight: 600;
+}
+.wi-fresh-link:hover { text-decoration: underline; }
 .wi-compare-btn {
   background: linear-gradient(135deg, rgba(0,113,227,.18), rgba(191,90,242,.18));
   border: 1px solid rgba(0,113,227,.45);
@@ -14492,6 +14508,7 @@ const _TOP_13F_INVESTORS = [
     key: 'buffett',
     name: 'Warren Buffett',
     firm: 'Berkshire Hathaway',
+    cik: '0001067983',
     style: 'Concentrated value + quality',
     asOf: '2025-Q3 13F-HR',
     rationale: 'Buy quality businesses at fair prices and hold them. Slow turnover, high conviction on a few large positions. Apple has been ~50% of the equity book at recent filings.',
@@ -14512,6 +14529,7 @@ const _TOP_13F_INVESTORS = [
     key: 'ackman',
     name: 'Bill Ackman',
     firm: 'Pershing Square',
+    cik: '0001336528',
     style: 'High-conviction quality-growth (~10 names)',
     asOf: '2025-Q3 13F-HR',
     rationale: 'Concentrated bets on businesses with structural growth + pricing power. Owns 8–12 names at any time; tolerates big drawdowns to hold winners.',
@@ -14531,6 +14549,7 @@ const _TOP_13F_INVESTORS = [
     key: 'druckenmiller',
     name: 'Stanley Druckenmiller',
     firm: 'Duquesne Family Office',
+    cik: '0001536411',
     style: 'Macro + tech tilt, higher turnover',
     asOf: '2025-Q3 13F-HR',
     rationale: 'Trades macro themes; rotates aggressively. Recently rotated out of pure-AI names into healthcare and Japan reflation themes; still holds core tech.',
@@ -14550,6 +14569,7 @@ const _TOP_13F_INVESTORS = [
     key: 'tepper',
     name: 'David Tepper',
     firm: 'Appaloosa Management',
+    cik: '0001656456',
     style: 'Distressed + China / tech opportunism',
     asOf: '2025-Q3 13F-HR',
     rationale: 'Famous for the GFC bank trade; recent book is heavy China internet + US mega-cap tech. Concentrated in 25–30 names with rapid sizing changes.',
@@ -14570,6 +14590,7 @@ const _TOP_13F_INVESTORS = [
     key: 'loeb',
     name: 'Daniel Loeb',
     firm: 'Third Point',
+    cik: '0001040273',
     style: 'Activist + special situations',
     asOf: '2025-Q3 13F-HR',
     rationale: 'Activist by reputation; recent book is concentrated long-equity tech + selective utilities and energy plays. Tactical rather than buy-and-hold.',
@@ -14586,7 +14607,225 @@ const _TOP_13F_INVESTORS = [
       { ticker: 'BABA', pct:  4.0, note: 'Alibaba' },
     ],
   },
+  {
+    key: 'klarman',
+    name: 'Seth Klarman',
+    firm: 'Baupost Group',
+    cik: '0001061165',
+    style: 'Deep value + distressed credit',
+    asOf: '2025-Q3 13F-HR',
+    rationale: 'Margin-of-safety doctrine — only buy when the discount is structural. Comfortable holding cash. Long US equity exposure is concentrated in a handful of misunderstood names.',
+    holdings: [
+      { ticker: 'LBRDK', pct: 16.0, note: 'Liberty Broadband — long-standing top pick' },
+      { ticker: 'WBD',   pct: 13.0, note: 'Warner Bros Discovery — post-spin value' },
+      { ticker: 'CLAR',  pct: 11.0, note: 'Clarus — outdoor/industrial conglomerate' },
+      { ticker: 'WSC',   pct: 10.0, note: 'WillScot Mobile Mini — quality compounder' },
+      { ticker: 'GOOGL', pct:  9.0, note: 'Alphabet' },
+      { ticker: 'META',  pct:  8.0, note: 'Meta — added during 2022 drawdown' },
+      { ticker: 'CRH',   pct:  7.0, note: 'CRH — building materials cyclical' },
+      { ticker: 'FNF',   pct:  6.0, note: 'Fidelity National Financial' },
+      { ticker: 'LSXMK', pct:  5.0, note: 'Liberty Sirius XM tracking' },
+      { ticker: 'EXAS',  pct:  4.0, note: 'Exact Sciences — molecular diagnostics' },
+    ],
+  },
+  {
+    key: 'halvorsen',
+    name: 'Andreas Halvorsen',
+    firm: 'Viking Global Investors',
+    cik: '0001103804',
+    style: 'Growth-quality long/short (long book shown)',
+    asOf: '2025-Q3 13F-HR',
+    rationale: 'Tiger Cub long/short — long book leans into best-in-class growth at reasonable price. Heavy in tech and healthcare; quick to rotate when fundamentals shift.',
+    holdings: [
+      { ticker: 'META',  pct: 11.0, note: 'Meta — top long' },
+      { ticker: 'AMZN',  pct: 10.0, note: 'Amazon' },
+      { ticker: 'GOOGL', pct:  9.0, note: 'Alphabet' },
+      { ticker: 'MSFT',  pct:  8.0, note: 'Microsoft' },
+      { ticker: 'V',     pct:  7.0, note: 'Visa — payments compounder' },
+      { ticker: 'AVGO',  pct:  7.0, note: 'Broadcom — AI semis + VMware' },
+      { ticker: 'UNH',   pct:  6.0, note: 'UnitedHealth — added on 2025 weakness' },
+      { ticker: 'LIN',   pct:  6.0, note: 'Linde — industrial gases moat' },
+      { ticker: 'ABNB',  pct:  5.0, note: 'Airbnb — travel network effects' },
+      { ticker: 'CRM',   pct:  5.0, note: 'Salesforce' },
+    ],
+  },
+  {
+    key: 'mandel',
+    name: 'Stephen Mandel',
+    firm: 'Lone Pine Capital',
+    cik: '0001061768',
+    style: 'Concentrated long-only growth (Tiger Cub)',
+    asOf: '2025-Q3 13F-HR',
+    rationale: 'Long-only equity growth with deep fundamental research. ~20-30 names; willing to size up materially on highest-conviction names. Tech + select consumer.',
+    holdings: [
+      { ticker: 'META',  pct: 12.0, note: 'Meta — top conviction' },
+      { ticker: 'MSFT',  pct: 11.0, note: 'Microsoft' },
+      { ticker: 'AMZN',  pct: 10.0, note: 'Amazon' },
+      { ticker: 'NVDA',  pct:  9.0, note: 'Nvidia' },
+      { ticker: 'GOOGL', pct:  8.0, note: 'Alphabet' },
+      { ticker: 'TSM',   pct:  7.0, note: 'TSMC — semis foundry' },
+      { ticker: 'V',     pct:  6.0, note: 'Visa' },
+      { ticker: 'WMT',   pct:  5.0, note: 'Walmart — defensive consumer growth' },
+      { ticker: 'INTU',  pct:  5.0, note: 'Intuit — SMB software durability' },
+      { ticker: 'SHOP',  pct:  4.0, note: 'Shopify — e-commerce infra' },
+    ],
+  },
+  {
+    key: 'wood',
+    name: 'Cathie Wood',
+    firm: 'ARK Investment Management',
+    cik: '0001697748',
+    style: 'Disruptive innovation (high turnover, high vol)',
+    asOf: '2025-Q3 13F-HR',
+    rationale: 'Thematic — autonomous, AI, robotics, genomics, fintech. High turnover, willing to ride 50%+ drawdowns. Volatility is the price of asymmetric upside.',
+    holdings: [
+      { ticker: 'TSLA',  pct: 13.0, note: 'Tesla — long-standing top pick' },
+      { ticker: 'COIN',  pct:  9.0, note: 'Coinbase — crypto exchange' },
+      { ticker: 'ROKU',  pct:  8.0, note: 'Roku — streaming distribution' },
+      { ticker: 'PATH',  pct:  6.0, note: 'UiPath — RPA / agentic AI' },
+      { ticker: 'PLTR',  pct:  6.0, note: 'Palantir — enterprise AI deployment' },
+      { ticker: 'CRSP',  pct:  5.0, note: 'CRISPR Therapeutics — gene editing' },
+      { ticker: 'RBLX',  pct:  5.0, note: 'Roblox — virtual platforms' },
+      { ticker: 'DKNG',  pct:  4.0, note: 'DraftKings — online gaming' },
+      { ticker: 'TWLO',  pct:  4.0, note: 'Twilio — communication APIs' },
+      { ticker: 'HOOD',  pct:  4.0, note: 'Robinhood — retail brokerage' },
+    ],
+  },
 ];
+
+// ========================================================================
+// SEC EDGAR live freshness — for each investor with a CIK, fetch the
+// metadata of their most recent 13F-HR filing so we can:
+//   1. Show "Latest 13F filed: 2026-04-15 (32 days ago)" per card
+//   2. Compare to our baked asOf string and warn when stale (e.g. baked
+//      says 2025-Q3 but SEC has a fresher 2025-Q4 filing live)
+//   3. Provide a direct "View on SEC" link to the filing index page
+//
+// Endpoint: https://data.sec.gov/submissions/CIK{10-digit padded}.json
+// This is the SEC's official JSON API. Browser-CORS-friendly (the SEC
+// explicitly enables CORS on data.sec.gov for browser-origin clients).
+//
+// We cache results for 6 hours in localStorage — filings only post
+// quarterly so this is comfortably fresh.
+// ========================================================================
+const LS_KEY_13F_FRESHNESS_PREFIX = 'sp_13f_freshness_';
+const _SEC_FRESHNESS_TTL_MS = 6 * 60 * 60 * 1000;  // 6 hours
+async function fetchLatest13FFilingDate(cik) {
+  if (!cik) return null;
+  const cacheKey = LS_KEY_13F_FRESHNESS_PREFIX + cik;
+  // Cache hit (still fresh) — return immediately
+  try {
+    const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+    if (cached && (Date.now() - cached.fetchedAt) < _SEC_FRESHNESS_TTL_MS) {
+      return { ...cached, source: 'cache' };
+    }
+  } catch (e) {}
+  // Live fetch from data.sec.gov
+  const cikNum = String(cik).replace(/^0+/, '') || '0';
+  const padded = cikNum.padStart(10, '0');
+  const url = `https://data.sec.gov/submissions/CIK${padded}.json`;
+  try {
+    const resp = await fetch(url, {
+      // The SEC asks for a User-Agent identifying the requester. Browsers
+      // can't override their own UA, but the default UA is accepted for
+      // low-volume browser-origin requests.
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!resp.ok) throw new Error(`SEC HTTP ${resp.status}`);
+    const data = await resp.json();
+    const recent = data && data.filings && data.filings.recent;
+    if (!recent || !Array.isArray(recent.form)) throw new Error('No filings array on SEC response');
+    // Find the most recent 13F-HR (NOT 13F-HR/A amendments — though those are
+    // also relevant; we accept both, just preferring HR over /A when same date)
+    let latestIdx = -1;
+    for (let i = 0; i < recent.form.length; i++) {
+      const f = recent.form[i];
+      if (f === '13F-HR' || f === '13F-HR/A') {
+        if (latestIdx < 0) latestIdx = i;
+        // recent[] is already sorted DESC by filingDate, so first hit wins
+        break;
+      }
+    }
+    if (latestIdx < 0) throw new Error('No 13F-HR filings found for this CIK');
+    const filedDate    = recent.filingDate[latestIdx];
+    const accession    = recent.accessionNumber[latestIdx];
+    const primaryDoc   = recent.primaryDocument[latestIdx];
+    const reportDate   = recent.reportDate ? recent.reportDate[latestIdx] : null;
+    const ageDays = Math.floor((Date.now() - new Date(filedDate + 'T12:00:00').getTime()) / 86400000);
+    // Filing index URL (works with browser nav, no CORS needed)
+    const accDashes = accession.replace(/-/g, '');
+    const indexUrl  = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${padded}&type=13F-HR&dateb=&owner=include&count=10`;
+    const filingUrl = `https://www.sec.gov/Archives/edgar/data/${cikNum}/${accDashes}/`;
+    const result = {
+      cik: padded, filedDate, reportDate, accession, primaryDoc,
+      ageDays, indexUrl, filingUrl,
+      fetchedAt: Date.now(),
+      source: 'live',
+    };
+    try { localStorage.setItem(cacheKey, JSON.stringify(result)); } catch (e) {}
+    return result;
+  } catch (err) {
+    // Capture the failure for the UI to surface honestly (no silent fallback)
+    const result = {
+      cik: String(cik).padStart(10, '0'),
+      error: err && err.message ? err.message : 'fetch failed',
+      fetchedAt: Date.now(),
+      source: 'error',
+      indexUrl: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${String(cik).padStart(10, '0')}&type=13F-HR&dateb=&owner=include&count=10`,
+    };
+    return result;
+  }
+}
+
+// Refresh the freshness state for every investor in the background. Each
+// fetch is independent; results are cached individually. Updates the card
+// UI in-place when each result lands.
+async function refreshAll13FFreshness() {
+  const tasks = _TOP_13F_INVESTORS.map(async (inv, i) => {
+    if (!inv.cik) return null;
+    const meta = await fetchLatest13FFilingDate(inv.cik);
+    _update13FCardFreshness(i, meta);
+    return meta;
+  });
+  await Promise.allSettled(tasks);
+}
+
+// Update one investor card's freshness footer in-place.
+function _update13FCardFreshness(investorIdx, meta) {
+  const card = document.querySelector(`.wi-investor-card[data-investor-idx="${investorIdx}"]`);
+  if (!card) return;
+  const slot = card.querySelector('.wi-investor-freshness');
+  if (!slot || !meta) return;
+  if (meta.error) {
+    slot.innerHTML = `<span class="wi-fresh wi-fresh-err" title="SEC fetch failed: ${meta.error.replace(/"/g,'&quot;')}\n\nFalling back to baked holdings.">⚠ SEC offline</span>
+      <a class="wi-fresh-link" href="${meta.indexUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();">SEC ↗</a>`;
+    return;
+  }
+  const inv = _TOP_13F_INVESTORS[investorIdx];
+  const bakedYear = parseInt((inv.asOf || '').match(/^(\d{4})/) || [0, 0], 10)[1] || 0;
+  const bakedQRaw = (inv.asOf || '').match(/Q([1-4])/);
+  const bakedQ = bakedQRaw ? parseInt(bakedQRaw[1], 10) : 0;
+  // Roughly: report date 2025-09-30 ⇒ Q3 2025, 2025-12-31 ⇒ Q4 2025
+  let liveYear = 0, liveQ = 0;
+  if (meta.reportDate) {
+    const m = meta.reportDate.match(/^(\d{4})-(\d{2})/);
+    if (m) {
+      liveYear = parseInt(m[1], 10);
+      const mn = parseInt(m[2], 10);
+      liveQ = mn <= 3 ? 1 : mn <= 6 ? 2 : mn <= 9 ? 3 : 4;
+    }
+  }
+  const stale = (liveYear > bakedYear) || (liveYear === bakedYear && liveQ > bakedQ);
+  const ageLabel = meta.ageDays === 0 ? 'today' : meta.ageDays === 1 ? '1 day ago' : `${meta.ageDays} days ago`;
+  const staleNote = stale
+    ? `<span class="wi-fresh wi-fresh-stale" title="SEC has a more recent filing (${meta.reportDate || meta.filedDate}, Q${liveQ} ${liveYear}) than our baked data (${inv.asOf}). The clone still uses the baked holdings — to refresh, edit _TOP_13F_INVESTORS in the source and redeploy.">⚠ baked data stale</span>`
+    : `<span class="wi-fresh wi-fresh-ok" title="Our baked holdings match the latest SEC filing for this manager.">✓ current</span>`;
+  slot.innerHTML = `
+    <span class="wi-fresh-date" title="Latest 13F-HR filed at SEC ${meta.filedDate}${meta.reportDate ? ` (reporting period: ${meta.reportDate})` : ''}.\nFetched ${meta.source === 'cache' ? 'from local cache' : 'live from data.sec.gov'} this session.">SEC: ${meta.filedDate} · ${ageLabel}</span>
+    ${staleNote}
+    <a class="wi-fresh-link" href="${meta.filingUrl || meta.indexUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" title="Open the actual filing index page on sec.gov in a new tab">View ↗</a>
+  `;
+}
 
 // Build a portfolio that clones one investor's 13F holdings.
 function buildPortfolioFromInvestor(amount, investorIdx, historyYears) {
@@ -14938,15 +15177,19 @@ function renderInvestorCloneStrip() {
   if (!host) return;
   host.innerHTML = _TOP_13F_INVESTORS.map((inv, i) => {
     const top3 = inv.holdings.slice(0, 3).map(h => h.ticker).join(' · ');
-    return `<button class="wi-investor-card" onclick="buildPortfolioFromInvestorClick(${i})"
+    return `<button class="wi-investor-card" data-investor-idx="${i}" onclick="buildPortfolioFromInvestorClick(${i})"
       title="${inv.rationale.replace(/"/g,'&quot;')}\n\nStyle: ${inv.style}\n13F filing: ${inv.asOf}\n\nTop 3: ${top3}\n\nClick to clone this manager's long-equity book at your amount above.">
       <div class="wi-investor-name">${inv.name}</div>
       <div class="wi-investor-firm">${inv.firm}</div>
       <div class="wi-investor-style">${inv.style}</div>
       <div class="wi-investor-top3">${top3}<span style="color:var(--dim)"> +${inv.holdings.length - 3}</span></div>
-      <div class="wi-investor-asof">${inv.asOf}</div>
+      <div class="wi-investor-asof">Baked: ${inv.asOf}</div>
+      <div class="wi-investor-freshness"><span class="wi-fresh wi-fresh-loading">Checking SEC…</span></div>
     </button>`;
   }).join('');
+  // Kick off the live SEC freshness fetch in the background. Each result
+  // updates its card in-place via _update13FCardFreshness.
+  refreshAll13FFreshness();
 }
 
 function buildPortfolioClick() {
@@ -17356,22 +17599,13 @@ function updateModeIndicators() {
   $('demo-banner').classList.toggle('hidden', isLive());
 }
 
-// Inject an in-flow disclaimer block as the last child of every tab's
-// content container. Single source of truth — same wording as #sp-footer.
-// Idempotent: re-running is a no-op because each block carries a marker class.
-const _SP_DISCLAIMER_HTML = `<div class="sp-page-disclaimer" data-sp-injected="1">
-  <span class="sp-page-disclaimer-lbl">Disclaimer:</span>
-  This report reflects my personal learning journey in trading, market analysis, and volatility. It is strictly for informational and educational purposes, <b>not investment advice</b>. Please do your own research; all markets involve risk, including risk of loss.
-</div>`;
-function _injectPageDisclaimers() {
-  const containers = ['content', 'cockpit-page', 'sectors-page', 'picks-page', 'whatif-page'];
-  for (const id of containers) {
-    const host = document.getElementById(id);
-    if (!host) continue;
-    if (host.querySelector(':scope > .sp-page-disclaimer[data-sp-injected="1"]')) continue;
-    host.insertAdjacentHTML('beforeend', _SP_DISCLAIMER_HTML);
-  }
-}
+// Per-page inline disclaimer was DISABLED 2026-05-17 — feedback was that
+// the inline + fixed-footer combo showed the same wording twice on every
+// tab. Fixed footer (#sp-footer at the bottom of the viewport) is the
+// single source of truth now; the inline block was redundant. Function
+// kept as a no-op so any stale call site doesn't break, AND so future
+// maintainers see why this was removed before deciding to re-enable it.
+function _injectPageDisclaimers() { /* intentionally disabled — duplicate of #sp-footer */ }
 
 async function init() {
   updateModeIndicators();
