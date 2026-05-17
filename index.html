@@ -4392,8 +4392,8 @@ body { padding-bottom: 44px; }
     StockPulse
   </div>
   <nav class="tab-nav" role="tablist" aria-label="Primary navigation">
-    <button class="tab" data-view="cockpit" role="tab" aria-selected="false" onclick="showView('cockpit')" title="Real-time dashboard for the entire watchlist">Cockpit</button>
-    <button class="tab active" data-view="watchlist" role="tab" aria-selected="true" onclick="showView('watchlist')">Watchlist</button>
+    <button class="tab active" data-view="cockpit" role="tab" aria-selected="true" onclick="showView('cockpit')" title="Real-time dashboard for the entire watchlist">Cockpit</button>
+    <button class="tab" data-view="watchlist" role="tab" aria-selected="false" onclick="showView('watchlist')">Watchlist</button>
     <button class="tab" data-view="sectors" role="tab" aria-selected="false" onclick="showView('sectors')">Sectors</button>
     <button class="tab" data-view="picks" role="tab" aria-selected="false" onclick="showView('picks')">Top Picks</button>
     <button class="tab" data-view="whatif" role="tab" aria-selected="false" onclick="showView('whatif')">What If</button>
@@ -11959,6 +11959,13 @@ function buildUpcomingEvents(ticker, profile, metrics) {
   const events = [];
   const now = new Date();
 
+  // Deterministic per-ticker hash. Used by the synthesized-earnings fallback AND
+  // by the ex-dividend date below. Hoisted to function scope so it stays defined
+  // even when the LIVE earnings branch fires (was previously declared inside the
+  // else branch — when LIVE data was available, the dividend-date line below
+  // threw "h is not defined" and broke every dividend-paying clone in LIVE mode).
+  let h = 0; for (const c of ticker) h = (h * 31 + c.charCodeAt(0)) | 0;
+
   // Earnings — prefers live Finnhub /calendar/earnings result; falls back to a
   // synthesized deterministic date when LIVE data isn't available, AND tags
   // the soWhat note with "(approximate)" so the user isn't misled.
@@ -11974,8 +11981,6 @@ function buildUpcomingEvents(ticker, profile, metrics) {
     if (typeof liveEarnings.epsEstimate === 'number' && isFinite(liveEarnings.epsEstimate)) parts.push(`EPS est. $${liveEarnings.epsEstimate.toFixed(2)}`);
     if (parts.length) earningsExtra = ' · ' + parts.join(' · ');
   } else {
-    // Synthesized fallback — deterministic-per-ticker hash, 20-90 days out
-    let h = 0; for (const c of ticker) h = (h * 31 + c.charCodeAt(0)) | 0;
     earningsDate = new Date(now.getTime() + (20 + (Math.abs(h) % 70)) * 86400000);
     earningsApprox = true;
   }
@@ -18264,14 +18269,22 @@ async function init() {
   renderWatchlist();
   _selected = WATCHLIST[0] || null;
   renderMain();
+  // Land on Cockpit by default. MUST happen BEFORE the await on refreshAll —
+  // refreshAll is a long sequential network walk in LIVE mode (seconds), and
+  // until showView runs the initial DOM keeps showing the Watchlist tab with
+  // "Loading <first-ticker>..." in the main pane. Calling showView here flips
+  // body.cockpit-mode + #content display:none + paints renderCockpit immediately
+  // so the first paint the user sees is the Cockpit, not a stale watchlist.
+  // The watchlist + ticker dashboard remain pre-rendered above so clicking
+  // the Watchlist tab later paints instantly with no flicker.
+  showView('cockpit');
   requestNotificationPermission();
   await refreshAll(true);
+  // After refreshAll fills _data with LIVE bundles, re-paint the cockpit so
+  // any LIVE-only metrics (real prices, real verdicts) replace the DEMO seed
+  // that renderCockpit() used on its first paint above.
+  if (_currentView === 'cockpit') renderCockpit();
   startRefreshTimer();
-  // Land on Cockpit by default — it's the highest-signal page when the user
-  // returns to the app (market mood / breadth / movers / alerts at a glance).
-  // The watchlist + ticker dashboard are still pre-rendered above so they
-  // paint instantly when the user clicks the Watchlist tab.
-  showView('cockpit');
   if (synced > 0) showToast({ title: `${synced} favorite${synced === 1 ? '' : 's'} synced to watchlist`, body: 'Starred stocks are now tracked.', type: 'bull' });
 }
 

@@ -100,4 +100,4 @@ Cross-cutting:
 - Verdict score scale (-100 to +100) is a composite — directional indicator only.
 - Daily snapshot tracking only fires when the What If tab is visited. If user skips What If for a week, history has gaps.
 - News sentiment is keyword-based (no LLM). Catches obvious patterns; misses subtle context.
-- Currently no unit tests — single-file app, manual UI verification required after every change.
+- Headless unit tests live in `tests/` and run via `node --test tests/investor_clone.test.js` (zero deps — Node's built-in test runner + a vm sandbox that loads the inline `<script>` from `index.html`). Pure-JS paths (builders, forecast/verdict math, event synthesis) are covered; layout, paint, real charts, and real network still need manual UI verification.
