@@ -3101,6 +3101,33 @@ body.cockpit-mode.cockpit-sidebar-collapsed #main { margin-left: 0; }
   font-size: 13px;
   line-height: 1;
 }
+
+/* Cockpit auto-refresh dropdown — sits inline with the refresh button */
+.cockpit-auto-select {
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.cockpit-auto-select:hover { border-color: var(--accent); color: var(--text); }
+.cockpit-auto-select:focus { outline: none; border-color: var(--accent); color: var(--text); }
+
+/* Last-refreshed label — small italic line under the cockpit-sub */
+.cockpit-last-refresh {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+}
+.cockpit-last-refresh b { font-style: normal; }
 .cockpit-header {
   display: flex;
   justify-content: space-between;
@@ -4503,6 +4530,7 @@ body { padding-bottom: 44px; }
         <div>
           <div class="cockpit-title">Market Cockpit</div>
           <div class="cockpit-sub" id="cockpit-sub">Real-time dashboard for your watchlist + favorites — market mood, breadth, top movers, sector heat, and the alerts you should act on this session. Updates every refresh.</div>
+          <div class="cockpit-last-refresh" id="cockpit-last-refresh" title="Wall-clock time the cockpit data was last refreshed. Auto-refresh setting controls how often a new refresh fires while you're on this tab.">Last refreshed —</div>
         </div>
         <div class="cockpit-meta">
           <span class="cockpit-live-dot" id="cockpit-live-dot" title="Pulsing green = live data; amber = demo data"></span>
@@ -4511,7 +4539,15 @@ body { padding-bottom: 44px; }
             <span class="cockpit-sidebar-icon" id="cockpit-sidebar-icon">⇤</span>
             <span id="cockpit-sidebar-label">Collapse sidebar</span>
           </button>
-          <button class="cockpit-refresh-btn" onclick="refreshAll(true); renderCockpit();" title="Re-fetch live prices for the watchlist and recompute every cockpit metric">↻ Refresh</button>
+          <select class="cockpit-auto-select" id="cockpit-auto-select" onchange="setCockpitAutoRefresh(this.value)" title="Auto-refresh the cockpit on a fixed interval. Re-fetches live prices + recomputes every metric. Skips when you're on a different tab so it doesn't burn API quota in the background.">
+            <option value="0">Auto-refresh: Off</option>
+            <option value="1">Auto-refresh: 1m</option>
+            <option value="5">Auto-refresh: 5m</option>
+            <option value="15">Auto-refresh: 15m</option>
+            <option value="30">Auto-refresh: 30m</option>
+            <option value="60">Auto-refresh: 1h</option>
+          </select>
+          <button class="cockpit-refresh-btn" onclick="(async()=>{ try { await refreshAll(true); } catch(e){} renderCockpit(); })()" title="Re-fetch live prices for the watchlist and recompute every cockpit metric — fires immediately, independent of the auto-refresh timer">↻ Refresh now</button>
         </div>
       </div>
       <div class="cockpit-hero-grid" id="cockpit-hero"></div>
@@ -10704,6 +10740,8 @@ const LS_KEY_SECTORS_FILTERS        = 'sp_sectors_filters';
 const LS_KEY_SECTORS_FILTERS_BACKUP = 'sp_sectors_filters_backup';
 // Cockpit-page sidebar collapse state.
 const LS_KEY_COCKPIT_SIDEBAR        = 'sp_cockpit_sidebar_collapsed';
+// Cockpit auto-refresh interval (minutes; 0 = off). Persisted per browser.
+const LS_KEY_COCKPIT_AUTO_MIN       = 'sp_cockpit_auto_min';
 // Primary → backup lookup, used by loadStringSet / persistSet. Defined here
 // (top of script) so initialisation code (`let FAVORITES = loadStringSet(...)`)
 // can reach it without hitting the temporal-dead-zone.
@@ -16890,7 +16928,10 @@ function renderCockpit() {
     dot.style.boxShadow  = live ? '0 0 8px var(--bull)' : '0 0 8px var(--warn)';
     meta.textContent = live ? `LIVE · ${WATCHLIST.length} tracked` : `DEMO · ${WATCHLIST.length} tracked`;
   }
+  _cockpitLastRefreshAt = Date.now();
   _applyCockpitSidebarState();
+  _syncCockpitAutoSelect();
+  _updateCockpitAutoLabel();
   const ov = _cockpitComputeOverview();
   _cockpitRenderHero(ov);
   _cockpitRenderIndices();
@@ -16928,6 +16969,55 @@ function toggleCockpitSidebar() {
   const next = !_isCockpitSidebarCollapsed();
   try { localStorage.setItem(LS_KEY_COCKPIT_SIDEBAR, String(next)); } catch (e) {}
   _applyCockpitSidebarState();
+}
+
+// Cockpit auto-refresh — periodic refreshAll + renderCockpit while the user
+// is on the cockpit tab. Timer pauses (skips) when the user is on a
+// different tab so we don't burn API calls in the background. Choice
+// persisted in localStorage.
+let _cockpitAutoTimer = null;
+let _cockpitLastRefreshAt = 0;
+function _cockpitAutoMin() {
+  try { return parseInt(localStorage.getItem(LS_KEY_COCKPIT_AUTO_MIN) || '0', 10) || 0; }
+  catch (e) { return 0; }
+}
+function setCockpitAutoRefresh(min) {
+  min = parseInt(min, 10) || 0;
+  try { localStorage.setItem(LS_KEY_COCKPIT_AUTO_MIN, String(min)); } catch (e) {}
+  if (_cockpitAutoTimer) { clearInterval(_cockpitAutoTimer); _cockpitAutoTimer = null; }
+  if (min > 0) {
+    _cockpitAutoTimer = setInterval(async () => {
+      // Skip if user is on a different tab — don't waste API quota
+      if (_currentView !== 'cockpit') return;
+      try { await refreshAll(false); } catch (e) { /* tolerate */ }
+      renderCockpit();
+    }, min * 60 * 1000);
+  }
+  _updateCockpitAutoLabel();
+}
+function _updateCockpitAutoLabel() {
+  const lbl = document.getElementById('cockpit-last-refresh');
+  if (!lbl) return;
+  const min = _cockpitAutoMin();
+  const tsLbl = _cockpitLastRefreshAt
+    ? `Last refreshed <b style="color:var(--text)">${new Date(_cockpitLastRefreshAt).toLocaleTimeString()}</b>`
+    : 'Last refreshed —';
+  const autoLbl = min > 0
+    ? ` · Auto-refresh <b style="color:var(--bull)">every ${min} minute${min === 1 ? '' : 's'}</b>`
+    : ` · Auto-refresh <span style="color:var(--muted)">off</span>`;
+  // Next refresh ETA when timer active
+  let nextEta = '';
+  if (min > 0 && _cockpitLastRefreshAt) {
+    const nextAt = _cockpitLastRefreshAt + min * 60 * 1000;
+    const t = new Date(nextAt);
+    nextEta = ` · next at <span style="color:var(--accent)">${t.toLocaleTimeString()}</span>`;
+  }
+  lbl.innerHTML = tsLbl + autoLbl + nextEta;
+}
+// Sync the dropdown to whatever's saved (called on cockpit show + init)
+function _syncCockpitAutoSelect() {
+  const sel = document.getElementById('cockpit-auto-select');
+  if (sel) sel.value = String(_cockpitAutoMin());
 }
 
 async function tileClick(ticker) {
@@ -17988,6 +18078,8 @@ async function init() {
   updateTypeFilterPills();
   updateTimingFilterPills();
   updateInstFilterPills();
+  // Restore the cockpit auto-refresh choice (no-op if user picked Off)
+  setCockpitAutoRefresh(_cockpitAutoMin());
   _injectPageDisclaimers();
   renderWatchlist();
   _selected = WATCHLIST[0] || null;
