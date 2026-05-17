@@ -9921,7 +9921,7 @@ body { padding-bottom: 44px; }
           </div>
           <div class="wi-investor-strip" id="wi-investor-strip"></div>
           <div class="wi-investor-actions">
-            <button class="btn wi-compare-btn" onclick="compareAllClonesClick()" title="Build all 5 manager clones and surface consensus picks, per-manager projected metrics, the overlap matrix, and each manager's idiosyncratic bets.">⊕ Compare all 5 managers</button>
+            <button class="btn wi-compare-btn" id="wi-compare-all-btn" onclick="compareAllClonesClick()" title="Build every manager clone and surface consensus picks, per-manager projected metrics, the overlap matrix, and each manager's idiosyncratic bets.">⊕ Compare all managers</button>
           </div>
         </div>
       </div>
@@ -14893,9 +14893,15 @@ function _update13FCardFreshness(investorIdx, meta) {
     return;
   }
   const inv = _TOP_13F_INVESTORS[investorIdx];
-  const bakedYear = parseInt((inv.asOf || '').match(/^(\d{4})/) || [0, 0], 10)[1] || 0;
-  const bakedQRaw = (inv.asOf || '').match(/Q([1-4])/);
-  const bakedQ = bakedQRaw ? parseInt(bakedQRaw[1], 10) : 0;
+  // Parse the baked asOf string like "2025-Q3 13F-HR" into year + quarter.
+  // Earlier version had `parseInt(match || [0,0], 10)[1]` which was a
+  // typo — parseInt(arr,10) parses the joined string to a NUMBER, and
+  // numbers don't have [1], so it always evaluated to 0 and every card
+  // flagged stale. Fixed below by destructuring the match result.
+  const bakedYearMatch = (inv.asOf || '').match(/^(\d{4})/);
+  const bakedYear = bakedYearMatch ? parseInt(bakedYearMatch[1], 10) : 0;
+  const bakedQRaw  = (inv.asOf || '').match(/Q([1-4])/);
+  const bakedQ     = bakedQRaw ? parseInt(bakedQRaw[1], 10) : 0;
   // Roughly: report date 2025-09-30 ⇒ Q3 2025, 2025-12-31 ⇒ Q4 2025
   let liveYear = 0, liveQ = 0;
   if (meta.reportDate) {
@@ -15122,6 +15128,7 @@ function renderCloneComparison(cmp) {
     · ${cmp.consensus.length} consensus pick${cmp.consensus.length === 1 ? '' : 's'} (held by 3+ managers)
   </div>`;
   // ---- Section 1: Consensus picks ----
+  const nTot = _TOP_13F_INVESTORS.length;
   const consensusRows = cmp.consensus.length === 0
     ? `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px;font-style:italic;">No tickers are held by 3+ of these managers right now — each runs a distinctive book. Check the sharedPairs section below for 2-manager overlaps.</td></tr>`
     : cmp.consensus.map(r => {
@@ -15129,7 +15136,7 @@ function renderCloneComparison(cmp) {
         return `<tr>
           <td class="clone-cmp-tk">${r.ticker}</td>
           <td>${r.name}</td>
-          <td class="num"><b>${r.holders.length}</b> / 5</td>
+          <td class="num"><b>${r.holders.length}</b> / ${nTot}</td>
           <td class="num">${r.totalPct.toFixed(1)}%</td>
           <td class="num ${r.forecast12 >= 0 ? 'up' : 'down'}">${fmtPct(r.forecast12)}</td>
           <td>${holderChips}</td>
@@ -15191,7 +15198,7 @@ function renderCloneComparison(cmp) {
   }).join('');
   const matrix = `<div class="clone-cmp-section">
     <div class="clone-cmp-section-head">
-      <div class="clone-cmp-section-title">Overlap matrix — top 15 tickers × 5 managers</div>
+      <div class="clone-cmp-section-title">Overlap matrix — top 15 tickers × ${nTot} managers</div>
       <div class="clone-cmp-section-sub">Where each ticker lives across the 5 books. A filled cell shows that manager's position size; a dot means they don't hold it. Tickers stacked from most-overlapping (top) to least.</div>
     </div>
     <div class="clone-cmp-matrix-wrap">
@@ -15251,7 +15258,7 @@ function compareAllClonesClick() {
     return;
   }
   const historyYears = parseInt(($('wi-history') && $('wi-history').value) || '5', 10);
-  $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg">Building all 5 manager clones and computing overlap…</div></div>`;
+  $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg">Building all ${_TOP_13F_INVESTORS.length} manager clones and computing overlap…</div></div>`;
   requestAnimationFrame(() => requestAnimationFrame(() => {
     try {
       const cmp = computeCloneComparison(amount, historyYears);
@@ -15266,9 +15273,23 @@ function compareAllClonesClick() {
 function renderInvestorCloneStrip() {
   const host = document.getElementById('wi-investor-strip');
   if (!host) return;
+  // Keep the "Compare all managers" button label in sync with the actual
+  // count — manager list size can change (e.g. shipped 5, then expanded to 9).
+  const cmpBtn = document.getElementById('wi-compare-all-btn');
+  if (cmpBtn) {
+    const n = _TOP_13F_INVESTORS.length;
+    cmpBtn.innerHTML = `⊕ Compare all ${n} managers`;
+  }
+  // Card is a DIV not a <button> — the freshness slot below contains an <a>
+  // ("View ↗" to SEC) and nesting an anchor inside a button is invalid HTML
+  // (browsers hoist the anchor out and the button stops firing its click).
+  // Using a div + role="button" + keyboard handler keeps the card fully
+  // accessible while letting the inner SEC link work.
   host.innerHTML = _TOP_13F_INVESTORS.map((inv, i) => {
     const top3 = inv.holdings.slice(0, 3).map(h => h.ticker).join(' · ');
-    return `<button class="wi-investor-card" data-investor-idx="${i}" onclick="buildPortfolioFromInvestorClick(${i})"
+    return `<div class="wi-investor-card" data-investor-idx="${i}" role="button" tabindex="0"
+      onclick="buildPortfolioFromInvestorClick(${i})"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();buildPortfolioFromInvestorClick(${i});}"
       title="${inv.rationale.replace(/"/g,'&quot;')}\n\nStyle: ${inv.style}\n13F filing: ${inv.asOf}\n\nTop 3: ${top3}\n\nClick to clone this manager's long-equity book at your amount above.">
       <div class="wi-investor-name">${inv.name}</div>
       <div class="wi-investor-firm">${inv.firm}</div>
@@ -15276,7 +15297,7 @@ function renderInvestorCloneStrip() {
       <div class="wi-investor-top3">${top3}<span style="color:var(--dim)"> +${inv.holdings.length - 3}</span></div>
       <div class="wi-investor-asof">Baked: ${inv.asOf}</div>
       <div class="wi-investor-freshness"><span class="wi-fresh wi-fresh-loading">Checking SEC…</span></div>
-    </button>`;
+    </div>`;
   }).join('');
   // Kick off the live SEC freshness fetch in the background. Each result
   // updates its card in-place via _update13FCardFreshness.
