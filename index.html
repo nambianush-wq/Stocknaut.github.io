@@ -4569,14 +4569,14 @@ body { padding-bottom: 44px; }
         </div>
         <div class="cockpit-heatmap" id="cockpit-heatmap"></div>
       </div>
-      <div class="cockpit-section" id="cockpit-favorites-section">
+      <div class="cockpit-section" id="cockpit-watchlist-perf-section">
         <div class="cockpit-section-head">
           <div>
-            <div class="cockpit-section-title">Favorites performance</div>
-            <div class="cockpit-section-sub">Your starred stocks treated as an equal-weight basket — week, month, and forecast view · best and worst contributors highlighted</div>
+            <div class="cockpit-section-title">Watchlist performance</div>
+            <div class="cockpit-section-sub">Every stock in your watchlist as a full performance card — 1W price action sparkline + 1M change + 12M forecast + heat score · ranked by 1-week move · click any card to open the ticker dashboard · starred favorites carry the ★ marker</div>
           </div>
         </div>
-        <div class="cockpit-perf-grid" id="cockpit-favorites"></div>
+        <div class="cockpit-perf-grid" id="cockpit-watchlist-perf"></div>
       </div>
       <div class="cockpit-section" id="cockpit-sectors-section">
         <div class="cockpit-section-head">
@@ -16769,15 +16769,21 @@ function _cockpitRenderPerfCards(host, rows) {
   }).join('');
 }
 
-function _cockpitRenderFavorites(ov) {
-  const host = document.getElementById('cockpit-favorites');
+function _cockpitRenderWatchlistPerf(ov) {
+  // Renamed from _cockpitRenderFavorites — pre-2026-05-17 this rendered only
+  // starred favorites as an equal-weight basket. User feedback: the full
+  // watchlist is more useful here, since the Watchlist Heatmap above is
+  // glance-only (tile + 1W%) and the user wants the full perf-card view
+  // (sparkline + 1M + 12M-fcst + heat) for every tracked name, not just
+  // starred ones. Favorites are still highlighted with ★ inline.
+  const host = document.getElementById('cockpit-watchlist-perf');
   if (!host) return;
-  if (ov.empty || ov.favRows.length === 0) {
-    host.innerHTML = `<div class="cockpit-empty" style="grid-column:1/-1;">No favorites yet. Tap the ★ button next to any ticker (on Watchlist, Sectors, or Top Picks) to star it — favorites will show up here as an equal-weight performance basket.</div>`;
+  if (ov.empty) {
+    host.innerHTML = `<div class="cockpit-empty" style="grid-column:1/-1;">Your watchlist is empty. Add a ticker via <b>+ Add Stock</b> in the top bar and it will appear here as a full performance card.</div>`;
     return;
   }
-  const sorted = [...ov.favRows].sort((a, b) => b.wkChg - a.wkChg);
-  _cockpitRenderPerfCards(host, sorted.slice(0, 8));
+  const sorted = [...ov.rows].sort((a, b) => b.wkChg - a.wkChg);
+  _cockpitRenderPerfCards(host, sorted);
 }
 
 function _cockpitRenderSectors(ov) {
@@ -16939,7 +16945,7 @@ function renderCockpit() {
   // re-renders when each fetch settles. No-op in DEMO mode.
   _cockpitEnsureIndexData();
   _cockpitRenderHeatmap(ov);
-  _cockpitRenderFavorites(ov);
+  _cockpitRenderWatchlistPerf(ov);
   _cockpitRenderSectors(ov);
   _cockpitRenderMovers(ov);
   _cockpitRenderAlerts(ov);
