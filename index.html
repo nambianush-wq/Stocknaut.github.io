@@ -3756,6 +3756,188 @@ body { padding-bottom: 44px; }
   text-transform: uppercase;
   margin-top: 2px;
 }
+.wi-investor-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.wi-compare-btn {
+  background: linear-gradient(135deg, rgba(0,113,227,.18), rgba(191,90,242,.18));
+  border: 1px solid rgba(0,113,227,.45);
+  color: var(--text);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all .15s;
+  letter-spacing: .02em;
+}
+.wi-compare-btn:hover {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(0,113,227,.3), rgba(191,90,242,.3));
+  transform: translateY(-1px);
+}
+
+/* Compare-clones view — rendered into #whatif-results when the user clicks
+   "Compare all 5 managers". Multi-section: consensus picks, per-manager
+   metrics, overlap matrix, manager-specific bets. */
+.clone-cmp-root { padding: 4px 0 24px; }
+.clone-cmp-headline {
+  font-size: 13.5px;
+  color: var(--text);
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: rgba(0,113,227,.06);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+}
+.clone-cmp-headline b { color: var(--accent); font-weight: 700; }
+.clone-cmp-section {
+  margin-bottom: 22px;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.clone-cmp-section-head { margin-bottom: 10px; }
+.clone-cmp-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.clone-cmp-section-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.clone-cmp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 8px;
+}
+.clone-cmp-table thead th {
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 700;
+}
+.clone-cmp-table thead th.num { text-align: right; }
+.clone-cmp-table tbody td {
+  padding: 8px;
+  border-bottom: 1px solid rgba(138,146,166,.12);
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+.clone-cmp-table tbody td.num { text-align: right; }
+.clone-cmp-table tbody td.num.up   { color: var(--bull); font-weight: 600; }
+.clone-cmp-table tbody td.num.down { color: var(--bear); font-weight: 600; }
+.clone-cmp-tk {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.clone-cmp-firm {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.clone-cmp-style {
+  font-size: 11px;
+  color: var(--dim);
+  font-style: italic;
+  line-height: 1.4;
+}
+.clone-cmp-holder-chip {
+  display: inline-block;
+  padding: 2px 7px;
+  margin: 2px 4px 2px 0;
+  background: var(--raised);
+  border-radius: 10px;
+  font-size: 10.5px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.clone-cmp-holder-chip b { color: var(--accent); }
+
+.clone-cmp-matrix-wrap { overflow-x: auto; }
+.clone-cmp-matrix tbody td.matrix-off {
+  color: var(--dim);
+  text-align: center;
+}
+.clone-cmp-matrix tbody td.matrix-on {
+  background: rgba(0,113,227,.10);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.clone-cmp-unique-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+.clone-cmp-unique-block {
+  padding: 10px 12px;
+  background: var(--raised);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.clone-cmp-unique-head {
+  font-size: 12px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.clone-cmp-unique-count {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--accent);
+  background: rgba(0,113,227,.12);
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.clone-cmp-unique-chips { line-height: 2.1; }
+.clone-cmp-unique-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  margin: 2px 4px 2px 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.clone-cmp-unique-chip b { color: var(--accent); margin-left: 4px; }
+.clone-cmp-unique-empty {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  padding: 4px 0;
+}
+.clone-cmp-foot {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
 .cockpit-empty h2 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
 .bundle-details { margin-top: 4px; padding-top: 4px; }
 .bundle-details summary {
@@ -9720,6 +9902,9 @@ body { padding-bottom: 44px; }
             <span class="wi-investor-sub">Pick one — your $ amount above is used. Long US-equity book only; weights from most-recent SEC 13F filings.</span>
           </div>
           <div class="wi-investor-strip" id="wi-investor-strip"></div>
+          <div class="wi-investor-actions">
+            <button class="btn wi-compare-btn" onclick="compareAllClonesClick()" title="Build all 5 manager clones and surface consensus picks, per-manager projected metrics, the overlap matrix, and each manager's idiosyncratic bets.">⊕ Compare all 5 managers</button>
+          </div>
         </div>
       </div>
       <div id="saved-bundles-container"></div>
@@ -14509,6 +14694,240 @@ function buildPortfolioFromInvestorClick(investorIdx) {
       renderWhatIfResults(p);
     } catch (e) {
       $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg">Could not clone portfolio: ${e.message}</div></div>`;
+    }
+  }));
+}
+
+// Cross-manager comparison — builds all 5 clones and aggregates by ticker.
+// Used by the "Compare all 5" view to surface consensus picks (held by
+// multiple managers) and manager-specific bets.
+function computeCloneComparison(amount, historyYears) {
+  historyYears = historyYears || 5;
+  const portfolios = [];
+  for (let i = 0; i < _TOP_13F_INVESTORS.length; i++) {
+    try {
+      const p = buildPortfolioFromInvestor(amount, i, historyYears);
+      portfolios.push(p);
+    } catch (e) {
+      portfolios.push(null);
+    }
+  }
+  const validPortfolios = portfolios.filter(Boolean);
+  // ticker -> [{investorIdx, investorName, investorKey, pct}, ...]
+  const overlap = {};
+  for (let i = 0; i < portfolios.length; i++) {
+    const p = portfolios[i];
+    if (!p) continue;
+    for (const h of p.holdings) {
+      if (!overlap[h.ticker]) overlap[h.ticker] = { ticker: h.ticker, name: h.name, industry: h.industry, holders: [], totalPct: 0, last: h.last, forecast12: 0, score: h.score };
+      overlap[h.ticker].holders.push({
+        investorIdx: i,
+        investorKey: _TOP_13F_INVESTORS[i].key,
+        investorName: _TOP_13F_INVESTORS[i].name,
+        pct: h.pct,
+      });
+      overlap[h.ticker].totalPct += h.pct;
+      // Take the forecast/score from whichever entry has it (all should
+      // agree since they share the same underlying bars)
+      const f = (h.forecasts || []).find(x => x.months === 12);
+      if (f) overlap[h.ticker].forecast12 = f.expReturn;
+    }
+  }
+  const allRows = Object.values(overlap);
+  // Consensus: held by 3+ managers, sorted by # holders DESC then totalPct
+  const consensus = allRows
+    .filter(r => r.holders.length >= 3)
+    .sort((a, b) => b.holders.length - a.holders.length || b.totalPct - a.totalPct);
+  // Two-manager overlaps (still notable, but not consensus)
+  const sharedPairs = allRows
+    .filter(r => r.holders.length === 2)
+    .sort((a, b) => b.totalPct - a.totalPct);
+  // Per-manager unique bets (held by exactly 1 manager)
+  const byManagerUnique = _TOP_13F_INVESTORS.map((inv, i) => ({
+    investorIdx: i,
+    investorName: inv.name,
+    firm: inv.firm,
+    unique: allRows
+      .filter(r => r.holders.length === 1 && r.holders[0].investorIdx === i)
+      .sort((a, b) => b.holders[0].pct - a.holders[0].pct),
+  }));
+  // Per-manager headline metrics from each clone
+  const byManager = portfolios.map((p, i) => {
+    if (!p) return null;
+    return {
+      investorIdx: i,
+      investorName: _TOP_13F_INVESTORS[i].name,
+      firm: _TOP_13F_INVESTORS[i].firm,
+      style: _TOP_13F_INVESTORS[i].style,
+      asOf: _TOP_13F_INVESTORS[i].asOf,
+      expected12: p.stats.expected12,
+      expected24: p.stats.expected24,
+      vol: p.stats.portfolioVol,
+      sharpe: p.stats.portfolioSharpe,
+      beta: p.stats.portfolioBeta,
+      maxDd: p.stats.portfolioMaxDd,
+      hhi: p.stats.hhi,
+      hhiText: p.stats.hhiText,
+      nHoldings: p.holdings.length,
+      topHolding: p.holdings[0],
+    };
+  });
+  return {
+    amount, historyYears,
+    nManagers: validPortfolios.length,
+    nTickers: allRows.length,
+    consensus, sharedPairs, byManagerUnique, byManager,
+    allRows,
+  };
+}
+
+function renderCloneComparison(cmp) {
+  const host = document.getElementById('whatif-results');
+  if (!host) return;
+  const fmtPct = (x) => `${x >= 0 ? '+' : ''}${x.toFixed(1)}%`;
+  // ---- Headline strip ----
+  const headline = `<div class="clone-cmp-headline">
+    Comparing <b>${cmp.nManagers}</b> active 13F managers at <b>$${fmt(cmp.amount)}</b>
+    · ${cmp.nTickers} unique tickers across all books
+    · ${cmp.consensus.length} consensus pick${cmp.consensus.length === 1 ? '' : 's'} (held by 3+ managers)
+  </div>`;
+  // ---- Section 1: Consensus picks ----
+  const consensusRows = cmp.consensus.length === 0
+    ? `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:18px;font-style:italic;">No tickers are held by 3+ of these managers right now — each runs a distinctive book. Check the sharedPairs section below for 2-manager overlaps.</td></tr>`
+    : cmp.consensus.map(r => {
+        const holderChips = r.holders.map(h => `<span class="clone-cmp-holder-chip" title="${h.investorName} holds ${r.ticker} at ${h.pct.toFixed(1)}% of their book">${h.investorName.split(' ').slice(-1)[0]} <b>${h.pct.toFixed(1)}%</b></span>`).join(' ');
+        return `<tr>
+          <td class="clone-cmp-tk">${r.ticker}</td>
+          <td>${r.name}</td>
+          <td class="num"><b>${r.holders.length}</b> / 5</td>
+          <td class="num">${r.totalPct.toFixed(1)}%</td>
+          <td class="num ${r.forecast12 >= 0 ? 'up' : 'down'}">${fmtPct(r.forecast12)}</td>
+          <td>${holderChips}</td>
+        </tr>`;
+      }).join('');
+  const consensusTable = `<div class="clone-cmp-section">
+    <div class="clone-cmp-section-head">
+      <div class="clone-cmp-section-title">Consensus picks — held by 3+ managers</div>
+      <div class="clone-cmp-section-sub">When ≥3 of the most-respected stock-pickers in the market all hold the same name, that's a strong-conviction long. Sum of weights across their books tells you HOW concentrated the conviction is.</div>
+    </div>
+    <table class="clone-cmp-table">
+      <thead><tr><th>Ticker</th><th>Name</th><th class="num"># holders</th><th class="num">Combined %</th><th class="num">12M fcst</th><th>Held by</th></tr></thead>
+      <tbody>${consensusRows}</tbody>
+    </table>
+  </div>`;
+  // ---- Section 2: Per-manager metrics ----
+  const mgrRows = cmp.byManager.filter(Boolean).map(m => `
+    <tr>
+      <td><b>${m.investorName}</b><br><span class="clone-cmp-firm">${m.firm}</span></td>
+      <td class="clone-cmp-style">${m.style}</td>
+      <td class="num ${m.expected12 >= 0 ? 'up' : 'down'}">${fmtPct(m.expected12)}</td>
+      <td class="num ${m.expected24 >= 0 ? 'up' : 'down'}">${fmtPct(m.expected24)}</td>
+      <td class="num">${m.vol.toFixed(1)}%</td>
+      <td class="num">${m.sharpe.toFixed(2)}</td>
+      <td class="num">${m.beta.toFixed(2)}</td>
+      <td class="num ${m.maxDd <= -25 ? 'down' : ''}">${m.maxDd.toFixed(1)}%</td>
+      <td class="num">${m.hhiText}</td>
+      <td class="num">${m.nHoldings}</td>
+    </tr>
+  `).join('');
+  const mgrTable = `<div class="clone-cmp-section">
+    <div class="clone-cmp-section-head">
+      <div class="clone-cmp-section-title">Per-manager projected metrics</div>
+      <div class="clone-cmp-section-sub">Each clone evaluated through the same forecast + risk engine the rest of the app uses. Comparable apples-to-apples even though the managers' real returns are unobserved here.</div>
+    </div>
+    <table class="clone-cmp-table">
+      <thead><tr>
+        <th>Manager</th><th>Style</th>
+        <th class="num">12M fcst</th><th class="num">24M fcst</th>
+        <th class="num">Vol</th><th class="num">Sharpe</th><th class="num">Beta</th>
+        <th class="num">Max DD</th><th class="num">Concentration</th><th class="num">Holdings</th>
+      </tr></thead>
+      <tbody>${mgrRows}</tbody>
+    </table>
+  </div>`;
+  // ---- Section 3: Overlap matrix ----
+  // Show the top 15 tickers (by # holders + total weight) as rows, 5 managers as columns
+  const matrixRows = cmp.allRows
+    .slice()
+    .sort((a, b) => b.holders.length - a.holders.length || b.totalPct - a.totalPct)
+    .slice(0, 15);
+  const matrixHead = `<tr><th>Ticker</th>${_TOP_13F_INVESTORS.map(inv => `<th class="num">${inv.name.split(' ').slice(-1)[0]}</th>`).join('')}<th class="num">Total</th></tr>`;
+  const matrixBody = matrixRows.map(r => {
+    const cells = _TOP_13F_INVESTORS.map((inv, i) => {
+      const h = r.holders.find(x => x.investorIdx === i);
+      return h ? `<td class="num matrix-on" title="${inv.name} holds ${r.ticker} at ${h.pct.toFixed(1)}%">${h.pct.toFixed(1)}%</td>` : `<td class="num matrix-off">·</td>`;
+    }).join('');
+    return `<tr><td class="clone-cmp-tk">${r.ticker}</td>${cells}<td class="num"><b>${r.totalPct.toFixed(1)}%</b></td></tr>`;
+  }).join('');
+  const matrix = `<div class="clone-cmp-section">
+    <div class="clone-cmp-section-head">
+      <div class="clone-cmp-section-title">Overlap matrix — top 15 tickers × 5 managers</div>
+      <div class="clone-cmp-section-sub">Where each ticker lives across the 5 books. A filled cell shows that manager's position size; a dot means they don't hold it. Tickers stacked from most-overlapping (top) to least.</div>
+    </div>
+    <div class="clone-cmp-matrix-wrap">
+      <table class="clone-cmp-table clone-cmp-matrix">
+        <thead>${matrixHead}</thead>
+        <tbody>${matrixBody}</tbody>
+      </table>
+    </div>
+  </div>`;
+  // ---- Section 4: Unique bets per manager ----
+  const uniqueSections = cmp.byManagerUnique.map(u => {
+    if (u.unique.length === 0) {
+      return `<div class="clone-cmp-unique-block">
+        <div class="clone-cmp-unique-head"><b>${u.investorName}</b> <span class="clone-cmp-firm">${u.firm}</span></div>
+        <div class="clone-cmp-unique-empty">No unique bets — every position is shared with at least one other manager.</div>
+      </div>`;
+    }
+    const chips = u.unique.map(r => {
+      const h = r.holders[0];
+      return `<span class="clone-cmp-unique-chip" title="${r.name} · ${h.pct.toFixed(1)}% of ${u.investorName}'s book">${r.ticker} <b>${h.pct.toFixed(1)}%</b></span>`;
+    }).join(' ');
+    return `<div class="clone-cmp-unique-block">
+      <div class="clone-cmp-unique-head"><b>${u.investorName}</b> <span class="clone-cmp-firm">${u.firm}</span> <span class="clone-cmp-unique-count">${u.unique.length} unique</span></div>
+      <div class="clone-cmp-unique-chips">${chips}</div>
+    </div>`;
+  }).join('');
+  const uniqueWrap = `<div class="clone-cmp-section">
+    <div class="clone-cmp-section-head">
+      <div class="clone-cmp-section-title">Manager-specific bets</div>
+      <div class="clone-cmp-section-sub">Positions only this manager holds. These reveal each manager's idiosyncratic edge — where they're alone in their conviction.</div>
+    </div>
+    <div class="clone-cmp-unique-grid">${uniqueSections}</div>
+  </div>`;
+  // Final assembly
+  host.innerHTML = `
+    <div class="clone-cmp-root">
+      ${headline}
+      ${consensusTable}
+      ${mgrTable}
+      ${matrix}
+      ${uniqueWrap}
+      <div class="clone-cmp-foot">
+        ${_TOP_13F_INVESTORS.map((inv, i) => `<button class="btn wi-build-btn" onclick="buildPortfolioFromInvestorClick(${i})" style="font-size:11px;padding:6px 10px;">Clone ${inv.name.split(' ').slice(-1)[0]} only</button>`).join('')}
+      </div>
+    </div>`;
+}
+
+function compareAllClonesClick() {
+  const raw = ($('wi-amount').value || '').replace(/[$,\s]/g, '');
+  const amount = parseFloat(raw);
+  if (isNaN(amount) || amount <= 0) {
+    showToast({ title: 'Enter a valid amount', body: 'Use a number like 10000 or 25,000.', type: 'bear' });
+    return;
+  }
+  if (amount < 100) {
+    showToast({ title: 'Amount too small', body: 'Use at least $100.', type: 'bear' });
+    return;
+  }
+  const historyYears = parseInt(($('wi-history') && $('wi-history').value) || '5', 10);
+  $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg">Building all 5 manager clones and computing overlap…</div></div>`;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    try {
+      const cmp = computeCloneComparison(amount, historyYears);
+      renderCloneComparison(cmp);
+    } catch (e) {
+      $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg">Could not run comparison: ${e.message}</div></div>`;
     }
   }));
 }
