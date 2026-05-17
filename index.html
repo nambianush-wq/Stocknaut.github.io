@@ -14618,6 +14618,11 @@ function applyBundleMove(bundleId, moveIdx) {
     });
     if (b.history.length > 730) b.history = b.history.slice(-730);
     saveBundles();
+    // Close the corrections panel gracefully — the toast confirms what happened
+    // and the bundle card itself now reflects the new holdings + allocation. If
+    // the user wants to see what's left, the "Show corrections..." button is
+    // one click away on the re-rendered card.
+    _correctionsExpanded.delete(bundleId);
     renderSavedBundles();
     showToast({ title: `${move.op.kind.toUpperCase()} ${move.op.ticker} applied`, body: `"${b.name}" rebalanced. ${b.holdings.length} holdings now sum to 100%.`, type: 'bull' });
   } else {
@@ -14653,6 +14658,10 @@ function applyAllBundleMoves(bundleId) {
     });
     if (b.history.length > 730) b.history = b.history.slice(-730);
     saveBundles();
+    // Close the corrections panel — every suggested move was just consumed,
+    // there's nothing left to act on. The toast confirms the count + the bundle
+    // card re-renders below with the new holdings.
+    _correctionsExpanded.delete(bundleId);
     renderSavedBundles();
     showToast({ title: `${applied} correction${applied === 1 ? '' : 's'} applied`, body: `"${b.name}" rebalanced. ${b.holdings.length} holdings sum to 100%.`, type: 'bull' });
   } else {
