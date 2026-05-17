@@ -82,3 +82,29 @@ test('every goal-based portfolio builds + renders', () => {
   }
   assert.deepEqual(failures, [], 'expected every goal-based portfolio to succeed');
 });
+
+test('Build from Sim Set — LIVE earnings + dividend stock must not throw', () => {
+  // The user-visible bug was "Could not build portfolio: h is not defined" coming
+  // from the Build-from-Sim-Set button in LIVE mode. Same root cause as the
+  // investor-clone crash (buildUpcomingEvents had `h` declared inside the else-
+  // branch of the earnings if/else but used in the dividend block below). This
+  // test pins the Sim-Set path specifically so future edits don't regress it.
+  // SIM_SET in the app is a `let`-declared Set. Reassigning app.SIM_SET would
+  // only swap the global alias — the closure-captured reference inside
+  // buildPortfolioFromSimSet would still point at the original Set. Mutate
+  // the same Set object in place so both views agree.
+  app.SIM_SET.clear();
+  app.SIM_SET.add('AAPL'); app.SIM_SET.add('MSFT'); app.SIM_SET.add('JPM');
+  app.getEarningsDateCached = (tkr) => ({ date: '2026-08-20', hour: 'amc', epsEstimate: 1.5 });
+  const goals = ['growth', 'income', 'value', 'momentum', 'preservation'];
+  const failures = [];
+  for (const g of goals) {
+    try {
+      const p = app.buildPortfolioFromSimSet(10000, g, 12, 5);
+      app.renderWhatIfResults(p);
+    } catch (e) {
+      failures.push(`simset[${g}]: ${e.message}`);
+    }
+  }
+  assert.deepEqual(failures, [], 'expected every Sim-Set portfolio to render in LIVE mode');
+});

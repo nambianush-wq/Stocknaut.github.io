@@ -126,6 +126,8 @@ function loadApp() {
     'getEarningsDateCached', 'getBars', 'getMarketBars', 'getProfileFor',
     // Persistence
     'saveCurrentBundle', '_lastBuiltPortfolio', 'SAVED_BUNDLES',
+    // Sim Set
+    'SIM_SET',
   ];
   const exportTrailer = ';(' + exported.map(n =>
     `(typeof ${n} !== 'undefined') && (globalThis.${n} = ${n})`
