@@ -3319,6 +3319,47 @@ body.cockpit-mode.cockpit-sidebar-collapsed #main { margin-left: 0; }
 .cockpit-perf-stats .up { color: var(--bull); font-weight: 600; }
 .cockpit-perf-stats .down { color: var(--bear); font-weight: 600; }
 
+/* Disclaimer footer — pinned at the bottom of the viewport on every tab.
+   Always visible so the user is never reading verdicts/forecasts without
+   the educational-purposes notice in sight. Adds bottom padding to body
+   so content doesn't sit behind the footer. */
+#sp-footer {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 1000;
+  padding: 8px 18px;
+  background: rgba(10,10,20,.92);
+  backdrop-filter: saturate(180%) blur(10px);
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.5;
+  text-align: center;
+  font-style: italic;
+  letter-spacing: .01em;
+}
+#sp-footer .sp-footer-lbl {
+  font-style: normal;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--warn);
+  margin-right: 6px;
+  font-size: 9.5px;
+}
+#sp-footer b {
+  color: var(--fg);
+  font-style: normal;
+  font-weight: 700;
+}
+/* Bottom padding on the page so the last row of content can't be obscured
+   by the fixed footer. ~44px covers the two-line wrap on narrower screens. */
+body { padding-bottom: 44px; }
+@media (max-width: 720px) {
+  #sp-footer { font-size: 10px; padding: 6px 12px; text-align: left; }
+  body { padding-bottom: 72px; }
+}
+
 /* Sector mix */
 .cockpit-sector-row {
   display: grid;
@@ -9993,6 +10034,11 @@ body.cockpit-mode.cockpit-sidebar-collapsed #main { margin-left: 0; }
 </div>
 
 <div id="toast-host"></div>
+
+<footer id="sp-footer" role="contentinfo" aria-label="Disclaimer">
+  <span class="sp-footer-lbl">Disclaimer:</span>
+  This report reflects my personal learning journey in trading, market analysis, and volatility. It is strictly for informational and educational purposes, <b>not investment advice</b>. Please do your own research; all markets involve risk, including risk of loss.
+</footer>
 
 <script>
 'use strict';
