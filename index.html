@@ -3670,6 +3670,92 @@ body { padding-bottom: 44px; }
   color: var(--muted);
   letter-spacing: .03em;
 }
+
+/* Clone top investors strip — sits in the What-If controls panel.
+   5 cards, one per investor; click to build their 13F-long book. */
+.wi-investor-section {
+  margin: 14px 0 4px;
+  padding: 14px 16px 12px;
+  background: rgba(0,113,227,.05);
+  border: 1px solid rgba(0,113,227,.25);
+  border-radius: 10px;
+}
+.wi-investor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+.wi-investor-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.wi-investor-sub {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  flex: 1;
+  text-align: right;
+}
+.wi-investor-strip {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+@media (max-width: 1200px) { .wi-investor-strip { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 720px)  { .wi-investor-strip { grid-template-columns: repeat(2, 1fr); } }
+.wi-investor-card {
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all .15s;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.wi-investor-card:hover {
+  border-color: var(--accent);
+  background: rgba(0,113,227,.06);
+  transform: translateY(-2px);
+}
+.wi-investor-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+.wi-investor-firm {
+  font-size: 10.5px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.wi-investor-style {
+  font-size: 10.5px;
+  color: var(--dim);
+  font-style: italic;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+.wi-investor-top3 {
+  font-size: 10.5px;
+  color: var(--accent);
+  font-weight: 600;
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.wi-investor-asof {
+  font-size: 9.5px;
+  color: var(--dim);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
 .cockpit-empty h2 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
 .bundle-details { margin-top: 4px; padding-top: 4px; }
 .bundle-details summary {
@@ -9628,6 +9714,13 @@ body { padding-bottom: 44px; }
           <button class="btn btn-primary wi-build-btn" onclick="buildPortfolioClick()" title="Build using the catalog-wide top picks for the selected goal">Build Portfolio</button>
           <button class="btn wi-build-btn" id="wi-build-simset-btn" onclick="buildPortfolioFromSimSetClick()" title="Build using only the tickers in your Simulation Set" style="background:rgba(0,113,227,.15); border:1px solid rgba(0,113,227,.5); color:var(--accent);">Build from Sim Set</button>
         </div>
+        <div class="wi-investor-section">
+          <div class="wi-investor-head">
+            <span class="wi-investor-title">Or clone a top active 13F manager</span>
+            <span class="wi-investor-sub">Pick one — your $ amount above is used. Long US-equity book only; weights from most-recent SEC 13F filings.</span>
+          </div>
+          <div class="wi-investor-strip" id="wi-investor-strip"></div>
+        </div>
       </div>
       <div id="saved-bundles-container"></div>
       <div id="whatif-results">
@@ -13197,8 +13290,9 @@ function renderWhatIfPage() {
   $('whatif-results').innerHTML = `
     <div class="wi-empty">
       <div class="sectors-empty-glyph">$</div>
-      <div class="wi-empty-msg">Enter an investment amount and pick a goal above, then click <strong>Build Portfolio</strong> to see your optimized mix with every parameter shown.</div>
+      <div class="wi-empty-msg">Enter an investment amount and pick a goal above, then click <strong>Build Portfolio</strong> to see your optimized mix with every parameter shown — or clone a top 13F manager's long-equity book from the strip below.</div>
     </div>`;
+  renderInvestorCloneStrip();
   renderSavedBundles();
 }
 
@@ -14181,6 +14275,259 @@ function renderBundleHolding(h) {
     <div class="bundle-h-prices"><span class="lbl">Entry</span>$${fmt(h.entryPrice)} → <span class="lbl">Now</span>$${fmt(cur)}</div>
     <div class="bundle-h-pnl ${dir}">${gain >= 0 ? '+' : '−'}$${fmt(Math.abs(gain))}<span class="pct">(${gain >= 0 ? '+' : ''}${gainPct.toFixed(2)}%)</span></div>
   </div>`;
+}
+
+// ========================================================================
+// 13F-clone — mirror the top-5 holdings of well-known active managers.
+//
+// Sources: most-recent publicly-available 13F-HR filings from each firm
+// (as of the date stamped on each entry). 13F-HRs are SEC-mandated
+// quarterly disclosures from institutional managers with $100M+ AUM that
+// list long US equity holdings. They DO NOT include shorts, options, or
+// non-US positions, so the cloned portfolio is the long-equity slice of
+// each manager's book only.
+//
+// Weights below are approximate %-of-portfolio at the most recent filing
+// date. Update by editing this constant and re-deploying. The clone
+// renormalises to exactly 100% of the user's investment amount, so
+// missing-from-catalog tickers (which fall through to synthetic data
+// in DEMO) still get a proportionate dollar allocation.
+//
+// "Best active" is a judgement call — we picked 5 managers with strong
+// long-term track records and DIFFERENT styles so cloning each gives a
+// meaningfully different portfolio:
+//   - Buffett:       Concentrated value + quality. Slow turnover.
+//   - Ackman:        High-conviction quality-growth. ~10 names.
+//   - Druckenmiller: Macro + tech tilt. Higher turnover.
+//   - Tepper:        Distressed + China/tech opportunism.
+//   - Loeb:          Activist + special situations.
+// ========================================================================
+const _TOP_13F_INVESTORS = [
+  {
+    key: 'buffett',
+    name: 'Warren Buffett',
+    firm: 'Berkshire Hathaway',
+    style: 'Concentrated value + quality',
+    asOf: '2025-Q3 13F-HR',
+    rationale: 'Buy quality businesses at fair prices and hold them. Slow turnover, high conviction on a few large positions. Apple has been ~50% of the equity book at recent filings.',
+    holdings: [
+      { ticker: 'AAPL', pct: 25.0, note: 'Long-time top position; trimmed but still core' },
+      { ticker: 'BAC',  pct: 11.0, note: 'Bank of America — financial backbone' },
+      { ticker: 'AXP',  pct: 16.0, note: 'American Express — moat + payments network' },
+      { ticker: 'KO',   pct: 10.0, note: 'Coca-Cola — original quality compounder' },
+      { ticker: 'CVX',  pct:  6.0, note: 'Chevron — integrated energy exposure' },
+      { ticker: 'OXY',  pct:  5.0, note: 'Occidental Petroleum — strategic energy bet' },
+      { ticker: 'MCO',  pct:  4.0, note: "Moody's — rating-agency moat" },
+      { ticker: 'KHC',  pct:  3.0, note: 'Kraft Heinz — long-standing food holding' },
+      { ticker: 'CB',   pct:  3.0, note: 'Chubb — insurance' },
+      { ticker: 'SIRI', pct:  2.0, note: 'Sirius XM — recent accumulation' },
+    ],
+  },
+  {
+    key: 'ackman',
+    name: 'Bill Ackman',
+    firm: 'Pershing Square',
+    style: 'High-conviction quality-growth (~10 names)',
+    asOf: '2025-Q3 13F-HR',
+    rationale: 'Concentrated bets on businesses with structural growth + pricing power. Owns 8–12 names at any time; tolerates big drawdowns to hold winners.',
+    holdings: [
+      { ticker: 'CMG',  pct: 18.0, note: 'Chipotle — long-standing top pick' },
+      { ticker: 'BN',   pct: 16.0, note: 'Brookfield Corp — quality compounder' },
+      { ticker: 'HHH',  pct: 14.0, note: 'Howard Hughes — real-estate platform' },
+      { ticker: 'RBI',  pct: 12.0, note: 'Restaurant Brands — QSR franchising' },
+      { ticker: 'HLT',  pct: 11.0, note: 'Hilton — asset-light hotel franchise' },
+      { ticker: 'GOOGL',pct: 10.0, note: 'Alphabet — added in 2023' },
+      { ticker: 'NKE',  pct:  9.0, note: 'Nike — brand-led turnaround bet' },
+      { ticker: 'UBER', pct:  6.0, note: 'Uber — rideshare + delivery network effects' },
+      { ticker: 'CP',   pct:  4.0, note: 'Canadian Pacific Kansas City — rail' },
+    ],
+  },
+  {
+    key: 'druckenmiller',
+    name: 'Stanley Druckenmiller',
+    firm: 'Duquesne Family Office',
+    style: 'Macro + tech tilt, higher turnover',
+    asOf: '2025-Q3 13F-HR',
+    rationale: 'Trades macro themes; rotates aggressively. Recently rotated out of pure-AI names into healthcare and Japan reflation themes; still holds core tech.',
+    holdings: [
+      { ticker: 'NVDA', pct: 12.0, note: 'Nvidia — AI infrastructure leader (trimmed)' },
+      { ticker: 'MSFT', pct: 10.0, note: 'Microsoft — AI-Cloud lever' },
+      { ticker: 'COHR', pct:  8.0, note: 'Coherent — optical for datacentre AI' },
+      { ticker: 'KVUE', pct:  7.0, note: 'Kenvue — healthcare consumer spin-off' },
+      { ticker: 'NTRA', pct:  6.0, note: 'Natera — molecular diagnostics' },
+      { ticker: 'TEVA', pct:  6.0, note: 'Teva — generics turnaround' },
+      { ticker: 'AMZN', pct:  5.0, note: 'Amazon — retail + cloud' },
+      { ticker: 'CRM',  pct:  4.0, note: 'Salesforce — enterprise SaaS' },
+      { ticker: 'BAC',  pct:  4.0, note: 'Bank of America — rates beneficiary' },
+    ],
+  },
+  {
+    key: 'tepper',
+    name: 'David Tepper',
+    firm: 'Appaloosa Management',
+    style: 'Distressed + China / tech opportunism',
+    asOf: '2025-Q3 13F-HR',
+    rationale: 'Famous for the GFC bank trade; recent book is heavy China internet + US mega-cap tech. Concentrated in 25–30 names with rapid sizing changes.',
+    holdings: [
+      { ticker: 'BABA', pct: 13.0, note: 'Alibaba — top China internet bet' },
+      { ticker: 'AMZN', pct: 11.0, note: 'Amazon' },
+      { ticker: 'META', pct: 10.0, note: 'Meta — capital-return turnaround' },
+      { ticker: 'PDD',  pct:  9.0, note: 'PDD Holdings — Temu / Pinduoduo' },
+      { ticker: 'GOOG', pct:  9.0, note: 'Alphabet C-shares' },
+      { ticker: 'MSFT', pct:  8.0, note: 'Microsoft' },
+      { ticker: 'ORCL', pct:  7.0, note: 'Oracle — AI infra bet' },
+      { ticker: 'NVDA', pct:  6.0, note: 'Nvidia' },
+      { ticker: 'UBER', pct:  5.0, note: 'Uber' },
+      { ticker: 'KE',   pct:  4.0, note: 'KE Holdings — China property' },
+    ],
+  },
+  {
+    key: 'loeb',
+    name: 'Daniel Loeb',
+    firm: 'Third Point',
+    style: 'Activist + special situations',
+    asOf: '2025-Q3 13F-HR',
+    rationale: 'Activist by reputation; recent book is concentrated long-equity tech + selective utilities and energy plays. Tactical rather than buy-and-hold.',
+    holdings: [
+      { ticker: 'PCG',  pct: 11.0, note: 'PG&E — California utility turnaround' },
+      { ticker: 'META', pct: 10.0, note: 'Meta' },
+      { ticker: 'AMZN', pct:  9.0, note: 'Amazon' },
+      { ticker: 'GOOGL',pct:  8.0, note: 'Alphabet' },
+      { ticker: 'BAC',  pct:  7.0, note: 'Bank of America' },
+      { ticker: 'TSM',  pct:  7.0, note: 'TSMC — semis foundry leader' },
+      { ticker: 'ENB',  pct:  6.0, note: 'Enbridge — pipeline yield + GDP-linked growth' },
+      { ticker: 'JCI',  pct:  5.0, note: 'Johnson Controls — efficiency tailwind' },
+      { ticker: 'CRM',  pct:  4.0, note: 'Salesforce' },
+      { ticker: 'BABA', pct:  4.0, note: 'Alibaba' },
+    ],
+  },
+];
+
+// Build a portfolio that clones one investor's 13F holdings.
+function buildPortfolioFromInvestor(amount, investorIdx, historyYears) {
+  historyYears = historyYears || 5;
+  const inv = _TOP_13F_INVESTORS[investorIdx];
+  if (!inv) throw new Error('Unknown investor index ' + investorIdx);
+  const marketBars = getMarketBars();
+  // Renormalise published weights to exactly 100% (filings list more than
+  // we model, and we may drop some — proportionate scaling preserves rank).
+  const totalListedPct = inv.holdings.reduce((s, h) => s + h.pct, 0);
+  const normalised = inv.holdings.map(h => ({
+    ...h,
+    pct: (h.pct / totalListedPct) * 100,
+  }));
+  // Compute metrics per holding. Use the catalog entry when available;
+  // otherwise synthesise a minimal stub (industry "Other") and let
+  // computeWhatIfMetrics fall through to synthetic bars.
+  const universe = normalised.map(h => {
+    try {
+      const cat = (typeof STOCK_CATALOG !== 'undefined') ? STOCK_CATALOG.find(s => s.t === h.ticker) : null;
+      const s = cat || { t: h.ticker, n: h.ticker, i: 'Other' };
+      const m = computeWhatIfMetrics(s, historyYears, marketBars);
+      return { ...m, pct: h.pct, _13fNote: h.note, _13fSource: inv.firm, kind: m.isETF ? 'etf' : 'stock' };
+    } catch (e) {
+      return null;
+    }
+  }).filter(Boolean);
+  if (universe.length === 0) throw new Error('Could not compute metrics for any holding.');
+  // Re-renormalise after any drops
+  const totalAfterDrops = universe.reduce((s, h) => s + h.pct, 0);
+  for (const h of universe) {
+    h.pct = (h.pct / totalAfterDrops) * 100;
+    h.amount = (h.pct / 100) * amount;
+    h.shares = h.amount / h.last;
+  }
+  universe.sort((a, b) => b.pct - a.pct);
+  // Portfolio-level stats (mirror buildPortfolio shape)
+  const horizon = 12;
+  const weighted = (months) => universe.reduce((s, h) => {
+    const f = (h.forecasts || []).find(x => x.months === months);
+    return s + (f ? f.expReturn : 0) * h.pct;
+  }, 0) / 100;
+  const expected12 = weighted(12);
+  const expected24 = weighted(24);
+  const expected36 = weighted(36);
+  const avgConfidence = universe.reduce((s, h) => {
+    const f = (h.forecasts || []).find(x => x.months === horizon);
+    return s + (f ? f.confidence : 0) * h.pct;
+  }, 0) / 100;
+  const stockPct = universe.filter(h => h.kind === 'stock').reduce((s, h) => s + h.pct, 0);
+  const etfPct   = universe.filter(h => h.kind === 'etf').reduce((s, h) => s + h.pct, 0);
+  const sectorMixObj = {};
+  for (const h of universe) {
+    const sec = h.kind === 'etf' ? (h.industry || 'ETF') : (h.industry || 'Other');
+    sectorMixObj[sec] = (sectorMixObj[sec] || 0) + h.pct;
+  }
+  const sectorMix = Object.entries(sectorMixObj).sort((a, b) => b[1] - a[1]).map(([sec, pct]) => ({ sec, pct }));
+  const portfolioBeta   = universe.reduce((s, h) => s + (h.beta || 1) * h.pct, 0) / 100;
+  const portfolioMaxDd  = universe.reduce((s, h) => s + ((h.risk && h.risk.maxDd) || 0) * h.pct, 0) / 100;
+  const portfolioSharpe = universe.reduce((s, h) => s + ((h.risk && h.risk.sharpe) || 0) * h.pct, 0) / 100;
+  const portfolioVol    = universe.reduce((s, h) => s + (h.volatility || 0) * h.pct, 0) / 100;
+  const portfolioPeriodReturn = universe.reduce((s, h) => s + ((h.risk && h.risk.periodReturn) || 0) * h.pct, 0) / 100;
+  const hhi = computeHHI(universe);
+  // Synthesise a "strategy" descriptor so the rest of the renderer works.
+  const strategy = {
+    label: `Clone · ${inv.name}`,
+    summary: `Mirroring the long US-equity holdings of <b>${inv.name}</b> (${inv.firm}) per ${inv.asOf}. ${inv.rationale} <b>Source data:</b> SEC 13F-HR public filings — long positions only (no shorts/options/non-US). <b>Style:</b> ${inv.style}.`,
+    rankFormula: `13F-HR weights from ${inv.firm}, renormalised to 100%.`,
+    minPct: 1, maxPct: 30,
+    riskLevel: 'Manager-defined',
+    horizon: 'Match the manager (typically 1–5 years)',
+    inclusion: `Top ${inv.holdings.length} long equity positions from the most-recent 13F`,
+  };
+  const builtPortfolio = {
+    strategy,
+    goalKey: 'clone_' + inv.key,
+    investorIdx, investorName: inv.name, investorFirm: inv.firm, investorAsOf: inv.asOf,
+    amount, horizon, historyYears,
+    fromInvestor: true,
+    holdings: universe,
+    stats: { expected12, expected24, expected36, avgConfidence, stockPct, etfPct, nHoldings: universe.length, sectorMix,
+             portfolioBeta, portfolioMaxDd, portfolioSharpe, portfolioVol, portfolioPeriodReturn,
+             hhi, hhiText: hhiLabel(hhi) },
+  };
+  _lastBuiltPortfolio = builtPortfolio;
+  return builtPortfolio;
+}
+
+function buildPortfolioFromInvestorClick(investorIdx) {
+  const raw = ($('wi-amount').value || '').replace(/[$,\s]/g, '');
+  const amount = parseFloat(raw);
+  if (isNaN(amount) || amount <= 0) {
+    showToast({ title: 'Enter a valid amount', body: 'Use a number like 10000 or 25,000.', type: 'bear' });
+    return;
+  }
+  if (amount < 100) {
+    showToast({ title: 'Amount too small', body: 'Use at least $100.', type: 'bear' });
+    return;
+  }
+  const historyYears = parseInt(($('wi-history') && $('wi-history').value) || '5', 10);
+  $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg">Cloning ${_TOP_13F_INVESTORS[investorIdx].name}'s 13F long-equity holdings, grounding risk on last ${historyYears} year${historyYears===1?'':'s'} of weekly data…</div></div>`;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    try {
+      const p = buildPortfolioFromInvestor(amount, investorIdx, historyYears);
+      renderWhatIfResults(p);
+    } catch (e) {
+      $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg">Could not clone portfolio: ${e.message}</div></div>`;
+    }
+  }));
+}
+
+// Render the investor-clone strip inside the What-If controls panel.
+function renderInvestorCloneStrip() {
+  const host = document.getElementById('wi-investor-strip');
+  if (!host) return;
+  host.innerHTML = _TOP_13F_INVESTORS.map((inv, i) => {
+    const top3 = inv.holdings.slice(0, 3).map(h => h.ticker).join(' · ');
+    return `<button class="wi-investor-card" onclick="buildPortfolioFromInvestorClick(${i})"
+      title="${inv.rationale.replace(/"/g,'&quot;')}\n\nStyle: ${inv.style}\n13F filing: ${inv.asOf}\n\nTop 3: ${top3}\n\nClick to clone this manager's long-equity book at your amount above.">
+      <div class="wi-investor-name">${inv.name}</div>
+      <div class="wi-investor-firm">${inv.firm}</div>
+      <div class="wi-investor-style">${inv.style}</div>
+      <div class="wi-investor-top3">${top3}<span style="color:var(--dim)"> +${inv.holdings.length - 3}</span></div>
+      <div class="wi-investor-asof">${inv.asOf}</div>
+    </button>`;
+  }).join('');
 }
 
 function buildPortfolioClick() {
