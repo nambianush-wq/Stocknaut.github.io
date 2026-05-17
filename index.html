@@ -3608,6 +3608,14 @@ body { padding-bottom: 44px; }
   border-color: rgba(255,159,10,.4);
   color: var(--warn);
 }
+.timing-chip.timing-CONFLICT {
+  /* Verdict-vs-forecast disagreement — amber/orange, deliberately stands
+     out so the user sees "two models disagree, speculative" rather than
+     reading either side as actionable. */
+  background: rgba(255,159,10,.16);
+  border-color: rgba(255,159,10,.55);
+  color: var(--warn);
+}
 .timing-chip.timing-SELL {
   /* Bearish but DISTINCT from AVOID — pinker red, signals "structural sell"
      rather than "model bearish on every horizon". */
@@ -11074,7 +11082,7 @@ function _timingForWatchlistRow(ticker) {
   }
 }
 function countByTimingBucket() {
-  const c = { BUY_NOW: 0, BUY_ON_DIP: 0, DCA: 0, WAIT: 0, SELL: 0, AVOID: 0, total: 0 };
+  const c = { BUY_NOW: 0, BUY_ON_DIP: 0, DCA: 0, WAIT: 0, CONFLICT: 0, SELL: 0, AVOID: 0, total: 0 };
   for (const t of WATCHLIST) {
     const a = _timingForWatchlistRow(t);
     if (!a) continue;
@@ -11095,6 +11103,7 @@ function updateTimingFilterPills() {
     ${pill('BUY_ON_DIP', 'Dip',  'Strong forecast but the stock is overbought / stretched — wait for 5–10% pullback')}
     ${pill('DCA',        'DCA',  'Positive forecast but high volatility — average in over 4–8 weeks')}
     ${pill('WAIT',       'Wait', 'Flat forecast / mixed signals — no clear trigger yet')}
+    ${pill('CONFLICT',   'Cnflct', 'Verdict BUY-tier but forecast bearish — two engines disagree, speculative only')}
     ${pill('SELL',       'Sell', 'Verdict SELL — trend bearish; if holding, consider trimming; do not enter on forecast alone')}
     ${pill('AVOID',      'Avoid','Negative forecast OR Strong Sell verdict — capital better deployed elsewhere')}
   `;
@@ -11766,10 +11775,34 @@ function computeBuyTiming(bars, verdict, forecasts) {
   const snr = (f12 && f12._components) ? f12._components.snr : 0;
   const slopeAgree = !!(f12 && f12._components && f12._components.slopeAgree);
 
+  // Recent-momentum signals — used by the falling-knife rule below to
+  // distinguish "model expects bounce, but the stock is still in a clear
+  // downtrend" (BUY_ON_DIP) from "all signals lined up" (BUY_NOW).
+  const oneMonthIdx = Math.max(0, N - 5);
+  const monthChange = closes[oneMonthIdx]
+    ? ((last - closes[oneMonthIdx]) / closes[oneMonthIdx]) * 100
+    : 0;
+  const threeMonthIdx = Math.max(0, N - 13);
+  const threeMoChange = closes[threeMonthIdx]
+    ? ((last - closes[threeMonthIdx]) / closes[threeMonthIdx]) * 100
+    : 0;
+
   // ---------- Decision ----------
   let action, label, window, rationale;
 
-  if (exp12 < -3 || verdict.label === 'STRONG SELL') {
+  // CONFLICT — verdict bullish AND model bearish. Both signals are working
+  // off different inputs (verdict reads MA stack + RSI + momentum; forecast
+  // reads long-term log-return mean + 1Y/3Y slopes). When they disagree
+  // strongly, neither AVOID nor BUY is honest — flag the disagreement so
+  // the user knows the stock is technically attractive but the model
+  // expects mean-reversion downside (typical for stocks that bounced
+  // recently from a multi-year drawdown like BABA 2025-Q3).
+  if ((verdict.label === 'STRONG BUY' || verdict.label === 'BUY') && exp12 < -3) {
+    action = 'CONFLICT';
+    label  = 'Conflicting signals';
+    window = 'Speculative — wait for forecast to confirm';
+    rationale = `Verdict is ${verdict.label} (technical setup bullish — heat ${verdict.score >= 0 ? '+' : ''}${verdict.score}, RSI ${rsi.toFixed(0)}, recent momentum ${monthChange >= 0 ? '+' : ''}${monthChange.toFixed(1)}% 1M) BUT model forecasts <b>${exp12.toFixed(1)}% over 12 months</b>. The two engines disagree — recent technicals say "buy", long-term regression (heavy mean-reversion penalty from past drawdown) says "lose money". Speculative entry only — size small if at all, and watch for the forecast to turn positive before sizing up.`;
+  } else if (exp12 < -3 || verdict.label === 'STRONG SELL') {
     action = 'AVOID';
     label  = 'Avoid';
     window = '—';
@@ -11791,6 +11824,18 @@ function computeBuyTiming(bars, verdict, forecasts) {
     label  = 'Wait';
     window = 'Watch — no clear trigger';
     rationale = `Forecast is flat (${exp12 >= 0 ? '+' : ''}${exp12.toFixed(1)}%) and the signal is neutral. Wait for a break above MA40 ($${fmt(ma40)}) or a forecast > +5% before committing.`;
+  } else if (verdict.label === 'HOLD' && (monthChange < -8 || threeMoChange < -10)) {
+    // Falling-knife rule — even with a positive forecast, a HOLD-verdict
+    // stock that's lost significant ground recently shouldn't get a "Buy
+    // now" stamp. The model expects mean-reversion bounce, but the trend
+    // hasn't confirmed and entering early often catches more downside.
+    // EBAY (2026-05-17): 1M -13.4%, 3M -13.9%, forecast +7.4% → BUY_NOW
+    // (pre-fix) was bad advice. Now → BUY_ON_DIP with explicit "wait for
+    // trend to turn" rationale.
+    action = 'BUY_ON_DIP';
+    label  = 'Buy on dip — wait for trend';
+    window = 'Wait for break above MA40 — typically 4–8 weeks';
+    rationale = `Forecast is +${exp12.toFixed(1)}% (model expects a mean-reversion bounce), but recent action is bearish (1M ${monthChange >= 0 ? '+' : ''}${monthChange.toFixed(1)}%, 3M ${threeMoChange >= 0 ? '+' : ''}${threeMoChange.toFixed(1)}%) and verdict is HOLD. The forecast may be right, but timing-wise this is a falling knife — entering before the trend turns often catches more downside. Wait for a break above MA40 ($${fmt(ma40)}) or RSI > 55 before sizing up.`;
   } else if (exp12 >= 5 && !aboveMa40 && rsi < 65) {
     action = 'BUY_NOW';
     label  = 'Buy now';
@@ -11863,6 +11908,7 @@ const _TIMING_ICONS = {
   BUY_ON_DIP: '↘',
   DCA:        '≡',
   WAIT:       '◇',
+  CONFLICT:   '⚠',
   SELL:       '▼',
   AVOID:      '✕',
 };
@@ -13066,13 +13112,22 @@ function _classifyTimingFromCache(m) {
   const score = isFinite(m.score) ? m.score : 0;
   const vol = isFinite(m.volatility) ? m.volatility : 0;
   const verdict = m.verdict || '';
-  // Verdict-first short-circuits: STRONG SELL → AVOID, SELL → SELL.
-  // Order matters — checking these BEFORE the forecast-positive branches
-  // ensures a SELL-verdict stock with a +15% forecast doesn't get labelled
-  // 'Buy now' (the user-reported bug 2026-05-17).
+  // monthChange is available on Sectors-cache + Top Picks metrics; falls back
+  // to 0 when missing (Watchlist sets _timing via full computeBuyTiming).
+  const monthChange = isFinite(m.monthChange) ? m.monthChange : 0;
+  const threeMoChange = isFinite(m.threeMoChange) ? m.threeMoChange : 0;
+  // Verdict-first short-circuits with the new CONFLICT + falling-knife rules.
+  // Order matters — these MUST come before the forecast-positive branches so:
+  //   - CONFLICT: STRONG BUY/BUY verdict + bearish forecast → flag the
+  //     disagreement (BABA 2026-05-17 pre-fix was "STRONG BUY · Avoid")
+  //   - SELL verdict + ANY forecast → SELL (was BUY_NOW for WIT 2026-05-17)
+  //   - Falling-knife: HOLD + significant recent decline + positive
+  //     forecast → BUY_ON_DIP, not BUY_NOW (EBAY 2026-05-17 pre-fix)
+  if ((verdict === 'BUY' || verdict === 'STRONG BUY') && f12 < -3) return 'CONFLICT';
   if (f12 < -3 || verdict === 'STRONG SELL') return 'AVOID';
   if (verdict === 'SELL') return 'SELL';
   if (f12 < 1 && verdict === 'HOLD') return 'WAIT';
+  if (verdict === 'HOLD' && (monthChange < -8 || threeMoChange < -10)) return 'BUY_ON_DIP';
   if (f12 >= 5 && vol > 50) return 'DCA';
   if (f12 >= 5 && score >= 70) return 'BUY_ON_DIP';  // very hot, likely extended
   if (f12 >= 5) return 'BUY_NOW';
@@ -13088,6 +13143,7 @@ function _timingShortLabel(action) {
     case 'BUY_ON_DIP': return 'On dip';
     case 'DCA':        return 'DCA';
     case 'WAIT':       return 'Wait';
+    case 'CONFLICT':   return 'Conflict';
     case 'SELL':       return 'Sell';
     case 'AVOID':      return 'Avoid';
     default:           return '';
@@ -13205,6 +13261,7 @@ function renderSectorsFilterPills() {
       { v:'BUY_ON_DIP', l:'Buy on dip', t:'Strong forecast but the stock is overbought / stretched above MA40 — wait for a 5–10% pullback' },
       { v:'DCA',        l:'DCA',        t:'Positive forecast but high volatility — dollar-cost-average over 4–8 weeks rather than lump-sum' },
       { v:'WAIT',       l:'Wait',       t:'Flat forecast with mixed signals — no clear entry trigger yet, watch for a break' },
+      { v:'CONFLICT',   l:'Conflict',   t:'Verdict bullish (BUY or STRONG BUY) BUT forecast bearish (12M < -3%). The two engines disagree — recent technicals favour entry, long-term regression expects mean-reversion downside. Speculative only.' },
       { v:'SELL',       l:'Sell',       t:'Verdict is SELL — trend + momentum bearish. Distinct from Avoid: model may forecast a bounce, but trend is against a long entry. If holding, consider trimming.' },
       { v:'AVOID',      l:'Avoid',      t:'Negative 12M forecast OR Strong Sell verdict — capital better deployed elsewhere' },
     ])}
@@ -15925,6 +15982,7 @@ function _renderPicksTimingPills() {
     ${pill('BUY_ON_DIP', 'On dip',     'Show only picks that are stretched / overbought — wait for a pullback')}
     ${pill('DCA',        'DCA',        'Show only picks where high vol favours dollar-cost-averaging')}
     ${pill('WAIT',       'Wait',       'Show only picks with no clear entry trigger')}
+    ${pill('CONFLICT',   'Conflict',   'Show only picks where verdict and forecast disagree — speculative')}
     ${pill('SELL',       'Sell',       'Show only picks with SELL verdict — bearish trend, distinct from Avoid')}
     ${pill('AVOID',      'Avoid',      'Show only picks the model flags as negative-expected')}
   `;
