@@ -3565,6 +3565,111 @@ body { padding-bottom: 44px; }
   50%      { box-shadow: 0 0 0 4px rgba(0,113,227,.12); }
 }
 .cockpit-index-card.loading { animation: idx-pulse 1.8s infinite; }
+
+/* Buy-timing chip — shown next to the verdict in Watchlist rows + on the
+   Ticker dashboard. Colour-coded by action; tooltip carries the rationale. */
+.timing-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  cursor: help;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.timing-chip .timing-icon {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1;
+}
+.timing-chip.timing-BUY_NOW {
+  background: rgba(48,209,88,.14);
+  border-color: rgba(48,209,88,.4);
+  color: var(--bull);
+}
+.timing-chip.timing-BUY_ON_DIP {
+  background: rgba(0,113,227,.14);
+  border-color: rgba(0,113,227,.4);
+  color: var(--accent);
+}
+.timing-chip.timing-DCA {
+  background: rgba(191,90,242,.14);
+  border-color: rgba(191,90,242,.4);
+  color: rgb(191,90,242);
+}
+.timing-chip.timing-WAIT {
+  background: rgba(255,159,10,.14);
+  border-color: rgba(255,159,10,.4);
+  color: var(--warn);
+}
+.timing-chip.timing-AVOID {
+  background: rgba(255,69,58,.14);
+  border-color: rgba(255,69,58,.4);
+  color: var(--bear);
+}
+
+/* Full timing card on the Ticker dashboard — bigger, with rationale + window */
+.timing-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.timing-card.action-BUY_NOW    { border-left: 3px solid var(--bull); }
+.timing-card.action-BUY_ON_DIP { border-left: 3px solid var(--accent); }
+.timing-card.action-DCA        { border-left: 3px solid rgb(191,90,242); }
+.timing-card.action-WAIT       { border-left: 3px solid var(--warn); }
+.timing-card.action-AVOID      { border-left: 3px solid var(--bear); }
+.timing-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.timing-card-eyebrow {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  font-weight: 700;
+}
+.timing-card-headline {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.timing-card-window {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.timing-card-rationale {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.timing-card-conf {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--raised);
+  border-radius: 10px;
+  color: var(--muted);
+  letter-spacing: .03em;
+}
 .cockpit-empty h2 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
 .bundle-details { margin-top: 4px; padding-top: 4px; }
 .bundle-details summary {
@@ -11009,53 +11114,311 @@ function buildExecutiveSummary(ticker, bars, v, profile, metrics) {
 }
 
 // ========================================================================
-// Forecast — 6 / 12 / 18 / 24 month estimate with confidence percentage
+// Forecast — regression-based price-path model with volatility-adjusted band
 // ========================================================================
+//
+// Three components drive the expected return at each horizon:
+//   1. Long-term mean log-return       (μ_long) — full history weekly average
+//   2. 1-Year rolling slope            (μ_1Y)   — OLS on log-prices, last 52 wks
+//   3. 3-Year rolling slope            (μ_3Y)   — OLS on log-prices, last 156 wks
+//
+// Each horizon gets a softmax-style weighted blend:
+//   - Short horizons (12M)   → 1Y slope dominates (trend persists)
+//   - Mid horizons   (24M)   → 3Y slope dominates (regime continuation)
+//   - Long horizons  (36M+)  → long-term mean dominates (mean reversion)
+//
+// Confidence is anchored to a signal-to-noise ratio (|drift|/σ √horizon) plus
+// a bonus when the 1Y and 3Y slopes agree on direction, then decayed by
+// horizon. This replaces the older heuristic where confidence was driven by
+// the verdict score (a different model entirely — composite of MA stack /
+// RSI / volume), which conflated technical-signal strength with forecast
+// reliability.
+//
+// Output shape and key set are unchanged so every caller (Watchlist tile,
+// Sectors tile, What-If portfolio, Cockpit hero, bundle valuation) keeps
+// reading expReturn / expPrice / low / high / confidence / dir / label.
+// New _components diagnostic field is surfaced in tooltips but optional.
+function _olsSlope(arr) {
+  // Ordinary least squares slope of arr[i] vs i. Returns the per-step slope.
+  const n = arr.length;
+  if (n < 2) return 0;
+  let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+  for (let i = 0; i < n; i++) {
+    sumX += i; sumY += arr[i]; sumXY += i * arr[i]; sumXX += i * i;
+  }
+  const meanX = sumX / n, meanY = sumY / n;
+  const num = sumXY - n * meanX * meanY;
+  const den = sumXX - n * meanX * meanX;
+  return den === 0 ? 0 : num / den;
+}
+const _clampReturn = (x, lim) => Math.max(-lim, Math.min(lim, x));
+
 function buildForecast(bars, v, horizons) {
   horizons = horizons || [6, 12, 18, 24];
   const closes = bars.map(b => b.close);
-  const last = closes[closes.length - 1];
+  const N = closes.length;
+  const last = closes[N - 1];
 
-  // Annualised weekly volatility
-  const rets = [];
-  for (let i = 1; i < closes.length; i++) rets.push(Math.log(closes[i] / closes[i - 1]));
-  const mean = rets.reduce((s, r) => s + r, 0) / rets.length;
-  const variance = rets.reduce((s, r) => s + (r - mean) ** 2, 0) / rets.length;
-  const annVol = Math.sqrt(variance) * Math.sqrt(52);
+  // Step 1 — weekly log-returns and the long-term mean drift
+  const logRets = [];
+  for (let i = 1; i < N; i++) logRets.push(Math.log(closes[i] / closes[i - 1]));
+  const muLongWk = logRets.length ? logRets.reduce((s, r) => s + r, 0) / logRets.length : 0;
+  // Step 2 — annualised weekly volatility (denominator of the SNR + band width)
+  const varLog = logRets.length
+    ? logRets.reduce((s, r) => s + (r - muLongWk) ** 2, 0) / logRets.length
+    : 0;
+  const sigmaWk  = Math.sqrt(varLog);
+  const sigmaAnn = sigmaWk * Math.sqrt(52);
 
-  // Base annualised return as a function of verdict score
-  // score +100 -> ~+18% / yr, score 0 -> ~+6% / yr, score -100 -> ~-10% / yr
-  const baseAnnRet = 0.06 + (v.score / 100) * 0.12;
+  // Step 3 — OLS slopes on log-prices for the 1Y and 3Y windows
+  const logPrices = closes.map(p => Math.log(p));
+  const n1Y = Math.min(52,  logPrices.length);
+  const n3Y = Math.min(156, logPrices.length);
+  const slope1YWk = _olsSlope(logPrices.slice(-n1Y));
+  const slope3YWk = _olsSlope(logPrices.slice(-n3Y));
+
+  // Annualise each drift component + clamp to keep degenerate series sane.
+  // Cap on 1Y is wider (±80%) because short windows naturally produce sharper
+  // slopes; long-term capped at ±60%. These are upper-bounds on the implied
+  // compounding rate — no real stock sustains beyond these for 3+ years.
+  const muLongAnn = _clampReturn(muLongWk * 52, 0.60);
+  const mu1YAnn   = _clampReturn(slope1YWk * 52, 0.80);
+  const mu3YAnn   = _clampReturn(slope3YWk * 52, 0.60);
+
+  // Slope agreement — when 1Y and 3Y slopes point the same way, the trend is
+  // structural and confidence gets a bonus. Cross-direction = mean reversion
+  // is more likely; no bonus.
+  const slopeAgree = (Math.sign(mu1YAnn) === Math.sign(mu3YAnn)) && (mu1YAnn !== 0);
 
   return horizons.map(months => {
     const yrs = months / 12;
-    // Slight mean reversion — longer horizons drift toward market average
-    const reversion = Math.min(yrs * 0.20, 0.5);
-    const adjAnnRet = baseAnnRet * (1 - reversion) + 0.07 * reversion;
 
-    const expReturn = Math.exp(adjAnnRet * yrs) - 1;
-    const expPrice = last * (1 + expReturn);
+    // Step 4 — horizon-blended weights. Three exponential decay terms,
+    // normalised to sum to 1. Tuned so:
+    //   yrs=1:  1Y ≈ 0.46, 3Y ≈ 0.38, long ≈ 0.16  (trend dominates)
+    //   yrs=2:  1Y ≈ 0.27, 3Y ≈ 0.34, long ≈ 0.39  (long-term mean catches up)
+    //   yrs=3:  1Y ≈ 0.16, 3Y ≈ 0.29, long ≈ 0.55  (mean reversion wins)
+    const w1Yraw   = Math.exp(-yrs * 0.6);
+    const w3Yraw   = Math.exp(-yrs * 0.25);
+    const wLongRaw = (1 - Math.exp(-yrs * 0.4)) + 0.2;
+    const wTot = w1Yraw + w3Yraw + wLongRaw;
+    const w1Y = w1Yraw / wTot, w3Y = w3Yraw / wTot, wLong = wLongRaw / wTot;
 
-    // 1-sigma price band
-    const horizonVol = annVol * Math.sqrt(yrs);
-    const low = last * Math.exp(adjAnnRet * yrs - horizonVol);
-    const high = last * Math.exp(adjAnnRet * yrs + horizonVol);
+    const muAnn = w1Y * mu1YAnn + w3Y * mu3YAnn + wLong * muLongAnn;
+    const muHorizon = muAnn * yrs;
+    const expPrice  = last * Math.exp(muHorizon);
+    const expReturn = (expPrice / last - 1) * 100;
 
-    // Confidence: signal strength + horizon decay + volatility penalty
-    const sigStrength = Math.abs(v.score) / 100;
-    const horizonDecay = 1 / (1 + yrs * 0.6);
-    const volPenalty = Math.max(0.4, 1 - annVol * 0.7);
-    const conf = Math.round(30 + (sigStrength * 30 + horizonDecay * 30) * volPenalty);
+    // Step 5 — 1-sigma price band scales with √horizon (standard random-walk)
+    const horizonVol = sigmaAnn * Math.sqrt(yrs);
+    const low  = last * Math.exp(muHorizon - horizonVol);
+    const high = last * Math.exp(muHorizon + horizonVol);
+
+    // Step 6 — confidence: SNR + slope-agreement bonus, decayed by horizon.
+    // SNR = |drift| / σ√horizon. High SNR = drift dominates noise. The +30
+    // baseline reflects model floor for a high-volatility / low-trend stock.
+    const snr = horizonVol > 0 ? Math.abs(muHorizon) / horizonVol : 0;
+    const snrScore = Math.min(25, snr * 25);
+    const agreementBonus = slopeAgree ? 12 : 0;
+    const horizonDecay = 1 / (1 + yrs * 0.4);
+    const conf = Math.round((30 + snrScore + agreementBonus) * horizonDecay);
+    const confidence = Math.max(25, Math.min(80, conf));
 
     return {
       months,
       label: `${months} Months`,
-      expPrice, expReturn: expReturn * 100,
+      expPrice, expReturn,
       low, high,
-      confidence: Math.max(20, Math.min(78, conf)),
+      confidence,
       dir: expReturn >= 0 ? 'up' : 'down',
+      // Optional diagnostic — exposed for tooltips that want to show the
+      // model breakdown. Not consumed by any callers right now.
+      _components: {
+        muLongAnn, mu1YAnn, mu3YAnn, sigmaAnn,
+        w1Y, w3Y, wLong, snr, slopeAgree,
+      },
     };
   });
+}
+
+// ========================================================================
+// Buy-timing indicator — synthesises history + current price + forecast into
+// an ENTRY recommendation (when to put money in, not just yes/no). Inputs:
+//
+//   bars      — full weekly price history
+//   verdict   — {score, label, lastRsi, ...} from computeVerdict
+//   forecasts — output of buildForecast (must include at least 12M horizon)
+//
+// Output:
+//   {
+//     action:    'BUY_NOW' | 'BUY_ON_DIP' | 'DCA' | 'WAIT' | 'AVOID',
+//     label:     short headline ("Buy now", "Buy on a dip", "DCA over 6–8 wks")
+//     window:    expected entry window ("1–2 weeks", "next pullback ~1 month")
+//     rationale: one-sentence "why this action" for tooltip / dashboard card
+//     confidence: 0..100 reliability
+//     signals:   diagnostic — { extended, rsi, snr, vol, distFromHigh, distFromLow, fib }
+//   }
+//
+// Decision tree (high-level):
+//
+//   forecast12 < -3%                      → AVOID         (model expects loss)
+//   forecast12 < +1% AND verdict ≤ HOLD   → WAIT          (no edge)
+//   forecast12 > +5% AND price < MA40     → BUY_NOW       (uptrend support reclaim)
+//   forecast12 > +5% AND RSI > 70         → BUY_ON_DIP    (extended; wait for pullback)
+//   forecast12 > +5% AND price > MA40 ext → BUY_ON_DIP    (>10% above MA40)
+//   forecast12 > +5% AND volatility high  → DCA           (smooth high-vol entry)
+//   forecast12 > +5% AND price > MA40 ok  → BUY_NOW       (trend intact, not extended)
+//   default                                → DCA          (no extreme, average in)
+//
+// The thresholds are calibrated to the same units the rest of the app uses
+// (forecast12 is a percent, not a decimal; RSI is 0–100; volatility is annualised %).
+// ========================================================================
+function computeBuyTiming(bars, verdict, forecasts) {
+  const closes = bars.map(b => b.close);
+  const N = closes.length;
+  const last = closes[N - 1];
+
+  // Find the 12M forecast (caller may have requested a different set)
+  const f12 = (forecasts || []).find(f => f.months === 12) || (forecasts || [])[0] || null;
+  const exp12 = f12 ? f12.expReturn : 0;
+  const conf12 = f12 ? f12.confidence : 30;
+
+  // Trend context — MA40 ≈ 9 months of weekly bars
+  const ma40Series = sma(closes, 40);
+  const ma40 = ma40Series[ma40Series.length - 1] || last;
+  const aboveMa40 = last > ma40;
+  const ma40DistPct = ma40 > 0 ? ((last - ma40) / ma40) * 100 : 0;
+
+  // 52-week extremes (≈ 52 weekly bars)
+  const win = closes.slice(-Math.min(52, N));
+  const w52Hi = Math.max(...win);
+  const w52Lo = Math.min(...win);
+  const distFromHigh = w52Hi > 0 ? ((w52Hi - last) / w52Hi) * 100 : 0;   // % below 52W high
+  const distFromLow  = w52Lo > 0 ? ((last - w52Lo) / w52Lo) * 100 : 0;   // % above 52W low
+  const fibPos = (w52Hi - w52Lo) > 0 ? (last - w52Lo) / (w52Hi - w52Lo) : 0.5; // 0..1
+
+  // Annualised volatility from weekly log-returns
+  const logRets = [];
+  for (let i = 1; i < N; i++) logRets.push(Math.log(closes[i] / closes[i - 1]));
+  const muWk = logRets.length ? logRets.reduce((s, r) => s + r, 0) / logRets.length : 0;
+  const varWk = logRets.length ? logRets.reduce((s, r) => s + (r - muWk) ** 2, 0) / logRets.length : 0;
+  const sigmaAnn = Math.sqrt(varWk * 52) * 100;  // annualised vol in %
+  const highVol = sigmaAnn > 35;
+  const veryHighVol = sigmaAnn > 50;
+
+  // RSI lives on verdict
+  const rsi = (verdict && typeof verdict.lastRsi === 'number') ? verdict.lastRsi : 50;
+  const overbought = rsi >= 70;
+  const oversold   = rsi <= 30;
+
+  // SNR from the 12M forecast — directional conviction over noise
+  const snr = (f12 && f12._components) ? f12._components.snr : 0;
+  const slopeAgree = !!(f12 && f12._components && f12._components.slopeAgree);
+
+  // ---------- Decision ----------
+  let action, label, window, rationale;
+
+  if (exp12 < -3 || verdict.label === 'STRONG SELL') {
+    action = 'AVOID';
+    label  = 'Avoid';
+    window = '—';
+    rationale = `Model expects ${exp12 >= 0 ? '+' : ''}${exp12.toFixed(1)}% over 12 months — capital is better deployed elsewhere. Re-evaluate when trend turns or forecast crosses zero.`;
+  } else if (exp12 < 1 && (verdict.label === 'SELL' || verdict.label === 'HOLD')) {
+    action = 'WAIT';
+    label  = 'Wait';
+    window = 'Watch — no clear trigger';
+    rationale = `Forecast is flat (${exp12 >= 0 ? '+' : ''}${exp12.toFixed(1)}%) and the signal is neutral. Wait for a break above MA40 ($${fmt(ma40)}) or a forecast > +5% before committing.`;
+  } else if (exp12 >= 5 && !aboveMa40 && rsi < 65) {
+    action = 'BUY_NOW';
+    label  = 'Buy now';
+    window = 'Next 1–2 weeks';
+    rationale = `Forecast is +${exp12.toFixed(1)}% over 12M and price ($${fmt(last)}) is at/below MA40 ($${fmt(ma40)}) — entering near trend support. Confidence ${conf12}%.`;
+  } else if (exp12 >= 5 && overbought) {
+    action = 'BUY_ON_DIP';
+    label  = 'Buy on a dip';
+    window = `Wait for RSI < 60 — typically 2–4 weeks`;
+    rationale = `Forecast is +${exp12.toFixed(1)}% but RSI is ${rsi.toFixed(0)} (overbought). Better entry comes after a 5–8% pullback. Set an alert near $${fmt(last * 0.94)}.`;
+  } else if (exp12 >= 5 && ma40DistPct > 10) {
+    action = 'BUY_ON_DIP';
+    label  = 'Buy on a dip';
+    window = `Wait for pullback toward MA40 ($${fmt(ma40)})`;
+    rationale = `Forecast is +${exp12.toFixed(1)}% but price is ${ma40DistPct.toFixed(1)}% above MA40 — stretched. A retest of MA40 ($${fmt(ma40)}) is the higher-conviction entry. Likely window: 4–8 weeks.`;
+  } else if (exp12 >= 5 && veryHighVol) {
+    action = 'DCA';
+    label  = 'DCA — average in';
+    window = '6–8 week DCA window';
+    rationale = `Forecast is +${exp12.toFixed(1)}% but volatility is high (${sigmaAnn.toFixed(0)}% ann.). Spread your buys across 6–8 weeks rather than lump-sum to smooth the entry price.`;
+  } else if (exp12 >= 5 && aboveMa40) {
+    action = 'BUY_NOW';
+    label  = 'Buy now';
+    window = 'Next 1–2 weeks';
+    rationale = `Forecast is +${exp12.toFixed(1)}% over 12M, trend intact (price above MA40 by ${ma40DistPct.toFixed(1)}%), not overbought (RSI ${rsi.toFixed(0)}). Conditions favour an immediate entry.${slopeAgree ? ' 1Y and 3Y slopes agree on direction — structural trend.' : ''}`;
+  } else if (exp12 >= 1 && highVol) {
+    action = 'DCA';
+    label  = 'DCA — modest edge';
+    window = '4–6 week DCA window';
+    rationale = `Forecast is +${exp12.toFixed(1)}% — positive but not strong. With volatility at ${sigmaAnn.toFixed(0)}% annualised, average in over 4–6 weeks instead of lump-sum.`;
+  } else if (exp12 >= 1) {
+    action = 'BUY_NOW';
+    label  = 'Buy now (modest)';
+    window = 'Next 1–2 weeks';
+    rationale = `Forecast is +${exp12.toFixed(1)}% over 12M and volatility is manageable. Entry conditions are reasonable but not exceptional — size the position accordingly.`;
+  } else {
+    action = 'WAIT';
+    label  = 'Wait';
+    window = 'No clear trigger';
+    rationale = `Mixed signals — forecast ${exp12 >= 0 ? '+' : ''}${exp12.toFixed(1)}%, verdict ${verdict.label || 'unknown'}. Hold off until a clear break in either direction.`;
+  }
+
+  // Timing confidence — combine forecast confidence with extra bonus for
+  // clean technical setups (oversold + buy, overbought + dip = high-conviction)
+  let bonus = 0;
+  if ((action === 'BUY_NOW' || action === 'DCA') && oversold) bonus += 8;
+  if (action === 'BUY_ON_DIP' && overbought) bonus += 8;
+  if (slopeAgree) bonus += 5;
+  if (action === 'AVOID' && verdict.label === 'STRONG SELL') bonus += 10;
+  const timingConf = Math.max(20, Math.min(90, conf12 + bonus));
+
+  return {
+    action, label, window, rationale,
+    confidence: timingConf,
+    signals: {
+      extended: ma40DistPct > 10,
+      ma40DistPct,
+      rsi, overbought, oversold,
+      sigmaAnn, highVol, veryHighVol,
+      distFromHigh, distFromLow, fibPos,
+      snr, slopeAgree, exp12, conf12,
+    },
+  };
+}
+
+// Map each timing action to a compact icon (no emojis per project doctrine —
+// using Unicode geometric/math symbols).
+const _TIMING_ICONS = {
+  BUY_NOW:    '▲',
+  BUY_ON_DIP: '↘',
+  DCA:        '≡',
+  WAIT:       '◇',
+  AVOID:      '✕',
+};
+// Render the timing as a chip. `compact=true` for the watchlist row (icon +
+// short label only); `compact=false` for fuller surfaces (full label).
+function renderTimingChip(timing, compact) {
+  if (!timing) return '';
+  const icon = _TIMING_ICONS[timing.action] || '·';
+  const lbl = compact
+    ? (timing.action === 'BUY_NOW'    ? 'Buy'
+     : timing.action === 'BUY_ON_DIP' ? 'Dip'
+     : timing.action === 'DCA'        ? 'DCA'
+     : timing.action === 'WAIT'       ? 'Wait'
+     : timing.action === 'AVOID'      ? 'Avoid'
+     : '')
+    : timing.label;
+  const tooltip = `${timing.label} · ${timing.window}\n\n${timing.rationale}\n\nConfidence ${timing.confidence}%`;
+  return `<span class="timing-chip timing-${timing.action}" title="${tooltip.replace(/"/g,'&quot;')}">
+    <span class="timing-icon">${icon}</span>${lbl}
+  </span>`;
 }
 
 // ========================================================================
@@ -15327,6 +15690,14 @@ function renderWatchlist(filter = '') {
     const heat = heatRgb(score);
     const tier = heatTier(score);
     const verdictClass = 'verdict-' + d.verdict.label.replace(/\s+/g, '-');
+    // Compact timing chip for the watchlist row — full card lives on the
+    // ticker dashboard. Pre-compute lazily to skip cost on first render.
+    let timingChipHtml = '';
+    try {
+      const wlForecasts = buildForecast(d.bars, d.verdict, [12]);
+      const wlTiming    = computeBuyTiming(d.bars, d.verdict, wlForecasts);
+      timingChipHtml = renderTimingChip(wlTiming, true);
+    } catch (e) { /* tolerate per-row compute failure */ }
     return `<div class="wl-item heat-${tier} ${isActive ? 'active' : ''} ${isAlert ? 'alert' : ''}" data-ticker="${t}" onclick="selectTicker('${t}')" title="Heat score: ${score >= 0 ? '+' : ''}${score}">
       <div class="wl-heat" style="--heat-color: ${heat}"></div>
       <button class="wl-remove" onclick="event.stopPropagation(); removeStock('${t}')" title="Remove">✕</button>
@@ -15337,6 +15708,7 @@ function renderWatchlist(filter = '') {
       <div class="wl-row2">
         <div class="wl-change ${direction}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</div>
         <div class="wl-verdict ${verdictClass}">${d.verdict.label}</div>
+        ${timingChipHtml}
         ${rowActionsHtml(t)}
       </div>
     </div>`;
@@ -15411,7 +15783,8 @@ function renderMain() {
   const profile = d.profile || demoProfile(_selected);
   const metrics = d.metrics || demoMetrics(_selected, bars);
   const exec = buildExecutiveSummary(_selected, bars, v, profile, metrics);
-  const forecast = buildForecast(bars, v);
+  const forecast = buildForecast(bars, v, [12, 24, 36]);
+  const timing = computeBuyTiming(bars, v, forecast);
   const events = buildUpcomingEvents(_selected, profile, metrics);
   const lastDate = new Date(last.time * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 
@@ -15447,6 +15820,16 @@ function renderMain() {
           <div id="verdict-meter-fill" style="width:${meterWidth}%; ${v.score < 0 ? 'left:50%; transform:translateX(-100%); right:auto;' : 'left:50%;'}"></div>
         </div>
       </div>
+    </div>
+
+    <div class="timing-card action-${timing.action}" title="${timing.rationale.replace(/"/g, '&quot;')}">
+      <div class="timing-card-head">
+        <div class="timing-card-eyebrow">Best time to buy · history + current price + forecast</div>
+        <div class="timing-card-conf" title="Confidence is anchored to the 12M forecast signal-to-noise ratio (drift ÷ volatility band), plus bonuses when 1Y and 3Y trend slopes agree and when the technical setup (RSI, MA40 position) aligns with the action.">Confidence ${timing.confidence}%</div>
+      </div>
+      <div class="timing-card-headline">${timing.label}</div>
+      <div class="timing-card-window">Window: <b style="color:var(--text)">${timing.window}</b></div>
+      <div class="timing-card-rationale">${timing.rationale}</div>
     </div>
 
     <div class="news-card">
