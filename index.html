@@ -12943,12 +12943,34 @@ function demoMetrics(ticker, bars) {
 }
 
 // Returns { bars, source, note? } where source is one of:
-//   'live'     — real Finnhub candle data
+//   'yahoo'    — real weekly bars from Yahoo Finance chart endpoint (no key)
+//   'live'     — real Finnhub candle data (paid tier)
 //   'hybrid'   — live current price from /quote overlaid on synthetic history
 //   'fallback' — both /candle and /quote failed; everything is synthetic
 //   'demo'     — no API key, intentional demo mode
+//
+// Source-priority chain (highest fidelity → lowest):
+//   1. Yahoo chart endpoint (real OHLCV, weekly, 5y) — no key needed, the
+//      ideal primary because it removes the synthetic-baseline distortion
+//      affecting MAs / RSI / verdict signals.
+//   2. Finnhub /candle (paid tier only — free tier returns 403).
+//   3. Hybrid: live /quote price overlaid on a synthetic shape scaled to
+//      match. MAs are approximate, RSI even more so.
+//   4. Pure synthetic + freetier banner.
 async function fetchBars(ticker) {
   if (isLive()) {
+    // 1) Yahoo Finance chart — free, no key, returns real OHLCV.
+    try {
+      const yBars = await fetchYahooWeekly(ticker);
+      if (yBars && yBars.length > 100) {
+        return { bars: yBars, source: 'yahoo' };
+      }
+    } catch (_yErr) {
+      // Yahoo returned 4xx / 5xx / CORS error / no result — fall through to
+      // Finnhub. We don't surface this to the user because Yahoo CORS can
+      // be unreliable from github.io and we have a clean fallback chain.
+    }
+    // 2) Finnhub /candle (paid tier).
     try {
       const bars = await fetchFinnhubWeekly(ticker);
       return { bars, source: 'live' };
@@ -12970,7 +12992,7 @@ async function fetchBars(ticker) {
         return {
           bars: demoBars,
           source: 'hybrid',
-          note: `Current price is live ($${quote.price.toFixed(2)}); historical bars are synthetic (Finnhub free tier doesn't include candle data).`
+          note: `Current price is live ($${quote.price.toFixed(2)}); historical bars are synthetic (Yahoo blocked, Finnhub free tier doesn't include candle data).`
         };
       }
       maybeShowFreetierToast();
@@ -12982,6 +13004,36 @@ async function fetchBars(ticker) {
     }
   }
   return { bars: generateDemoBars(ticker), source: 'demo' };
+}
+
+// Fetch real weekly OHLCV bars from Yahoo Finance's chart endpoint. Free,
+// no API key required. CORS-friendly from most browser contexts (query1
+// host sends Access-Control-Allow-Origin: *) — when it doesn't, we fall
+// through to the Finnhub path. Returns bars in the same shape as
+// fetchFinnhubWeekly: [{ t (ms), open, high, low, close, volume }, ...].
+async function fetchYahooWeekly(ticker) {
+  // 5y of weekly bars matches what the rest of the app expects (260 bars).
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1wk&range=5y`;
+  const resp = await fetch(url, { method: 'GET' });
+  if (!resp.ok) throw new Error(`Yahoo /chart HTTP ${resp.status}`);
+  const data = await resp.json();
+  const r = data && data.chart && Array.isArray(data.chart.result) && data.chart.result[0];
+  if (!r || !Array.isArray(r.timestamp) || !r.indicators || !r.indicators.quote || !r.indicators.quote[0]) {
+    throw new Error('Yahoo /chart returned no usable data');
+  }
+  const ts = r.timestamp;
+  const q = r.indicators.quote[0];
+  const bars = [];
+  for (let i = 0; i < ts.length; i++) {
+    const c = q.close ? q.close[i] : null;
+    if (c == null || !isFinite(c) || c <= 0) continue;
+    const o = (q.open && q.open[i] != null && isFinite(q.open[i])) ? q.open[i] : c;
+    const h = (q.high && q.high[i] != null && isFinite(q.high[i])) ? q.high[i] : c;
+    const l = (q.low  && q.low[i]  != null && isFinite(q.low[i]))  ? q.low[i]  : c;
+    const v = (q.volume && q.volume[i] != null && isFinite(q.volume[i])) ? q.volume[i] : 0;
+    bars.push({ t: ts[i] * 1000, open: o, high: h, low: l, close: c, volume: v });
+  }
+  return bars;
 }
 
 async function fetchFinnhubWeekly(ticker) {
@@ -19061,7 +19113,9 @@ async function addStockByTicker(raw) {
     localStorage.setItem(LS_KEY_VERDICTS, JSON.stringify(LAST_VERDICTS));
     invalidateCatalogCaches();
     renderWatchlist($('search').value);
-    const srcSuffix = _data[raw].barsSource === 'hybrid' ? ' (live price · synthetic history)'
+    const srcSuffix = _data[raw].barsSource === 'yahoo' ? ' (real bars · Yahoo)'
+                     : _data[raw].barsSource === 'live' ? ' (real bars · Finnhub)'
+                     : _data[raw].barsSource === 'hybrid' ? ' (live price · synthetic history)'
                      : _data[raw].barsSource === 'fallback' ? ' (synthetic data — live fetch failed)'
                      : '';
     showToast({ title: `Added ${raw}${srcSuffix}`, body: `Verdict: ${_data[raw].verdict.label}`, type: _data[raw].verdict.score > 0 ? 'bull' : _data[raw].verdict.score < 0 ? 'bear' : '' });
