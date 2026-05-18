@@ -17747,9 +17747,19 @@ function _cockpitRenderIndices() {
     const moChg = ((endPrice - moAgo) / moAgo) * 100;
     const sparkSamples = sampleSparkPoints(closes.slice(-26), 24);
     const spark = sparklineSvg(sparkSamples, 100, 16);
+    // Headline % — prefer today's live change over 1W (user feedback
+    // 2026-05-18: live %age should be the prominent number on each card).
+    const hasToday = (typeof dayChangePct === 'number') && !vixImplausible;
+    const headlinePct = hasToday ? dayChangePct : wkChg;
+    const headlineLabel = hasToday ? 'today' : '1W';
     // For the VIX, an UP move is BAD for equity, so flip the colour semantics
     // in the headline number. Other indices: up = green, down = red.
     const dirCls = isFear
+      ? (headlinePct > 0.3 ? 'down' : headlinePct < -0.3 ? 'up' : 'warn')
+      : (headlinePct > 0.3 ? 'up'   : headlinePct < -0.3 ? 'down' : 'warn');
+    // Gauge needle is 1W-based regardless (the gauge represents weekly
+    // momentum scaled to ±5%); only the headline number swaps to today.
+    const gaugeDirCls = isFear
       ? (wkChg > 0.3 ? 'down' : wkChg < -0.3 ? 'up' : 'warn')
       : (wkChg > 0.3 ? 'up'   : wkChg < -0.3 ? 'down' : 'warn');
     const cardCls = dirCls === 'up' ? 'up' : dirCls === 'down' ? 'down' : 'warn';
@@ -17758,11 +17768,11 @@ function _cockpitRenderIndices() {
     const sourceCls = vixImplausible ? 'synth' : (isLivePrice || hasLiveBars ? 'live' : (live ? 'loading' : 'synth'));
     const loadingCls = (live && !isLivePrice && !hasLiveBars) ? ' loading' : '';
     const interpretation = isFear
-      ? `${idx.label} 1W ${wkChg >= 0 ? '+' : ''}${wkChg.toFixed(2)}% — ${wkChg > 1.5 ? 'volatility spiking · risk-off shift' : (wkChg < -1.5 ? 'volatility easing · risk-on tone' : 'volatility steady')}`
-      : `${idx.label} 1W ${wkChg >= 0 ? '+' : ''}${wkChg.toFixed(2)}% — ${wkChg > 0.5 ? 'broadly higher' : (wkChg < -0.5 ? 'broadly lower' : 'roughly flat')}`;
+      ? `${idx.label} ${headlineLabel} ${headlinePct >= 0 ? '+' : ''}${headlinePct.toFixed(2)}% — ${headlinePct > 1.5 ? 'volatility spiking · risk-off shift' : (headlinePct < -1.5 ? 'volatility easing · risk-on tone' : 'volatility steady')}`
+      : `${idx.label} ${headlineLabel} ${headlinePct >= 0 ? '+' : ''}${headlinePct.toFixed(2)}% — ${headlinePct > 0.5 ? 'higher' : (headlinePct < -0.5 ? 'lower' : 'roughly flat')}`;
     const tipBase = vixImplausible
       ? `VIX index isn't quoted by Finnhub's stock-quote endpoint (it's a CBOE index, not an equity). Price shown is suppressed to avoid the stale anchor leaking. For the actual VIX, see cboe.com/tradable_products/vix. The 1W direction shown is still informative.\n\n${idx.role}`
-      : `${interpretation}\n\n${idx.role}\n\n1M ${moChg >= 0 ? '+' : ''}${moChg.toFixed(2)}%\nPrice ${displayPrice}${typeof dayChangePct === 'number' ? ` · today ${dayChangePct >= 0 ? '+' : ''}${dayChangePct.toFixed(2)}%` : ''}\n\nNeedle position: 1-week change scaled to ±5%. ${isFear ? 'INVERTED for VIX — a spike points LEFT because rising volatility is bad for equity.' : ''}\n\nClick to add ${idx.ticker} to your watchlist + open the full ticker dashboard.`;
+      : `${interpretation}\n\n${idx.role}\n\n1W ${wkChg >= 0 ? '+' : ''}${wkChg.toFixed(2)}% · 1M ${moChg >= 0 ? '+' : ''}${moChg.toFixed(2)}%\nPrice ${displayPrice}\n\nNeedle = 1-week change scaled to ±5%. ${isFear ? 'INVERTED for VIX — a spike points LEFT because rising volatility is bad for equity.' : ''}\n\nClick to add ${idx.ticker} to your watchlist + open the full ticker dashboard.`;
     return `<div class="cockpit-index-card ${cardCls}${loadingCls}"
       title="${tipBase}"
       onclick="(async()=>{ if(!WATCHLIST.includes('${idx.ticker}')){ WATCHLIST.push('${idx.ticker}'); saveWatchlist(); } selectTicker('${idx.ticker}'); showView('watchlist'); })();" tabindex="0">
@@ -17770,9 +17780,9 @@ function _cockpitRenderIndices() {
       <div class="cockpit-index-name">${idx.ticker}</div>
       <div class="cockpit-index-gauge-wrap">
         ${_cockpitGaugeSvg(wkChg, isFear)}
-        <div class="cockpit-index-val ${dirCls}">${wkChg >= 0 ? '+' : ''}${wkChg.toFixed(2)}%</div>
+        <div class="cockpit-index-val ${dirCls}">${headlinePct >= 0 ? '+' : ''}${headlinePct.toFixed(2)}%</div>
       </div>
-      <div class="cockpit-index-price">${displayPrice} · 1W</div>
+      <div class="cockpit-index-price">${displayPrice} · ${headlineLabel}${hasToday ? ` · 1W ${wkChg >= 0 ? '+' : ''}${wkChg.toFixed(2)}%` : ''}</div>
       <div class="cockpit-index-spark">${spark}</div>
       <div class="cockpit-index-source ${sourceCls}">${sourceLabel}</div>
     </div>`;
@@ -17867,29 +17877,39 @@ function _cockpitRenderPerfCards(host, rows) {
     const bars = getBars(r.ticker);
     const closes = bars.slice(-26).map(b => b.close);
     const spark = sparklineSvg(sampleSparkPoints(closes, 24), 120, 24);
-    const dir = r.wkChg >= 0 ? 'up' : 'down';
-    // Live indicator + today's % chip. The price shown is r.livePrice (real-
-    // time quote in LIVE mode, last bar close in DEMO). Today's change comes
-    // from r.dayChangePct (only present when LIVE quote has a previous close).
+    // LIVE / DEMO badge for at-a-glance data-freshness signal.
     const liveBadge = r.isLivePrice
       ? `<span class="cockpit-perf-live" title="Price + today's change come from a real-time Finnhub quote fetched this session.">LIVE</span>`
       : `<span class="cockpit-perf-live demo" title="No live quote available — price shown is the most recent weekly bar close. Open Settings to confirm your Finnhub key is configured.">DEMO</span>`;
-    const todayChip = (typeof r.dayChangePct === 'number')
-      ? `<span class="cockpit-perf-today ${r.dayChangePct >= 0 ? 'up' : 'down'}" title="Today's change from previous close (live).">${r.dayChangePct >= 0 ? '+' : ''}${r.dayChangePct.toFixed(2)}% today</span>`
+    // Headline % at top-right — PREFER today's live change when available
+    // (user feedback 2026-05-18: "this should be live %age increase/decrease").
+    // Fall back to 1W only when no live quote (DEMO mode + tickers without quote).
+    const hasToday = (typeof r.dayChangePct === 'number');
+    const headlinePct = hasToday ? r.dayChangePct : r.wkChg;
+    const headlineLabel = hasToday ? 'today' : '1W';
+    const headlineTitle = hasToday
+      ? `Today's change from previous close (live quote).`
+      : `1-week change (no live day-change available — DEMO mode or quote missing).`;
+    const headlineDir = headlinePct >= 0 ? 'up' : 'down';
+    // 1W is now demoted to a small secondary chip in the stats row when live
+    // is available; in DEMO mode it's already the headline so we omit the chip.
+    const wkChip = hasToday
+      ? `<span title="1-week price change from a week ago">1W <b class="${r.wkChg >= 0 ? 'up' : 'down'}">${r.wkChg >= 0 ? '+' : ''}${r.wkChg.toFixed(2)}%</b></span>`
       : '';
     return `<div class="cockpit-perf-card" onclick="selectTicker('${r.ticker}'); showView('watchlist');" style="cursor:pointer;" title="Click to open ${r.ticker} in the Watchlist for the full analysis">
       <div class="cockpit-perf-head">
         <div>
           <div class="cockpit-perf-sym">${r.ticker}${r.isFav ? ' ★' : ''} ${liveBadge}</div>
-          <div class="cockpit-perf-price">$${fmt(r.livePrice)} · ${r.verdict} ${todayChip}</div>
+          <div class="cockpit-perf-price">$${fmt(r.livePrice)} · ${r.verdict}</div>
         </div>
         <div style="text-align:right;">
-          <div class="cockpit-hero-val ${dir}" style="font-size:14px;">${r.wkChg >= 0 ? '+' : ''}${r.wkChg.toFixed(2)}%</div>
-          <div class="cockpit-perf-price">1W</div>
+          <div class="cockpit-hero-val ${headlineDir}" style="font-size:14px;" title="${headlineTitle}">${headlinePct >= 0 ? '+' : ''}${headlinePct.toFixed(2)}%</div>
+          <div class="cockpit-perf-price">${headlineLabel}</div>
         </div>
       </div>
       <div class="cockpit-perf-spark">${spark}</div>
       <div class="cockpit-perf-stats">
+        ${wkChip}
         <span title="1-month price change">1M <b class="${r.moChg >= 0 ? 'up' : 'down'}">${r.moChg >= 0 ? '+' : ''}${r.moChg.toFixed(1)}%</b></span>
         <span title="12-month expected return at ${r.conf12}% confidence">12M fcst <b class="${r.f12 >= 0 ? 'up' : 'down'}">${r.f12 >= 0 ? '+' : ''}${r.f12.toFixed(1)}%</b></span>
         <span title="Composite heat score across trend, momentum, and forecast">Heat <b class="${r.score >= 0 ? 'up' : 'down'}">${r.score >= 0 ? '+' : ''}${r.score.toFixed(0)}</b></span>
