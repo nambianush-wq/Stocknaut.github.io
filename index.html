@@ -3348,8 +3348,32 @@ body.cockpit-mode.cockpit-sidebar-collapsed #main { margin-left: 0; }
   align-items: baseline;
   margin-bottom: 4px;
 }
-.cockpit-perf-sym { font-size: 13px; font-weight: 700; color: var(--text); }
-.cockpit-perf-price { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.cockpit-perf-sym { font-size: 13px; font-weight: 700; color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
+.cockpit-perf-price { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cockpit-perf-live {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(48,209,88,.18);
+  color: var(--bull);
+  border: 1px solid rgba(48,209,88,.4);
+}
+.cockpit-perf-live.demo {
+  background: rgba(138,146,166,.12);
+  color: var(--muted);
+  border-color: rgba(138,146,166,.3);
+}
+.cockpit-perf-today {
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.cockpit-perf-today.up   { color: var(--bull); background: rgba(48,209,88,.10); }
+.cockpit-perf-today.down { color: var(--bear); background: rgba(255,69,58,.10); }
 .cockpit-perf-spark { margin: 4px 0; height: 24px; display: flex; align-items: center; }
 .cockpit-perf-spark svg { width: 100%; height: 24px; }
 .cockpit-perf-stats {
@@ -17522,16 +17546,12 @@ function _cockpitComputeOverview() {
     const bars = getBars(t);
     const closes = bars.map(b => b.close);
     const last = closes[closes.length - 1];
-    const prev = closes[closes.length - 2] || last;
     const wkAgo = closes[closes.length - 2] || last;
     const monthAgoIdx = Math.max(0, closes.length - 5);
     const monthAgo = closes[monthAgoIdx] || last;
-    const wkChg = ((last - wkAgo) / wkAgo) * 100;
-    const moChg = ((last - monthAgo) / monthAgo) * 100;
     const verdict = (_data[t] && _data[t].verdict) || computeVerdict(bars);
     const ma40Series = sma(closes, 40);
     const ma40 = ma40Series[ma40Series.length - 1];
-    const aboveMa40 = ma40 != null && last > ma40;
     let f12 = 0, conf12 = 0;
     try {
       const fc = buildForecast(bars, verdict, [12]);
@@ -17545,8 +17565,18 @@ function _cockpitComputeOverview() {
     // previous-close, the universal definition of "today's move".
     const q = _data[t] && _data[t].quote;
     const livePrice = (q && q.price > 0) ? q.price : last;
+    const isLivePrice = !!(q && q.price > 0);
     const dayChange = (q && typeof q.change === 'number') ? q.change : null;
     const dayChangePct = (q && typeof q.changePct === 'number') ? q.changePct : null;
+    // Recompute wkChg / moChg against the LIVE endpoint when available so
+    // the displayed deltas reflect TODAY's price, not the synthetic anchor.
+    // User feedback 2026-05-18: watchlist perf cards were showing stale bar
+    // closes; "Cockpit isn't live". This anchors percentage moves to the
+    // current live tick while keeping historical bars as the 1W / 1M base.
+    const endPrice = livePrice;
+    const wkChg = ((endPrice - wkAgo) / wkAgo) * 100;
+    const moChg = ((endPrice - monthAgo) / monthAgo) * 100;
+    const aboveMa40 = ma40 != null && endPrice > ma40;
     return {
       ticker: t,
       name: profile.name || t,
@@ -17554,7 +17584,7 @@ function _cockpitComputeOverview() {
       last, wkChg, moChg, score: verdict.score, verdict: verdict.label,
       f12, conf12, aboveMa40,
       isFav: FAVORITES.has(t),
-      livePrice, dayChange, dayChangePct,
+      livePrice, isLivePrice, dayChange, dayChangePct,
     };
   });
   // Aggregate
@@ -17693,11 +17723,28 @@ function _cockpitRenderIndices() {
     const closes = bars.map(b => b.close);
     const last = closes[closes.length - 1];
     const wkAgo = closes[closes.length - 2] || last;
-    const wkChg = ((last - wkAgo) / wkAgo) * 100;
     const moAgoIdx = Math.max(0, closes.length - 5);
     const moAgo = closes[moAgoIdx] || last;
-    const moChg = ((last - moAgo) / moAgo) * 100;
     const isFear = idx.ticker === 'VIX';
+    // Prefer the LIVE quote price over the bar close, just like the heatmap.
+    // dayChange / dayChangePct are the universal "today's move" definition.
+    // VIX is special — Finnhub's quote endpoint does NOT cover the CBOE VIX
+    // index directly (only VIX-related ETFs like VIXY / UVXY). When the price
+    // looks implausible (> 100 — VIX has never closed above ~90 historically)
+    // we suppress the displayed price and show a clear placeholder.
+    const q = _data[idx.ticker] && _data[idx.ticker].quote;
+    const livePrice = (q && q.price > 0) ? q.price : last;
+    const isLivePrice = !!(q && q.price > 0);
+    const dayChangePct = (q && typeof q.changePct === 'number') ? q.changePct : null;
+    // Implausibility guard — VIX is the only index in this set where this
+    // can trip. If it does, show "—" instead of misleading number.
+    const vixImplausible = isFear && livePrice > 100;
+    const displayPrice = vixImplausible ? '—' : `$${fmt(livePrice)}`;
+    // 1W / 1M deltas anchored to live price when available (so they reflect
+    // today, not last weekly close).
+    const endPrice = vixImplausible ? last : livePrice;
+    const wkChg = ((endPrice - wkAgo) / wkAgo) * 100;
+    const moChg = ((endPrice - moAgo) / moAgo) * 100;
     const sparkSamples = sampleSparkPoints(closes.slice(-26), 24);
     const spark = sparklineSvg(sparkSamples, 100, 16);
     // For the VIX, an UP move is BAD for equity, so flip the colour semantics
@@ -17706,15 +17753,18 @@ function _cockpitRenderIndices() {
       ? (wkChg > 0.3 ? 'down' : wkChg < -0.3 ? 'up' : 'warn')
       : (wkChg > 0.3 ? 'up'   : wkChg < -0.3 ? 'down' : 'warn');
     const cardCls = dirCls === 'up' ? 'up' : dirCls === 'down' ? 'down' : 'warn';
-    const hasLive = !!(_data[idx.ticker] && _data[idx.ticker].bars && _data[idx.ticker].bars.length > 100);
-    const sourceLabel = hasLive ? 'LIVE' : (live ? 'loading…' : 'DEMO');
-    const sourceCls = hasLive ? 'live' : (live ? 'loading' : 'synth');
-    const loadingCls = (live && !hasLive) ? ' loading' : '';
+    const hasLiveBars = !!(_data[idx.ticker] && _data[idx.ticker].bars && _data[idx.ticker].bars.length > 100);
+    const sourceLabel = vixImplausible ? 'N/A' : (isLivePrice ? 'LIVE' : (hasLiveBars ? 'LIVE' : (live ? 'loading…' : 'DEMO')));
+    const sourceCls = vixImplausible ? 'synth' : (isLivePrice || hasLiveBars ? 'live' : (live ? 'loading' : 'synth'));
+    const loadingCls = (live && !isLivePrice && !hasLiveBars) ? ' loading' : '';
     const interpretation = isFear
       ? `${idx.label} 1W ${wkChg >= 0 ? '+' : ''}${wkChg.toFixed(2)}% — ${wkChg > 1.5 ? 'volatility spiking · risk-off shift' : (wkChg < -1.5 ? 'volatility easing · risk-on tone' : 'volatility steady')}`
       : `${idx.label} 1W ${wkChg >= 0 ? '+' : ''}${wkChg.toFixed(2)}% — ${wkChg > 0.5 ? 'broadly higher' : (wkChg < -0.5 ? 'broadly lower' : 'roughly flat')}`;
+    const tipBase = vixImplausible
+      ? `VIX index isn't quoted by Finnhub's stock-quote endpoint (it's a CBOE index, not an equity). Price shown is suppressed to avoid the stale anchor leaking. For the actual VIX, see cboe.com/tradable_products/vix. The 1W direction shown is still informative.\n\n${idx.role}`
+      : `${interpretation}\n\n${idx.role}\n\n1M ${moChg >= 0 ? '+' : ''}${moChg.toFixed(2)}%\nPrice ${displayPrice}${typeof dayChangePct === 'number' ? ` · today ${dayChangePct >= 0 ? '+' : ''}${dayChangePct.toFixed(2)}%` : ''}\n\nNeedle position: 1-week change scaled to ±5%. ${isFear ? 'INVERTED for VIX — a spike points LEFT because rising volatility is bad for equity.' : ''}\n\nClick to add ${idx.ticker} to your watchlist + open the full ticker dashboard.`;
     return `<div class="cockpit-index-card ${cardCls}${loadingCls}"
-      title="${interpretation}\n\n${idx.role}\n\n1M ${moChg >= 0 ? '+' : ''}${moChg.toFixed(2)}%\nLast close $${fmt(last)}\n\nNeedle position: 1-week change scaled to ±5%. ${isFear ? 'INVERTED for VIX — a spike points LEFT because rising volatility is bad for equity.' : ''}\n\nClick to add ${idx.ticker} to your watchlist + open the full ticker dashboard."
+      title="${tipBase}"
       onclick="(async()=>{ if(!WATCHLIST.includes('${idx.ticker}')){ WATCHLIST.push('${idx.ticker}'); saveWatchlist(); } selectTicker('${idx.ticker}'); showView('watchlist'); })();" tabindex="0">
       <div class="cockpit-index-label">${idx.label}</div>
       <div class="cockpit-index-name">${idx.ticker}</div>
@@ -17722,7 +17772,7 @@ function _cockpitRenderIndices() {
         ${_cockpitGaugeSvg(wkChg, isFear)}
         <div class="cockpit-index-val ${dirCls}">${wkChg >= 0 ? '+' : ''}${wkChg.toFixed(2)}%</div>
       </div>
-      <div class="cockpit-index-price">$${fmt(last)} · 1W</div>
+      <div class="cockpit-index-price">${displayPrice} · 1W</div>
       <div class="cockpit-index-spark">${spark}</div>
       <div class="cockpit-index-source ${sourceCls}">${sourceLabel}</div>
     </div>`;
@@ -17818,11 +17868,20 @@ function _cockpitRenderPerfCards(host, rows) {
     const closes = bars.slice(-26).map(b => b.close);
     const spark = sparklineSvg(sampleSparkPoints(closes, 24), 120, 24);
     const dir = r.wkChg >= 0 ? 'up' : 'down';
+    // Live indicator + today's % chip. The price shown is r.livePrice (real-
+    // time quote in LIVE mode, last bar close in DEMO). Today's change comes
+    // from r.dayChangePct (only present when LIVE quote has a previous close).
+    const liveBadge = r.isLivePrice
+      ? `<span class="cockpit-perf-live" title="Price + today's change come from a real-time Finnhub quote fetched this session.">LIVE</span>`
+      : `<span class="cockpit-perf-live demo" title="No live quote available — price shown is the most recent weekly bar close. Open Settings to confirm your Finnhub key is configured.">DEMO</span>`;
+    const todayChip = (typeof r.dayChangePct === 'number')
+      ? `<span class="cockpit-perf-today ${r.dayChangePct >= 0 ? 'up' : 'down'}" title="Today's change from previous close (live).">${r.dayChangePct >= 0 ? '+' : ''}${r.dayChangePct.toFixed(2)}% today</span>`
+      : '';
     return `<div class="cockpit-perf-card" onclick="selectTicker('${r.ticker}'); showView('watchlist');" style="cursor:pointer;" title="Click to open ${r.ticker} in the Watchlist for the full analysis">
       <div class="cockpit-perf-head">
         <div>
-          <div class="cockpit-perf-sym">${r.ticker}${r.isFav ? ' ★' : ''}</div>
-          <div class="cockpit-perf-price">$${fmt(r.last)} · ${r.verdict}</div>
+          <div class="cockpit-perf-sym">${r.ticker}${r.isFav ? ' ★' : ''} ${liveBadge}</div>
+          <div class="cockpit-perf-price">$${fmt(r.livePrice)} · ${r.verdict} ${todayChip}</div>
         </div>
         <div style="text-align:right;">
           <div class="cockpit-hero-val ${dir}" style="font-size:14px;">${r.wkChg >= 0 ? '+' : ''}${r.wkChg.toFixed(2)}%</div>
