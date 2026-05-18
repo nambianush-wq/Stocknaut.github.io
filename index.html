@@ -3034,6 +3034,7 @@ body.whatif-mode #sidebar { display: none; }
 .bundle-corrections-move .move-kind.exit { background: rgba(255,69,58,.18); color: var(--bear); }
 .bundle-corrections-move .move-kind.add  { background: rgba(48,209,88,.18); color: var(--bull); }
 .bundle-corrections-move .move-kind.tilt { background: rgba(0,113,227,.18); color: var(--accent); }
+.bundle-corrections-move .move-kind.swap { background: rgba(191,90,242,.18); color: #c98aff; }
 .bundle-corrections-move .move-body { flex:1; font-size: 12px; line-height: 1.55; color: var(--fg); }
 .bundle-corrections-move .move-body b { color: white; }
 .bundle-corrections-move .move-rationale { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); }
@@ -3886,6 +3887,222 @@ body { padding-bottom: 44px; }
   border-color: var(--accent);
   background: linear-gradient(135deg, rgba(0,113,227,.3), rgba(191,90,242,.3));
   transform: translateY(-1px);
+}
+
+/* Pick-stocks-and-optimise section — sibling of the investor strip, lets
+   users hand-pick tickers and build a goal-optimised mix from them. */
+.wi-picker-section {
+  margin: 14px 0 4px;
+  padding: 14px 16px 12px;
+  background: rgba(191,90,242,.05);
+  border: 1px solid rgba(191,90,242,.25);
+  border-radius: 10px;
+}
+.wi-picker-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+.wi-picker-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #c98aff;
+}
+.wi-picker-sub {
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+  flex: 1;
+  text-align: right;
+}
+.wi-picker-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: start;
+}
+.wi-picker-search-wrap {
+  position: relative;
+}
+.wi-picker-search-wrap input {
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.wi-picker-search-results {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  margin-top: 6px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  max-height: 260px;
+  overflow-y: auto;
+  z-index: 5;
+}
+.wi-picker-search-results.hidden { display: none; }
+.wi-picker-search-item {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  gap: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  font-size: 12px;
+}
+.wi-picker-search-item:last-child { border-bottom: none; }
+.wi-picker-search-item:hover { background: var(--line); }
+.wi-picker-search-sym  { font-weight: 700; color: var(--text); }
+.wi-picker-search-name { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wi-picker-search-meta { font-size: 10px; color: var(--dim); letter-spacing: .03em; }
+.wi-picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  min-height: 22px;
+}
+.wi-picker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 10px;
+  background: var(--panel);
+  border: 1px solid rgba(191,90,242,.45);
+  border-radius: 14px;
+  font-size: 11.5px;
+  color: var(--text);
+}
+.wi-picker-chip b { color: white; }
+.wi-picker-chip .wi-chip-x {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.wi-picker-chip .wi-chip-x:hover { color: var(--bear); }
+.wi-picker-empty {
+  font-size: 11px;
+  color: var(--dim);
+  font-style: italic;
+}
+.wi-picker-build-btn {
+  background: linear-gradient(135deg, rgba(191,90,242,.18), rgba(0,113,227,.14));
+  border: 1px solid rgba(191,90,242,.55);
+  color: var(--text);
+  padding: 9px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .15s;
+  letter-spacing: .02em;
+}
+.wi-picker-build-btn:hover {
+  background: linear-gradient(135deg, rgba(191,90,242,.32), rgba(0,113,227,.22));
+  transform: translateY(-1px);
+}
+.wi-picker-build-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Better-fit-in-segment alternatives card — rendered after the recommended
+   holdings list in the What-If results. Per-holding suggestions for stronger
+   same-industry candidates, sized to the holding's current $ allocation. */
+.wi-alts-card {
+  background: var(--panel);
+  border: 1px solid rgba(191,90,242,.30);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 16px;
+}
+.wi-alts-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.wi-alts-title .wi-alts-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  background: rgba(191,90,242,.18);
+  color: #c98aff;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.wi-alts-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.wi-alt-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(191,90,242,.04);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.wi-alt-row:last-child { margin-bottom: 0; }
+.wi-alt-main { font-size: 12px; color: var(--fg); line-height: 1.55; }
+.wi-alt-main b { color: white; }
+.wi-alt-main .wi-alt-from { color: var(--muted); }
+.wi-alt-main .wi-alt-to   { color: var(--text); font-weight: 700; }
+.wi-alt-main .wi-alt-arrow { color: #c98aff; padding: 0 6px; font-weight: 700; }
+.wi-alt-rationale {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.wi-alt-swap-btn {
+  background: rgba(191,90,242,.18);
+  border: 1px solid rgba(191,90,242,.55);
+  color: #c98aff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.wi-alt-swap-btn:hover {
+  background: rgba(191,90,242,.32);
+  color: white;
+  border-color: #c98aff;
+}
+.wi-alts-empty {
+  font-size: 11.5px;
+  color: var(--dim);
+  font-style: italic;
+  padding: 8px 0;
 }
 
 /* Compare-clones view — rendered into #whatif-results when the user clicks
@@ -10028,6 +10245,20 @@ body { padding-bottom: 44px; }
             <button class="btn wi-compare-btn" id="wi-compare-all-btn" onclick="compareAllClonesClick()" title="Build every manager clone and surface consensus picks, per-manager projected metrics, the overlap matrix, and each manager's idiosyncratic bets.">⊕ Compare all managers</button>
           </div>
         </div>
+        <div class="wi-picker-section">
+          <div class="wi-picker-head">
+            <span class="wi-picker-title">Or pick specific stocks &amp; optimise for your goal</span>
+            <span class="wi-picker-sub">Type a ticker or name, add as many as you like. We'll allocate your $ amount across them using the goal's ranking formula — then suggest better-fit alternatives in each segment.</span>
+          </div>
+          <div class="wi-picker-row">
+            <div class="wi-picker-search-wrap">
+              <input id="wi-picker-search" type="text" placeholder="Type ticker (AAPL) or name (Apple)…" autocomplete="off" oninput="pickerOnSearchInput(this.value)" onfocus="pickerOnSearchInput(this.value)">
+              <div id="wi-picker-search-results" class="wi-picker-search-results hidden"></div>
+            </div>
+            <button class="wi-picker-build-btn" id="wi-picker-build-btn" onclick="buildPortfolioFromPickerClick()" title="Build a goal-optimised mix using only the tickers you've picked above. Per-holding 'better fit in segment' suggestions appear in the results.">Optimise these stocks</button>
+          </div>
+          <div class="wi-picker-chips" id="wi-picker-chips"></div>
+        </div>
       </div>
       <div id="saved-bundles-container"></div>
       <div id="whatif-results">
@@ -13893,9 +14124,10 @@ function renderWhatIfPage() {
   $('whatif-results').innerHTML = `
     <div class="wi-empty">
       <div class="sectors-empty-glyph">$</div>
-      <div class="wi-empty-msg">Enter an investment amount and pick a goal above, then click <strong>Build Portfolio</strong> to see your optimized mix with every parameter shown — or clone a top 13F manager's long-equity book from the strip below.</div>
+      <div class="wi-empty-msg">Enter an investment amount and pick a goal above, then click <strong>Build Portfolio</strong> to see your optimized mix with every parameter shown — clone a top 13F manager's long-equity book, or hand-pick specific stocks and let us optimise their mix for your goal.</div>
     </div>`;
   renderInvestorCloneStrip();
+  renderPickerChips();
   renderSavedBundles();
 }
 
@@ -14393,6 +14625,53 @@ function computeBundleCorrections(bundle, stats, fwd12) {
     } catch (e) { /* tolerate — corrections still useful without ADDs */ }
   }
 
+  // SWAP — for each non-ETF holding NOT already flagged for trim/exit, look
+  // in its own industry for a same-segment candidate that scores better under
+  // the goal's ranker. Position size ($ + pct) is preserved, only the ticker
+  // changes. Capped at 2 swaps so the panel stays readable; ranked by the
+  // delta improvement (biggest upgrade first).
+  let suggestedSwaps = [];
+  try {
+    const strategyDefForSwap = (typeof STRATEGY_DEFS !== 'undefined') ? STRATEGY_DEFS[goalKey] : null;
+    const cacheArr = (_whatIfCache && _whatIfCache.get && _whatIfCache.get(bundle.historyYears)) || null;
+    if (strategyDefForSwap && cacheArr) {
+      const trimExitSet = new Set([...suggestedExit, ...suggestedTrim].map(h => h.ticker));
+      const stockHoldings = enriched.filter(h => h.kind === 'stock' && !trimExitSet.has(h.ticker));
+      const swapCandidates = [];
+      for (const h of stockHoldings) {
+        const cur = cacheArr.find(x => x.ticker === h.ticker);
+        if (!cur) continue;
+        const curRank = strategyDefForSwap.rank(cur);
+        const targetIndustry = (cur.industry || '').toLowerCase();
+        if (!targetIndustry || targetIndustry === 'other') continue;
+        // Only suggest swaps where current holding is underperforming OR has a
+        // weak forward forecast — don't churn winners that already align.
+        const isUnderperforming = (h.gainPct < 0) || (h.fwd12 < 5);
+        if (!isUnderperforming) continue;
+        const inSegment = cacheArr
+          .filter(m => !m.isETF)
+          .filter(m => m.ticker !== h.ticker)
+          .filter(m => !presentTickers.has(m.ticker))
+          .filter(m => (m.industry || '').toLowerCase() === targetIndustry)
+          .map(m => ({ m, w: strategyDefForSwap.rank(m) }))
+          .filter(x => x.w > curRank + 5)
+          .filter(x => goalKey === 'value' ? true : (x.m.forecast12 > 0))
+          .sort((a, b) => b.w - a.w);
+        if (inSegment.length) {
+          const best = inSegment[0];
+          swapCandidates.push({
+            from: h, fromCur: cur, fromRank: curRank,
+            to: best.m, toRank: best.w,
+            delta: best.w - curRank,
+          });
+        }
+      }
+      suggestedSwaps = swapCandidates
+        .sort((a, b) => b.delta - a.delta)
+        .slice(0, 2);
+    }
+  } catch (e) { /* tolerate — corrections still useful without swaps */ }
+
   // Tilt — overweighting an existing star performer that already aligns with goal
   let suggestedTilt = null;
   if (paceStatus !== 'behind') {
@@ -14455,6 +14734,20 @@ function computeBundleCorrections(bundle, stats, fwd12) {
       op: { kind: 'add', ticker: c.ticker, name: c.name, industry: c.industry, addPct: 3 },
       detail: `Consider adding <b>${c.ticker}</b> (${c.name}) at 3% of bundle`,
       rationale: `Top ${_GOAL_LABELS[goalKey] || goalKey} pick not currently in your bundle: ${c.score.toFixed(0)} heat score, ${c.forecast12 >= 0 ? '+' : ''}${c.forecast12.toFixed(1)}% 12M forecast at ${c.forecastConf}% confidence. Other holdings are scaled down proportionally to make room.`,
+    });
+  }
+  for (const sw of suggestedSwaps) {
+    const fromH = sw.from;
+    const to = sw.to;
+    const fromCur = sw.fromCur;
+    const fwdFromTxt = `${fromCur.forecast12 >= 0 ? '+' : ''}${fromCur.forecast12.toFixed(1)}%`;
+    const fwdToTxt   = `${to.forecast12 >= 0 ? '+' : ''}${to.forecast12.toFixed(1)}%`;
+    moves.push({
+      kind: 'swap',
+      ticker: fromH.ticker,
+      op: { kind: 'swap', fromTicker: fromH.ticker, toTicker: to.ticker, toName: to.name, toIndustry: to.industry },
+      detail: `Swap <b>${fromH.ticker}</b> → <b>${to.ticker}</b> (${_escapeHtml(to.name)}) at same <b>${fromH.pct.toFixed(1)}%</b> ≈ <b>$${fmt(fromH.curValue)}</b>`,
+      rationale: `Same segment (<b>${_escapeHtml(fromCur.industry || 'Other')}</b>) · ${to.ticker} scores <b>${sw.delta.toFixed(1)} points higher</b> on the ${_GOAL_LABELS[goalKey] || goalKey} ranker. 12M forecast <b>${fwdToTxt}</b> vs <b>${fwdFromTxt}</b> · heat <b>${to.score >= 0 ? '+' : ''}${to.score}</b> vs <b>${fromCur.score >= 0 ? '+' : ''}${fromCur.score}</b>. Position size unchanged — only the ticker.`,
     });
   }
   if (suggestedTilt) {
@@ -14552,6 +14845,27 @@ function _applyMoveToBundle(b, op) {
         entryPrice: 0,
         entryForecast12: 0,
       });
+      return true;
+    }
+    case 'swap': {
+      // Replace fromTicker with toTicker preserving the position size (pct).
+      // The new ticker is treated as a fresh entry — entryPrice/Forecast are
+      // re-snapshotted at today's values in _renormaliseBundle.
+      const idx = holdings.findIndex(h => h.ticker === op.fromTicker);
+      if (idx < 0) return false;
+      if (holdings.find(h => h.ticker === op.toTicker)) return false;  // already present
+      const oldPct = holdings[idx].pct;
+      const kind = /^etf/i.test(op.toIndustry || '') ? 'etf' : 'stock';
+      holdings[idx] = {
+        ticker: op.toTicker,
+        kind,
+        name: op.toName || op.toTicker,
+        industry: op.toIndustry || holdings[idx].industry || 'Other',
+        pct: oldPct,
+        amount: 0, shares: 0,
+        entryPrice: 0,
+        entryForecast12: 0,
+      };
       return true;
     }
     default:
@@ -15796,6 +16110,182 @@ function buildPortfolioFromSimSet(amount, goalKey, horizon, historyYears) {
   return builtPortfolio;
 }
 
+// ========================================================================
+// Pick-specific-stocks-and-optimise (What If page) — user hand-picks tickers
+// right on the What If page, then we build the goal-optimised mix from just
+// that set. Independent of the global SIM_SET so this picker doesn't pollute
+// the Sim-Set state shared across Watchlist / Sectors / Top Picks.
+// ========================================================================
+const _PICKED_TICKERS = new Set();
+let _pickerSearchTimer = null;
+
+function renderPickerChips() {
+  const host = document.getElementById('wi-picker-chips');
+  if (!host) return;
+  if (_PICKED_TICKERS.size === 0) {
+    host.innerHTML = '<span class="wi-picker-empty">No stocks picked yet — search above and click a result to add it. You can add as many as you want.</span>';
+    return;
+  }
+  const chips = [...(_PICKED_TICKERS)].map(t => {
+    const c = STOCK_CATALOG.find(s => s.t === t);
+    const name = c ? c.n : t;
+    return `<span class="wi-picker-chip" title="${_escapeHtml(name)}"><b>${t}</b><button class="wi-chip-x" onclick="pickerRemoveTicker('${t}')" title="Remove ${t} from the picker">×</button></span>`;
+  }).join('');
+  host.innerHTML = chips + ` <span class="wi-picker-empty">${_PICKED_TICKERS.size} picked</span>`;
+}
+
+function pickerAddTicker(ticker) {
+  ticker = (ticker || '').toUpperCase();
+  if (!ticker) return;
+  if (_PICKED_TICKERS.has(ticker)) {
+    showToast({ title: `${ticker} already picked`, body: 'It is already in your selection.', type: '' });
+    return;
+  }
+  if (!STOCK_CATALOG.find(s => s.t === ticker)) {
+    showToast({ title: `${ticker} not in catalog`, body: 'Use a ticker from the built-in catalog.', type: 'bear' });
+    return;
+  }
+  _PICKED_TICKERS.add(ticker);
+  renderPickerChips();
+  const inp = document.getElementById('wi-picker-search');
+  if (inp) { inp.value = ''; inp.focus(); }
+  const slot = document.getElementById('wi-picker-search-results');
+  if (slot) slot.classList.add('hidden');
+}
+
+function pickerRemoveTicker(ticker) {
+  _PICKED_TICKERS.delete(ticker);
+  renderPickerChips();
+}
+
+function pickerOnSearchInput(value) {
+  clearTimeout(_pickerSearchTimer);
+  const slot = document.getElementById('wi-picker-search-results');
+  if (!slot) return;
+  const q = (value || '').trim();
+  if (q.length < 1) { slot.classList.add('hidden'); return; }
+  _pickerSearchTimer = setTimeout(() => {
+    const lowerQ = q.toLowerCase();
+    const results = STOCK_CATALOG
+      .filter(s => !_PICKED_TICKERS.has(s.t))
+      .filter(s => s.t.toLowerCase().includes(lowerQ) || s.n.toLowerCase().includes(lowerQ))
+      .slice(0, 8);
+    if (results.length === 0) {
+      slot.innerHTML = '<div class="modify-search-empty">No matches in catalog (or already picked).</div>';
+    } else {
+      slot.innerHTML = results.map(s => `
+        <div class="wi-picker-search-item" onclick="pickerAddTicker('${s.t}')">
+          <span class="wi-picker-search-sym">${s.t}</span>
+          <span class="wi-picker-search-name">${_escapeHtml(s.n)}</span>
+          <span class="wi-picker-search-meta">${_escapeHtml(s.i)}</span>
+        </div>`).join('');
+    }
+    slot.classList.remove('hidden');
+  }, 120);
+}
+
+// Build a goal-optimised portfolio from the user-picked tickers. Mirrors
+// buildPortfolioFromSimSet but uses _PICKED_TICKERS instead of the global
+// SIM_SET, and tags the resulting portfolio so renderWhatIfResults can show
+// it came from the picker (vs. catalog or Sim-Set).
+function buildPortfolioFromPicker(amount, goalKey, horizon, historyYears) {
+  historyYears = historyYears || 5;
+  const def = STRATEGY_DEFS[goalKey];
+  if (!def) throw new Error(`Unknown goal '${goalKey}'`);
+  const tickers = [..._PICKED_TICKERS];
+  if (tickers.length === 0) throw new Error('No stocks picked — search and add at least one before optimising.');
+  const marketBars = getMarketBars();
+  const universe = tickers.map(t => {
+    try {
+      const cat = STOCK_CATALOG.find(s => s.t === t);
+      const s = cat || { t, n: t, i: 'Other' };
+      return computeWhatIfMetrics(s, historyYears, marketBars);
+    } catch (e) { return null; }
+  }).filter(Boolean);
+  if (universe.length === 0) throw new Error('Could not compute metrics for any picked ticker.');
+  let ranked = universe.map(m => ({ ...m, _w: def.rank(m) })).sort((a, b) => b._w - a._w);
+  const scores = ranked.map(m => Math.max(5, m._w + 100));
+  const totalScore = scores.reduce((s, x) => s + x, 0);
+  let holdings = ranked.map((m, i) => ({
+    ...m,
+    kind: m.isETF ? 'etf' : 'stock',
+    pct: (scores[i] / totalScore) * 100,
+  }));
+  const minPct = Math.min(def.minPct, 100 / Math.max(1, holdings.length));
+  for (const h of holdings) {
+    if (h.kind === 'stock') h.pct = Math.max(minPct, Math.min(def.maxPct, h.pct));
+  }
+  const total = holdings.reduce((s, h) => s + h.pct, 0);
+  for (const h of holdings) {
+    h.pct = h.pct / total * 100;
+    h.amount = h.pct / 100 * amount;
+    h.shares = h.amount / h.last;
+  }
+  holdings.sort((a, b) => b.pct - a.pct);
+  const weighted = (months) => holdings.reduce((s, h) => {
+    const f = (h.forecasts || []).find(x => x.months === months);
+    return s + (f ? f.expReturn : 0) * h.pct;
+  }, 0) / 100;
+  const expected12 = weighted(12);
+  const expected24 = weighted(24);
+  const expected36 = weighted(36);
+  const avgConfidence = holdings.reduce((s, h) => {
+    const f = (h.forecasts || []).find(x => x.months === horizon);
+    return s + (f ? f.confidence : 0) * h.pct;
+  }, 0) / 100;
+  const stockPct = holdings.filter(h => h.kind === 'stock').reduce((s, h) => s + h.pct, 0);
+  const etfPct   = holdings.filter(h => h.kind === 'etf').reduce((s, h) => s + h.pct, 0);
+  const sectorMixObj = {};
+  for (const h of holdings) {
+    const sec = h.kind === 'etf' ? (h.industry || 'ETF') : (h.industry || 'Other');
+    sectorMixObj[sec] = (sectorMixObj[sec] || 0) + h.pct;
+  }
+  const sectorMix = Object.entries(sectorMixObj).sort((a, b) => b[1] - a[1]).map(([sec, pct]) => ({ sec, pct }));
+  const portfolioBeta   = holdings.reduce((s, h) => s + (h.beta || 1) * h.pct, 0) / 100;
+  const portfolioMaxDd  = holdings.reduce((s, h) => s + ((h.risk && h.risk.maxDd) || 0) * h.pct, 0) / 100;
+  const portfolioSharpe = holdings.reduce((s, h) => s + ((h.risk && h.risk.sharpe) || 0) * h.pct, 0) / 100;
+  const portfolioVol    = holdings.reduce((s, h) => s + (h.volatility || 0) * h.pct, 0) / 100;
+  const portfolioPeriodReturn = holdings.reduce((s, h) => s + ((h.risk && h.risk.periodReturn) || 0) * h.pct, 0) / 100;
+  const hhi = computeHHI(holdings);
+  const builtPortfolio = {
+    strategy: { ...def, label: `${def.label} · Picked`, summary: `${def.summary} (built from your ${tickers.length} hand-picked ticker${tickers.length===1?'':'s'} — alternative-in-segment suggestions appear below)` },
+    goalKey, amount, horizon, historyYears,
+    fromPicker: true,
+    pickedTickers: tickers,
+    holdings,
+    stats: { expected12, expected24, expected36, avgConfidence, stockPct, etfPct, nHoldings: holdings.length, sectorMix,
+             portfolioBeta, portfolioMaxDd, portfolioSharpe, portfolioVol, portfolioPeriodReturn,
+             hhi, hhiText: hhiLabel(hhi) },
+  };
+  _lastBuiltPortfolio = builtPortfolio;
+  return builtPortfolio;
+}
+
+function buildPortfolioFromPickerClick() {
+  if (_PICKED_TICKERS.size === 0) {
+    showToast({ title: 'No stocks picked', body: 'Type a ticker or name in the search and click a result to add it first.', type: 'bear' });
+    return;
+  }
+  const raw = ($('wi-amount').value || '').replace(/[$,\s]/g, '');
+  const amount = parseFloat(raw);
+  if (isNaN(amount) || amount <= 0 || amount < 100) {
+    showToast({ title: 'Enter a valid amount', body: 'Use at least $100.', type: 'bear' });
+    return;
+  }
+  const goal = $('wi-goal').value;
+  const horizon = parseInt($('wi-horizon').value, 10);
+  const historyYears = parseInt(($('wi-history') && $('wi-history').value) || '5', 10);
+  $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg">Optimising your <b>${_PICKED_TICKERS.size}</b> picked stock${_PICKED_TICKERS.size===1?'':'s'} for <b>${STRATEGY_DEFS[goal].label}</b>, grounded on last ${historyYears} year${historyYears===1?'':'s'}…</div></div>`;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    try {
+      const p = buildPortfolioFromPicker(amount, goal, horizon, historyYears);
+      renderWhatIfResults(p);
+    } catch (e) {
+      $('whatif-results').innerHTML = `<div class="wi-empty"><div class="wi-empty-msg" style="color:var(--bear)">Could not build portfolio: ${_escapeHtml(e.message)}</div></div>`;
+    }
+  }));
+}
+
 function buildPortfolioFromSimSetClick() {
   if (!SIM_SET || SIM_SET.size === 0) {
     showToast({ title: 'Sim Set is empty', body: 'Add stocks via the + button on Watchlist / Sectors / Top Picks first.', type: 'bear' });
@@ -15890,6 +16380,180 @@ function renderCalendarCard(p) {
       </div>`;
     }).join('')}
   </div>`;
+}
+
+// ========================================================================
+// Better-fit alternatives in segment — for the just-built portfolio, find
+// per-holding candidates in the SAME industry that score higher under the
+// goal's rank formula. Used both at build time (renderWhatIfResults) and as
+// the basis for the SWAP move type in the corrections engine.
+//
+// `amount` is the holding's current $ allocation; we surface the SAME dollar
+// amount (i.e. same shares budget) for the suggested swap so the user knows
+// the position size won't change.
+// ========================================================================
+function computeSegmentAlternativesForHolding(h, goalKey, historyYears, all) {
+  if (!h || h.kind === 'etf') return [];
+  const def = STRATEGY_DEFS[goalKey];
+  if (!def) return [];
+  const targetIndustry = (h.industry || '').toLowerCase();
+  if (!targetIndustry || targetIndustry === 'other') return [];
+  const currentRank = (typeof h._w === 'number') ? h._w : def.rank(h);
+  // Use the What-If cache so the candidates are scored against the same
+  // historyYears window as the current build.
+  const cache = all || (buildWhatIfCache(historyYears) || []);
+  return cache
+    .filter(m => !m.isETF)
+    .filter(m => m.ticker !== h.ticker)
+    .filter(m => (m.industry || '').toLowerCase() === targetIndustry)
+    .map(m => ({ ...m, _w: def.rank(m) }))
+    .filter(m => m._w > currentRank + 5)        // must be materially better
+    .filter(m => goalKey === 'value' ? true : (m.forecast12 > 0))   // inclusion filter mirror
+    .sort((a, b) => b._w - a._w)
+    .slice(0, 2);
+}
+
+function _altRationale(h, alt, goalKey) {
+  const def = STRATEGY_DEFS[goalKey] || {};
+  const fmtN = (n, d) => (n >= 0 ? '+' : '') + n.toFixed(d == null ? 1 : d);
+  const bits = [];
+  // Goal-specific reasons
+  if (goalKey === 'growth' || goalKey === 'momentum') {
+    bits.push(`12M forecast <b>${fmtN(alt.forecast12)}%</b> vs <b>${fmtN(h.forecast12)}%</b>`);
+    bits.push(`Heat <b>${alt.score >= 0 ? '+' : ''}${alt.score}</b> vs <b>${h.score >= 0 ? '+' : ''}${h.score}</b>`);
+    if (goalKey === 'momentum') bits.push(`1M return <b>${fmtN(alt.monthChange)}%</b> vs <b>${fmtN(h.monthChange)}%</b>`);
+  } else if (goalKey === 'preservation') {
+    bits.push(`Volatility <b>${alt.volatility.toFixed(1)}%</b> vs <b>${h.volatility.toFixed(1)}%</b>`);
+    bits.push(`Yield <b>${(alt.divYield || 0).toFixed(2)}%</b> vs <b>${(h.divYield || 0).toFixed(2)}%</b>`);
+  } else if (goalKey === 'income') {
+    bits.push(`Yield <b>${(alt.divYield || 0).toFixed(2)}%</b> vs <b>${(h.divYield || 0).toFixed(2)}%</b>`);
+    bits.push(`Heat <b>${alt.score >= 0 ? '+' : ''}${alt.score}</b> vs <b>${h.score >= 0 ? '+' : ''}${h.score}</b> (trend risk)`);
+  } else if (goalKey === 'value') {
+    if (alt.pe > 0 && h.pe > 0) {
+      bits.push(`P/E <b>${alt.pe.toFixed(1)}</b> vs <b>${h.pe.toFixed(1)}</b>`);
+    }
+    bits.push(`Heat <b>${alt.score >= 0 ? '+' : ''}${alt.score}</b> vs <b>${h.score >= 0 ? '+' : ''}${h.score}</b>`);
+  }
+  const delta = (alt._w - (typeof h._w === 'number' ? h._w : def.rank(h)));
+  return `Same segment (<b>${_escapeHtml(h.industry || 'Other')}</b>) · scores <b>${delta.toFixed(1)} points higher</b> on the ${def.label || goalKey} ranker. ${bits.join(' · ')}.`;
+}
+
+// Holds the alternatives computed for the last-built portfolio so the
+// Swap-this-with-that buttons can dispatch by index. Keyed by from-ticker.
+const _LAST_BUILD_ALTS = { byTicker: {}, list: [] };
+
+function computeAndStashBuildAlternatives(p) {
+  _LAST_BUILD_ALTS.byTicker = {};
+  _LAST_BUILD_ALTS.list = [];
+  if (!p || !p.holdings) return;
+  const cache = buildWhatIfCache(p.historyYears) || [];
+  for (const h of p.holdings) {
+    const alts = computeSegmentAlternativesForHolding(h, p.goalKey, p.historyYears, cache);
+    if (alts.length) {
+      _LAST_BUILD_ALTS.byTicker[h.ticker] = alts;
+      _LAST_BUILD_ALTS.list.push({ from: h, alts });
+    }
+  }
+}
+
+function renderSegmentAlternativesCard(p) {
+  computeAndStashBuildAlternatives(p);
+  const list = _LAST_BUILD_ALTS.list;
+  const def = p.strategy || STRATEGY_DEFS[p.goalKey] || {};
+  if (!list || list.length === 0) {
+    return `<div class="wi-alts-card">
+      <div class="wi-alts-title">Better-fit alternatives in segment <span class="wi-alts-badge">${def.label || p.goalKey} ranker</span></div>
+      <div class="wi-alts-sub">For each stock holding we look in its industry for tickers that score higher on the goal's ranking formula. Sized to the holding's current $ allocation so the position weight is unchanged.</div>
+      <div class="wi-alts-empty">No materially better same-segment alternatives detected for the current holdings — every stock already leads its industry under the ${def.label || p.goalKey} ranker.</div>
+    </div>`;
+  }
+  const rows = list.flatMap(({ from, alts }) =>
+    alts.map(alt => {
+      const rationale = _altRationale(from, alt, p.goalKey);
+      return `<div class="wi-alt-row">
+        <div class="wi-alt-main">
+          <span class="wi-alt-from">${from.ticker} (${_escapeHtml(from.name)})</span>
+          <span class="wi-alt-arrow">→</span>
+          <span class="wi-alt-to">${alt.ticker} (${_escapeHtml(alt.name)})</span>
+          · <b>${from.pct.toFixed(1)}%</b> ≈ <b>$${fmt(from.amount)}</b>
+          <span class="wi-alt-rationale">${rationale}</span>
+        </div>
+        <button class="wi-alt-swap-btn" onclick="applyBuildAlternative('${from.ticker}', '${alt.ticker}')" title="Replace ${from.ticker} with ${alt.ticker} in your portfolio — preserves the ${from.pct.toFixed(1)}% allocation. You can review before saving.">Swap →</button>
+      </div>`;
+    })
+  ).join('');
+  return `<div class="wi-alts-card">
+    <div class="wi-alts-title">Better-fit alternatives in segment <span class="wi-alts-badge">${def.label || p.goalKey} ranker</span></div>
+    <div class="wi-alts-sub">For each stock holding we look in its industry for tickers that score higher on the goal's ranking formula at your $ amount. Swap one-click to replace before saving the bundle. ${list.reduce((s, l) => s + l.alts.length, 0)} alternative${list.reduce((s, l) => s + l.alts.length, 0)===1?'':'s'} across ${list.length} holding${list.length===1?'':'s'}.</div>
+    ${rows}
+  </div>`;
+}
+
+// One-click swap on the in-memory portfolio (NOT a saved bundle yet) — replaces
+// fromTicker with toTicker at the same pct so the user can preview the new mix
+// before clicking Save as bundle.
+function applyBuildAlternative(fromTicker, toTicker) {
+  const p = _lastBuiltPortfolio;
+  if (!p || !p.holdings) {
+    showToast({ title: 'No portfolio to update', body: 'Build a portfolio first, then swap.', type: 'bear' });
+    return;
+  }
+  const idx = p.holdings.findIndex(h => h.ticker === fromTicker);
+  if (idx < 0) {
+    showToast({ title: `${fromTicker} not in portfolio`, body: 'It may have been swapped already.', type: 'bear' });
+    return;
+  }
+  const cat = STOCK_CATALOG.find(s => s.t === toTicker) || { t: toTicker, n: toTicker, i: p.holdings[idx].industry };
+  let mNew;
+  try {
+    mNew = computeWhatIfMetrics(cat, p.historyYears, getMarketBars());
+  } catch (e) {
+    showToast({ title: 'Swap failed', body: `Could not compute metrics for ${toTicker}: ${e.message}`, type: 'bear' });
+    return;
+  }
+  const old = p.holdings[idx];
+  // Preserve the old holding's pct/amount (position size unchanged), recompute
+  // shares at the new ticker's last price.
+  const def = STRATEGY_DEFS[p.goalKey] || {};
+  const newHolding = {
+    ...mNew,
+    kind: mNew.isETF ? 'etf' : 'stock',
+    pct: old.pct,
+    amount: old.amount,
+    shares: mNew.last > 0 ? (old.amount / mNew.last) : 0,
+    _w: def.rank ? def.rank(mNew) : 0,
+  };
+  p.holdings[idx] = newHolding;
+  p.holdings.sort((a, b) => b.pct - a.pct);
+  // Recompute portfolio-level stats so the summary cards stay consistent
+  const weighted = (months) => p.holdings.reduce((s, h) => {
+    const f = (h.forecasts || []).find(x => x.months === months);
+    return s + (f ? f.expReturn : 0) * h.pct;
+  }, 0) / 100;
+  p.stats.expected12 = weighted(12);
+  p.stats.expected24 = weighted(24);
+  p.stats.expected36 = weighted(36);
+  p.stats.avgConfidence = p.holdings.reduce((s, h) => {
+    const f = (h.forecasts || []).find(x => x.months === p.horizon);
+    return s + (f ? f.confidence : 0) * h.pct;
+  }, 0) / 100;
+  p.stats.stockPct = p.holdings.filter(h => h.kind === 'stock').reduce((s, h) => s + h.pct, 0);
+  p.stats.etfPct   = p.holdings.filter(h => h.kind === 'etf').reduce((s, h) => s + h.pct, 0);
+  const secObj = {};
+  for (const h of p.holdings) {
+    const sec = h.kind === 'etf' ? (h.industry || 'ETF') : (h.industry || 'Other');
+    secObj[sec] = (secObj[sec] || 0) + h.pct;
+  }
+  p.stats.sectorMix = Object.entries(secObj).sort((a, b) => b[1] - a[1]).map(([sec, pct]) => ({ sec, pct }));
+  p.stats.portfolioBeta   = p.holdings.reduce((s, h) => s + (h.beta || 1) * h.pct, 0) / 100;
+  p.stats.portfolioMaxDd  = p.holdings.reduce((s, h) => s + ((h.risk && h.risk.maxDd) || 0) * h.pct, 0) / 100;
+  p.stats.portfolioSharpe = p.holdings.reduce((s, h) => s + ((h.risk && h.risk.sharpe) || 0) * h.pct, 0) / 100;
+  p.stats.portfolioVol    = p.holdings.reduce((s, h) => s + (h.volatility || 0) * h.pct, 0) / 100;
+  p.stats.portfolioPeriodReturn = p.holdings.reduce((s, h) => s + ((h.risk && h.risk.periodReturn) || 0) * h.pct, 0) / 100;
+  p.stats.hhi = computeHHI(p.holdings);
+  p.stats.hhiText = hhiLabel(p.stats.hhi);
+  showToast({ title: `Swapped ${fromTicker} → ${toTicker}`, body: `Same ${old.pct.toFixed(1)}% allocation ($${fmt(old.amount)}). Save the bundle to lock it in.`, type: 'bull' });
+  renderWhatIfResults(p);
 }
 
 function renderWhatIfResults(p) {
@@ -15989,6 +16653,8 @@ function renderWhatIfResults(p) {
 
     <div class="wi-holdings-title">Recommended holdings · ranked by allocation</div>
     ${p.holdings.map(h => renderHoldingCard(h, p.goalKey, p.historyYears)).join('')}
+
+    ${renderSegmentAlternativesCard(p)}
 
     <div class="wi-method-card">
       <div class="wi-method-title">Method & parameters — facts behind the mix</div>

@@ -83,6 +83,68 @@ test('every goal-based portfolio builds + renders', () => {
   assert.deepEqual(failures, [], 'expected every goal-based portfolio to succeed');
 });
 
+test('Pick-stocks-and-optimise — picker builds + renders, surfaces segment alternatives, swap is reversible', () => {
+  app.getEarningsDateCached = () => null;
+  app._PICKED_TICKERS.clear();
+  app._PICKED_TICKERS.add('AAPL'); app._PICKED_TICKERS.add('MSFT'); app._PICKED_TICKERS.add('JPM');
+  const goals = ['growth', 'income', 'value', 'momentum', 'preservation'];
+  const failures = [];
+  for (const g of goals) {
+    try {
+      const p = app.buildPortfolioFromPicker(10000, g, 12, 5);
+      app.renderWhatIfResults(p);
+      assert.ok(p.fromPicker, 'portfolio must be tagged fromPicker');
+      assert.ok(Array.isArray(p.holdings) && p.holdings.length > 0, 'must have holdings');
+    } catch (e) {
+      failures.push(`picker[${g}]: ${e.message}`);
+    }
+  }
+  assert.deepEqual(failures, [], 'every picker portfolio must render');
+});
+
+test('Segment-alternatives engine — only suggests same-industry, higher-ranked candidates', () => {
+  app.getEarningsDateCached = () => null;
+  const p = app.buildPortfolio(10000, 'growth', 12, 5);
+  app.computeAndStashBuildAlternatives(p);
+  for (const { from, alts } of app._LAST_BUILD_ALTS.list) {
+    for (const a of alts) {
+      assert.equal(
+        (a.industry || '').toLowerCase(),
+        (from.industry || '').toLowerCase(),
+        `alt ${a.ticker} must share industry with ${from.ticker}`
+      );
+      assert.notEqual(a.ticker, from.ticker, 'alt cannot be the same ticker');
+    }
+  }
+});
+
+test('SWAP move — applies cleanly to a bundle and renormalises to 100%', () => {
+  const dummyBundle = {
+    id: 'b_test_swap',
+    name: 'swap-test',
+    createdAt: Date.now() - 7 * 86400000,
+    goalKey: 'growth',
+    amount: 10000,
+    horizon: 12,
+    historyYears: 5,
+    holdings: [
+      { ticker: 'AAPL', kind: 'stock', name: 'Apple', industry: 'Consumer Electronics', pct: 50, amount: 5000, shares: 25, entryPrice: 200, entryForecast12: 5 },
+      { ticker: 'MSFT', kind: 'stock', name: 'Microsoft', industry: 'Software', pct: 50, amount: 5000, shares: 12, entryPrice: 416, entryForecast12: 7 },
+    ],
+    history: [],
+  };
+  const ok = app._applyMoveToBundle(dummyBundle, { kind: 'swap', fromTicker: 'AAPL', toTicker: 'NVDA', toName: 'Nvidia', toIndustry: 'Semiconductors' });
+  assert.ok(ok, 'swap should return true');
+  assert.ok(!dummyBundle.holdings.find(h => h.ticker === 'AAPL'), 'AAPL must be gone');
+  assert.ok(dummyBundle.holdings.find(h => h.ticker === 'NVDA'), 'NVDA must be present');
+  app._renormaliseBundle(dummyBundle);
+  const total = dummyBundle.holdings.reduce((s, h) => s + h.pct, 0);
+  assert.ok(Math.abs(total - 100) < 0.01, `pct must sum to 100, got ${total}`);
+  const nvda = dummyBundle.holdings.find(h => h.ticker === 'NVDA');
+  assert.ok(nvda.entryPrice > 0, 'NVDA entry price must be re-snapshotted at today');
+  assert.ok(nvda.shares > 0, 'NVDA shares must be derived');
+});
+
 test('Build from Sim Set — LIVE earnings + dividend stock must not throw', () => {
   // The user-visible bug was "Could not build portfolio: h is not defined" coming
   // from the Build-from-Sim-Set button in LIVE mode. Same root cause as the

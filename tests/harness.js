@@ -128,6 +128,11 @@ function loadApp() {
     'saveCurrentBundle', '_lastBuiltPortfolio', 'SAVED_BUNDLES',
     // Sim Set
     'SIM_SET',
+    // Picker (pick-stocks-and-optimise) + segment alternatives + bundle ops
+    '_PICKED_TICKERS', '_LAST_BUILD_ALTS',
+    'buildPortfolioFromPicker', 'computeAndStashBuildAlternatives',
+    'computeSegmentAlternativesForHolding',
+    '_applyMoveToBundle', '_renormaliseBundle', 'computeBundleCorrections',
     // Cockpit + live data
     '_cockpitRenderHeatmap', '_cockpitComputeOverview',
     'fetchTickerBundle', 'fetchBars', 'fetchQuote', 'fetchFinnhubProfile', 'fetchFinnhubMetrics',
