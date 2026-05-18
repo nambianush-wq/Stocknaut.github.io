@@ -3509,11 +3509,16 @@ body { padding-bottom: 44px; }
 }
 @media (max-width: 1280px) { .cockpit-indices-grid { grid-template-columns: repeat(4, 1fr); } }
 @media (max-width: 720px)  { .cockpit-indices-grid { grid-template-columns: repeat(2, 1fr); } }
+/* Cockpit index gauge cards — redesigned 2026-05-18 for clearer visual
+   hierarchy. Five visual clusters (label → gauge → headline → price →
+   stats → spark), separated by typography + spacing rather than nested
+   boxes. The big % is now BELOW the gauge (was absolutely positioned
+   over the arc which created the overlap mess). */
 .cockpit-index-card {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 12px 10px 10px;
+  padding: 11px 12px 10px;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -3534,17 +3539,19 @@ body { padding-bottom: 44px; }
   font-weight: 700;
 }
 .cockpit-index-name {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--text);
   margin-top: 2px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+  letter-spacing: .02em;
 }
 .cockpit-index-gauge-wrap {
   position: relative;
   width: 100%;
-  max-width: 120px;
+  max-width: 110px;
   aspect-ratio: 2 / 1;
+  margin-bottom: 2px;
 }
 .cockpit-index-gauge {
   width: 100%;
@@ -3568,35 +3575,54 @@ body { padding-bottom: 44px; }
 .cockpit-index-gauge .pivot { fill: var(--fg); }
 .cockpit-index-gauge .tick { stroke: var(--muted); stroke-width: 1; }
 .cockpit-index-gauge .tick-lbl { font-size: 8px; fill: var(--dim); font-weight: 700; }
+/* Headline % cluster — sits BELOW the gauge (was overlapping the arc
+   before). Period label ("today" / "1W") sits tightly under the % so
+   the user immediately knows which window the headline is for. */
+.cockpit-index-headline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  margin-top: -4px;
+  margin-bottom: 4px;
+}
 .cockpit-index-val {
-  position: absolute;
-  bottom: 4px;
-  left: 0; right: 0;
-  text-align: center;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  pointer-events: none;
+  line-height: 1.05;
+  letter-spacing: -.01em;
 }
 .cockpit-index-val.up   { color: var(--bull); }
 .cockpit-index-val.down { color: var(--bear); }
 .cockpit-index-val.warn { color: var(--warn); }
-.cockpit-index-price {
-  font-size: 11px;
-  color: var(--text);
-  margin-top: 4px;
-  font-variant-numeric: tabular-nums;
+.cockpit-index-headline-period {
+  font-size: 8.5px;
+  color: var(--dim);
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-top: 1px;
 }
-.cockpit-index-price b { color: white; font-weight: 700; font-size: 12px; }
-/* Stats row under the price — 1W / 1M history + 12M forecast, in one
-   compact line so the gauge card carries the full live/history/forecast
-   trio without growing taller. */
+/* Price line — bold white, with no period suffix (period is on the
+   headline above). Cleaner than the old "$X · today · 1W +x%" smush. */
+.cockpit-index-price {
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+/* Stats row — 3-column grid so 1W / 1M / 12M FCST always line up
+   evenly regardless of value width. Each cell stacks label + value. */
 .cockpit-index-stats {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 4px;
-  margin-top: 6px;
+  width: 100%;
+  margin-top: 9px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(138,146,166,.10);
   font-variant-numeric: tabular-nums;
 }
 .cockpit-idx-stat {
@@ -3604,21 +3630,26 @@ body { padding-bottom: 44px; }
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  font-size: 9.5px;
-  flex: 1;
+  min-width: 0;
 }
 .cockpit-idx-stat .lbl {
   color: var(--dim);
-  font-weight: 600;
-  letter-spacing: .03em;
+  font-weight: 700;
+  letter-spacing: .05em;
   text-transform: uppercase;
+  font-size: 8.5px;
+  white-space: nowrap;
 }
-.cockpit-idx-stat b { font-size: 10.5px; font-weight: 700; }
+.cockpit-idx-stat b {
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
 .cockpit-idx-stat b.up   { color: var(--bull); }
 .cockpit-idx-stat b.down { color: var(--bear); }
 .cockpit-index-spark {
-  margin-top: 4px;
-  height: 16px;
+  margin-top: 6px;
+  height: 18px;
   width: 100%;
   display: flex;
   align-items: center;
@@ -3629,11 +3660,13 @@ body { padding-bottom: 44px; }
   color: var(--dim);
   text-transform: uppercase;
   letter-spacing: .06em;
-  margin-top: 4px;
+  margin-top: 5px;
   font-style: italic;
+  font-weight: 700;
 }
 .cockpit-index-source.live { color: var(--bull); font-style: normal; }
-.cockpit-index-source.synth { color: var(--warn); }
+.cockpit-index-source.synth { color: var(--warn); font-style: normal; }
+.cockpit-index-source.loading { color: var(--accent); }
 /* Subtle pulsing glow ring while loading live data */
 @keyframes idx-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(0,113,227,.0); }
@@ -17842,6 +17875,12 @@ function _cockpitRenderIndices() {
     const tipBase = vixImplausible
       ? `VIX index isn't quoted by Finnhub's stock-quote endpoint (it's a CBOE index, not an equity). Price shown is suppressed to avoid the stale anchor leaking. For the actual VIX, see cboe.com/tradable_products/vix. The 1W direction shown is still informative.\n\n${idx.role}`
       : `${interpretation}\n\n${idx.role}\n\nPrice ${displayPrice}\nHistory: 1W ${wkChg >= 0 ? '+' : ''}${wkChg.toFixed(2)}% · 1M ${moChg >= 0 ? '+' : ''}${moChg.toFixed(2)}%\nForecast: 12M ${f12 >= 0 ? '+' : ''}${f12.toFixed(1)}% at ${conf12}% confidence\n\nNeedle = 1-week change scaled to ±5%. ${isFear ? 'INVERTED for VIX — a spike points LEFT because rising volatility is bad for equity.' : ''}\n\nClick to add ${idx.ticker} to your watchlist + open the full ticker dashboard.`;
+    // Headline % display — for VIX in implausible state we show "—" instead
+    // of a misleading number, with no period label (the gauge needle is the
+    // only signal we trust). Otherwise show the signed %.
+    const headlineDisplay = vixImplausible
+      ? `<div class="cockpit-index-val warn" style="font-size:14px;">—</div><div class="cockpit-index-headline-period">no live quote</div>`
+      : `<div class="cockpit-index-val ${dirCls}">${headlinePct >= 0 ? '+' : ''}${headlinePct.toFixed(2)}%</div><div class="cockpit-index-headline-period">${headlineLabel}</div>`;
     return `<div class="cockpit-index-card ${cardCls}${loadingCls}"
       title="${tipBase}"
       onclick="(async()=>{ if(!WATCHLIST.includes('${idx.ticker}')){ WATCHLIST.push('${idx.ticker}'); saveWatchlist(); } selectTicker('${idx.ticker}'); showView('watchlist'); })();" tabindex="0">
@@ -17849,13 +17888,15 @@ function _cockpitRenderIndices() {
       <div class="cockpit-index-name">${idx.ticker}</div>
       <div class="cockpit-index-gauge-wrap">
         ${_cockpitGaugeSvg(wkChg, isFear)}
-        <div class="cockpit-index-val ${dirCls}">${headlinePct >= 0 ? '+' : ''}${headlinePct.toFixed(2)}%</div>
       </div>
-      <div class="cockpit-index-price"><b>${displayPrice}</b> · ${headlineLabel}</div>
+      <div class="cockpit-index-headline">
+        ${headlineDisplay}
+      </div>
+      <div class="cockpit-index-price">${displayPrice}</div>
       <div class="cockpit-index-stats">
         <span class="cockpit-idx-stat" title="1-week change vs same time last week"><span class="lbl">1W</span><b class="${wkChg >= 0 ? 'up' : 'down'}">${wkChg >= 0 ? '+' : ''}${wkChg.toFixed(2)}%</b></span>
         <span class="cockpit-idx-stat" title="1-month change vs same time last month"><span class="lbl">1M</span><b class="${moChg >= 0 ? 'up' : 'down'}">${moChg >= 0 ? '+' : ''}${moChg.toFixed(2)}%</b></span>
-        <span class="cockpit-idx-stat" title="12-month forecast at ${conf12}% confidence — heuristic, directional only"><span class="lbl">12M fcst</span><b class="${f12 >= 0 ? 'up' : 'down'}">${f12 >= 0 ? '+' : ''}${f12.toFixed(1)}%</b></span>
+        <span class="cockpit-idx-stat" title="12-month forecast at ${conf12}% confidence — heuristic, directional only"><span class="lbl">12M FCST</span><b class="${f12 >= 0 ? 'up' : 'down'}">${f12 >= 0 ? '+' : ''}${f12.toFixed(1)}%</b></span>
       </div>
       <div class="cockpit-index-spark">${spark}</div>
       <div class="cockpit-index-source ${sourceCls}">${sourceLabel}</div>
