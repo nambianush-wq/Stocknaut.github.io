@@ -102,6 +102,34 @@ test('Pick-stocks-and-optimise — picker builds + renders, surfaces segment alt
   assert.deepEqual(failures, [], 'every picker portfolio must render');
 });
 
+test('Picker portfolio — weights are rank-proportional, NOT equal (regression pin for 2026-05-18 defect)', () => {
+  // The defect: 4 picks under Growth all came out at exactly 25.0% each
+  // because the catalog's 15% maxPct ceiling clipped every weight to 15%,
+  // then renormalised to identical shares. After the fix, the ceiling
+  // scales with N so the top pick gets meaningfully more than the bottom.
+  app.getEarningsDateCached = () => null;
+  app._PICKED_TICKERS.clear();
+  // 4 tickers with deliberately different goal-rank profiles for Growth
+  app._PICKED_TICKERS.add('BAC');
+  app._PICKED_TICKERS.add('GOOG');
+  app._PICKED_TICKERS.add('INFY');
+  app._PICKED_TICKERS.add('AAPL');
+  const p = app.buildPortfolioFromPicker(10000, 'growth', 24, 5);
+  assert.ok(p.holdings.length === 4, 'should have 4 holdings');
+  const pcts = p.holdings.map(h => h.pct);
+  const max = Math.max(...pcts);
+  const min = Math.min(...pcts);
+  // Equal-weight would mean max - min < 0.01. Rank-proportional should give
+  // at least a few percentage points of spread. Pin a conservative 3% gap.
+  assert.ok(max - min > 3,
+    `expected rank-proportional spread > 3pp, got max=${max.toFixed(2)} min=${min.toFixed(2)} (delta=${(max-min).toFixed(2)}pp)`);
+  // First holding (highest rank) should be larger than equal-weight (25%)
+  // by some margin — pin that the top pick is > 27% (meaningful tilt).
+  // p.holdings is sorted desc by pct in the builder.
+  assert.ok(p.holdings[0].pct > 27,
+    `top pick should exceed equal-weight by ≥2pp, got ${p.holdings[0].pct.toFixed(2)}%`);
+});
+
 test('Segment-alternatives engine — only suggests same-industry, higher-ranked candidates', () => {
   app.getEarningsDateCached = () => null;
   const p = app.buildPortfolio(10000, 'growth', 12, 5);

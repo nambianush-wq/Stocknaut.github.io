@@ -16195,20 +16195,28 @@ function buildPortfolioFromSimSet(amount, goalKey, horizon, historyYears) {
     } catch (e) { return null; }
   }).filter(Boolean);
   if (universe.length === 0) throw new Error('Could not compute metrics for any sim-set ticker.');
-  // Rank by the goal's rank function
+  // Rank by the goal's rank function — preserve relative gaps between picks
+  // so a 12M-forecast leader gets meaningfully more weight than a laggard.
+  // Same fix as buildPortfolioFromPicker (defect 2026-05-18 — equal weights
+  // when N is small because the catalog's 15% ceiling clipped everyone).
   let ranked = universe.map(m => ({ ...m, _w: def.rank(m) })).sort((a, b) => b._w - a._w);
-  // Score-weighted allocation: 100% of capital across the sim set (no ETF core split)
-  const scores = ranked.map(m => Math.max(5, m._w + 100));
+  const minRank = Math.min(...ranked.map(m => m._w));
+  const shift = Math.max(0, 5 - minRank);
+  const scores = ranked.map(m => Math.max(0.5, m._w + shift));
   const totalScore = scores.reduce((s, x) => s + x, 0);
   let holdings = ranked.map((m, i) => ({
     ...m,
     kind: m.isETF ? 'etf' : 'stock',
     pct: (scores[i] / totalScore) * 100,
   }));
-  // Clip per-stock to min/max — relax min to 1% for sim-set since user-curated
-  const minPct = Math.min(def.minPct, 100 / Math.max(1, holdings.length));
+  // Dynamic per-holding ceiling — scales with N so rank-based weights actually
+  // come through for small baskets. N=4 → 45%; N=8 → 22.5%; N≥12 reverts to
+  // def.maxPct (15%). Floor scales similarly.
+  const equalWeight = 100 / Math.max(1, holdings.length);
+  const dynamicMax = Math.max(def.maxPct, equalWeight * 1.8);
+  const dynamicMin = Math.min(def.minPct, equalWeight / 3);
   for (const h of holdings) {
-    if (h.kind === 'stock') h.pct = Math.max(minPct, Math.min(def.maxPct, h.pct));
+    if (h.kind === 'stock') h.pct = Math.max(dynamicMin, Math.min(dynamicMax, h.pct));
   }
   // Renormalise
   const total = holdings.reduce((s, h) => s + h.pct, 0);
@@ -16245,7 +16253,16 @@ function buildPortfolioFromSimSet(amount, goalKey, horizon, historyYears) {
   const portfolioPeriodReturn = holdings.reduce((s, h) => s + ((h.risk && h.risk.periodReturn) || 0) * h.pct, 0) / 100;
   const hhi = computeHHI(holdings);
   const builtPortfolio = {
-    strategy: { ...def, label: `${def.label} · Sim Set`, summary: `${def.summary} (built from your ${tickers.length}-ticker Simulation Set instead of the catalog)` },
+    strategy: {
+      ...def,
+      label: `${def.label} · Sim Set`,
+      summary: `${def.summary} (built from your ${tickers.length}-ticker Simulation Set instead of the catalog)`,
+      stockWeight: 1.0,
+      etfWeight: 0.0,
+      minPct: +dynamicMin.toFixed(1),
+      maxPct: +dynamicMax.toFixed(1),
+      rankFormula: def.rankFormula + ` · shift +${shift.toFixed(0)} so the lowest pick gets a positive floor`,
+    },
     goalKey, amount, horizon, historyYears,
     fromSimSet: true,
     holdings,
@@ -16351,16 +16368,31 @@ function buildPortfolioFromPicker(amount, goalKey, horizon, historyYears) {
   }).filter(Boolean);
   if (universe.length === 0) throw new Error('Could not compute metrics for any picked ticker.');
   let ranked = universe.map(m => ({ ...m, _w: def.rank(m) })).sort((a, b) => b._w - a._w);
-  const scores = ranked.map(m => Math.max(5, m._w + 100));
+  // Score-weight by goal rank — preserve the relative gaps between picks so
+  // a 12M-forecast leader gets meaningfully more weight than a laggard. The
+  // previous formula (Math.max(5, _w + 100)) added a constant that compressed
+  // differences AND combined with a fixed 15% ceiling to force equal weights
+  // when N≤6 picks all scored above the ceiling (reported defect 2026-05-18).
+  // Now we shift just enough so the lowest pick gets a floor of 5, preserving
+  // the rank gradient between higher-scoring picks.
+  const minRank = Math.min(...ranked.map(m => m._w));
+  const shift = Math.max(0, 5 - minRank);
+  const scores = ranked.map(m => Math.max(0.5, m._w + shift));
   const totalScore = scores.reduce((s, x) => s + x, 0);
   let holdings = ranked.map((m, i) => ({
     ...m,
     kind: m.isETF ? 'etf' : 'stock',
     pct: (scores[i] / totalScore) * 100,
   }));
-  const minPct = Math.min(def.minPct, 100 / Math.max(1, holdings.length));
+  // Per-holding ceiling — for user-curated baskets (picker / sim set), the
+  // catalog's 15% rule clips everyone equally when N is small. Scale the
+  // ceiling with N so rank-based weights actually come through. N=4 → 45%;
+  // N=8 → 22.5%; N≥12 reverts to def.maxPct (15%). Same logic for the floor.
+  const equalWeight = 100 / Math.max(1, holdings.length);
+  const dynamicMax = Math.max(def.maxPct, equalWeight * 1.8);
+  const dynamicMin = Math.min(def.minPct, equalWeight / 3);
   for (const h of holdings) {
-    if (h.kind === 'stock') h.pct = Math.max(minPct, Math.min(def.maxPct, h.pct));
+    if (h.kind === 'stock') h.pct = Math.max(dynamicMin, Math.min(dynamicMax, h.pct));
   }
   const total = holdings.reduce((s, h) => s + h.pct, 0);
   for (const h of holdings) {
@@ -16395,7 +16427,20 @@ function buildPortfolioFromPicker(amount, goalKey, horizon, historyYears) {
   const portfolioPeriodReturn = holdings.reduce((s, h) => s + ((h.risk && h.risk.periodReturn) || 0) * h.pct, 0) / 100;
   const hhi = computeHHI(holdings);
   const builtPortfolio = {
-    strategy: { ...def, label: `${def.label} · Picked`, summary: `${def.summary} (built from your ${tickers.length} hand-picked ticker${tickers.length===1?'':'s'} — alternative-in-segment suggestions appear below)` },
+    // Override stockWeight/etfWeight/minPct/maxPct so the Method card surfaces
+    // the EFFECTIVE rules used for this build (100% stocks, dynamic per-holding
+    // ceiling) rather than the catalog defaults (which would mislead users
+    // into thinking their picker portfolio has an ETF core + 4-15% clipping).
+    strategy: {
+      ...def,
+      label: `${def.label} · Picked`,
+      summary: `${def.summary} (built from your ${tickers.length} hand-picked ticker${tickers.length===1?'':'s'} — alternative-in-segment suggestions appear below)`,
+      stockWeight: 1.0,
+      etfWeight: 0.0,
+      minPct: +dynamicMin.toFixed(1),
+      maxPct: +dynamicMax.toFixed(1),
+      rankFormula: def.rankFormula + ` · shift +${shift.toFixed(0)} so the lowest pick gets a positive floor`,
+    },
     goalKey, amount, horizon, historyYears,
     fromPicker: true,
     pickedTickers: tickers,
