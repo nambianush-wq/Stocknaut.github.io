@@ -2709,6 +2709,70 @@ body.whatif-mode #sidebar { display: none; }
 }
 .verify-link.analyst:hover { background: rgba(191,90,242,.18); border-color: rgba(191,90,242,.4); }
 
+/* Signal-chips row — sits below the verify-row on the ticker dashboard.
+   Hosts the new seasonality + analyst-momentum chips (and is the slot
+   where insider / earnings-revision chips will land in future passes).
+   Designed to look like a row of compact stat pills, not buttons. */
+.signal-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 11px;
+}
+.signal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  border-radius: 99px;
+  border: 1px solid var(--line);
+  background: var(--raised);
+  color: var(--muted);
+  cursor: help;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+.signal-chip .sc-lbl {
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  opacity: .82;
+}
+.signal-chip .sc-val {
+  color: var(--text);
+  font-weight: 700;
+}
+.signal-chip.positive {
+  background: rgba(48,209,88,.10);
+  border-color: rgba(48,209,88,.35);
+  color: var(--bull);
+}
+.signal-chip.positive .sc-lbl { color: var(--bull); opacity: .82; }
+.signal-chip.positive .sc-val { color: var(--bull); }
+.signal-chip.negative {
+  background: rgba(255,69,58,.10);
+  border-color: rgba(255,69,58,.35);
+  color: var(--bear);
+}
+.signal-chip.negative .sc-lbl { color: var(--bear); opacity: .82; }
+.signal-chip.negative .sc-val { color: var(--bear); }
+.signal-chip.pending {
+  opacity: .55;
+  font-style: italic;
+}
+.signal-chip .sc-arrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1;
+}
+
 /* Watchlist verdict filter pills (Stage E) */
 .verdict-filter {
   display: flex;
@@ -3736,6 +3800,34 @@ body { padding-bottom: 44px; }
   color: var(--bear);
 }
 
+/* "Ahead-of-Rally" — fires only on the BUY_NOW branch where price is still
+   at/below MA40 AND RSI hasn't stretched. Chip chrome gets a green→blue
+   gradient + soft outer glow so the user can scan a watchlist and spot the
+   highest-conviction early entries instantly. The inner EARLY pill carries
+   its own tooltip with the full plain-English explanation. */
+.timing-chip.timing-BUY_NOW.early-rally {
+  background: linear-gradient(135deg, rgba(48,209,88,.18), rgba(0,113,227,.18));
+  border-color: rgba(48,209,88,.6);
+  box-shadow: 0 0 0 1px rgba(48,209,88,.18), 0 0 8px rgba(48,209,88,.18);
+}
+.early-rally-mark {
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  background: rgba(48,209,88,.24);
+  color: var(--bull);
+  border: 1px solid rgba(48,209,88,.45);
+  cursor: help;
+  line-height: 1.2;
+}
+.early-rally-mark:hover {
+  background: rgba(48,209,88,.34);
+  border-color: rgba(48,209,88,.7);
+}
+
 /* 13F-holder badge — appears on every stock that's held by one or more of
    the curated active managers. Same look across watchlist, sectors, picks,
    and ticker dashboard. Gradient blue→violet to differentiate from timing
@@ -4507,6 +4599,66 @@ body { padding-bottom: 44px; }
   font-size: 10.5px;
   color: var(--dim);
   font-style: italic;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* FinBERT toggle — sits in the news-card head, opt-in switch for the
+   in-browser LLM sentiment classifier. Default OFF (project doctrine —
+   user opts in to the ~60 MB one-time download). */
+.finbert-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.finbert-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.finbert-toggle .finbert-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: background .15s, box-shadow .15s;
+}
+.finbert-toggle.on {
+  background: rgba(48,209,88,.10);
+  border-color: rgba(48,209,88,.45);
+  color: var(--bull);
+}
+.finbert-toggle.on .finbert-dot {
+  background: var(--bull);
+  box-shadow: 0 0 6px rgba(48,209,88,.55);
+}
+
+/* FinBERT source tag inside each news-item meta line — appears only when
+   the headline was classified by the LLM, not the keyword fallback. */
+.news-src {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  background: rgba(48,209,88,.14);
+  color: var(--bull);
+  border: 1px solid rgba(48,209,88,.35);
+  border-radius: 4px;
+  cursor: help;
+  vertical-align: middle;
 }
 .news-list { display: flex; flex-direction: column; gap: 0; }
 .news-item {
@@ -11354,6 +11506,11 @@ const TIP = {
   newsSent: "News sentiment — keyword-based classification of recent headlines.\n\nWhat this means: ▲ Positive = bullish words detected (beats, surge, upgrade). ▼ Negative = bearish words (miss, downgrade, lawsuit). ● Neutral = no strong signal. Cross-check with the headline.",
   confidenceBar: "Forecast confidence bar — visual representation of the confidence %.\n\nWhat this means: Wider fill = more reliable forecast. Empty = highly uncertain. Color matches the forecast direction (green up, red/amber down).",
   fibPos: "Fibonacci position — where the price sits in the 100-week swing high-to-low range.\n\nWhat this means: Below 38% = near recent low (potential value). 38-62% = mid-range. Above 62% = near recent high (closer to resistance). Used by traders to spot turning points.",
+  finbert: "FinBERT (in-browser, free) — replaces the keyword-regex news sentiment classifier with Xenova/finbert, a financial-news-tuned BERT model running entirely in your browser via @huggingface/transformers + WebGPU.\n\nFirst activation: downloads the model (~60-100 MB, served from a CDN, cached by your browser in IndexedDB). Second visit: instant.\n\nWhy it matters: keyword sentiment catches obvious patterns (\"beats\", \"miss\", \"upgrade\", \"lawsuit\") but misses context — \"better than feared\" reads as bearish to the regex, bullish to the model. FinBERT was trained on financial press releases and analyst reports, so it understands earnings/M&A/guidance/regulatory language.\n\nFalls back to the keyword classifier when: WebGPU is unavailable (very old browsers), the CDN is blocked, or the model fails to load. No data leaves your device — classification is local.\n\nCost: $0/month. Tradeoff: ~60 MB one-time download, 50-150 ms per headline inference.",
+  seasonality: "How the same calendar month has performed historically for THIS stock. We split every weekly return by the month it sits in (Jan, Feb, …), average them across all available years, then compound to a typical monthly figure.\n\nTAILWIND = current month is in the top third of months by historical return AND positive. HEADWIND = bottom third AND negative. NEUTRAL = mid-pack.\n\nHonest limits: this is a stationarity bet — it assumes past calendar tendencies will keep showing up. If the business has changed materially (new product cycle, regime shift, merger), recent years matter more than the long-run average. Treat as a context chip, not a trigger.",
+  insiderCluster: "Cluster-buying signal from SEC Form 4 insider transactions (last 30 days). Source: SEC EDGAR, aggregated and pre-parsed by Finnhub.\n\nWe count DISTINCT insiders who made open-market purchase transactions (Form 4 transaction code 'P'), and separately count distinct insiders who made open-market sales (code 'S'). Grants, option exercises, tax-withholding, gifts, and dispositions are excluded — those aren't free-will buy/sell decisions and would dilute the signal.\n\nCluster strength:\n  ≥ 3 distinct buyers in 30d  → STRONG CLUSTER  (the academic-definition signal)\n  2 distinct buyers           → FORMING CLUSTER\n  1 buyer                     → SINGLE BUY (treat as noise on its own)\n  0 buyers, sells present     → NEGATIVE\n\nWhy this matters: a single insider buying is usually noise (10b5-1 plan, routine bonus). When 3+ insiders buy in the same 30-day window, the SEC-academic literature (Jeng/Metrick/Zeckhauser 2003) shows it's one of the few genuinely leading indicators of out-performance over the next 6-12 months. Insiders trade on what they know, and clustered buying means MULTIPLE people with non-public information are voting with their wallets at the same time.\n\nHonest limits: not every cluster predicts a rally — small caps with thin float can be moved by a single director adding 1,000 shares. The dollar-magnitude (in the tooltip) and the seniority of the buyers matter as much as the count. Read the buyer list before sizing up.",
+  analystMomentum: "Are Wall-Street analysts turning more bullish or bearish on this stock in the last 30 days?\n\nWe pull the Finnhub recommendation history and compare this month's counts vs last month's:\n  net30 = (Δ Strong Buy + Δ Buy) − (Δ Sell + Δ Strong Sell)\n  ≥ +2 = UPGRADES (analysts turning bullish)\n  ≤ −2 = DOWNGRADES\n  otherwise = STABLE\n\nHonest framing: analyst revisions are a LAGGING signal — Wall Street revises after price moves, not before. The direction of revisions correlates with fundamental-revision direction over the next quarter, so it's useful as a confirmation overlay, not as a leading 'ahead of rally' signal. Coverage may be unavailable for small caps, foreign listings, and ETFs.",
+  earlyRally: "EARLY — Ahead-of-Rally signal.\n\nCriteria (ALL three must hold): (1) 12-month forecast ≥ +5%, (2) current price is still at or below the 40-week moving average (MA40 ≈ 1-year trend line), (3) RSI(14W) is below 65 — momentum is positive but not stretched.\n\nWhat this means: The model has turned bullish BEFORE the chart has broken out. The price hasn't yet cleared its 1-year average, so you would be entering near trend support instead of chasing a stock that has already run. This is the highest-conviction BUY_NOW shape — entries here put you ahead of buyers who only act once price clears MA40.\n\nWhat it does NOT mean: It is NOT insider knowledge, order-flow leakage, or dark-pool footprint. The signal is derived entirely from public weekly OHLCV bars (Yahoo Finance / Twelve Data). Forecasts are heuristic, so a positive 12M forecast is a directional bet, not a guarantee. Treat as a high-conviction setup, size accordingly, and watch the MA40 reclaim on volume for confirmation.",
 };
 function tip(key) { return (TIP[key] || '').replace(/"/g, '&quot;'); }
 
@@ -11624,6 +11781,13 @@ let API_KEY = loadKey(LS_KEY_API, LS_KEY_API_BACKUP);
 let TD_API_KEY = loadKey(LS_KEY_TD, LS_KEY_TD_BACKUP);
 let REFRESH_SEC = parseInt(localStorage.getItem(LS_KEY_REFRESH) || '300', 10);
 let NOTIFY_ON_CHANGE = (localStorage.getItem(LS_KEY_NOTIFY) || 'true') === 'true';
+// FinBERT (in-browser, free) news-sentiment toggle. When ON, the news card
+// re-classifies each headline with the Xenova/finbert model via transformers.js
+// loaded from a CDN. When OFF (default), the keyword classifier is the only
+// source. First activation downloads the model (~60-100 MB, cached in IndexedDB
+// by transformers.js itself — second visit is instant).
+const LS_KEY_FINBERT = 'sp_finbert_enabled';
+let FINBERT_ENABLED = localStorage.getItem(LS_KEY_FINBERT) === '1';
 let LAST_VERDICTS = JSON.parse(localStorage.getItem(LS_KEY_VERDICTS) || '{}');
 let SAVED_BUNDLES = loadBundles();
 let _lastBuiltPortfolio = null;
@@ -12149,6 +12313,73 @@ function buildForecast(bars, v, horizons) {
 }
 
 // ========================================================================
+// Seasonality — calendar-month tendency from a ticker's OWN weekly history.
+// Pure-data signal (no external API): aggregates every week's return by the
+// calendar month it sits in, then compounds the mean weekly return to a
+// monthly figure. Surfaces best / worst month + the current month's average
+// so the user can see whether the calendar is a tailwind or a headwind for
+// the entry they're considering.
+//
+// Honest limits — this is a stationarity bet. If a stock's seasonality has
+// shifted in the last 12-18 months (regime change, business mix change,
+// macro shift), the long-run average over-weights stale data. The 'years'
+// field surfaces sample size so the user can judge reliability.
+// Returns null on < 3 years of data (4 calendar cycles is the minimum to
+// distinguish signal from noise).
+// ========================================================================
+const _MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function computeSeasonality(bars) {
+  if (!bars || bars.length < 156) return null;   // need ~3 years of weekly bars
+  const byMonth = {};   // month (0-11) -> [weekly returns]
+  for (let i = 1; i < bars.length; i++) {
+    const a = bars[i - 1].close;
+    const b = bars[i].close;
+    if (a <= 0 || !isFinite(a) || !isFinite(b)) continue;
+    const r = (b - a) / a;
+    const d = new Date(bars[i].time * 1000);
+    const m = d.getMonth();
+    if (!byMonth[m]) byMonth[m] = [];
+    byMonth[m].push(r);
+  }
+  // Mean weekly return per calendar month, compounded to ~4-week monthly.
+  // Compounding (1+r)^4 - 1 keeps the figure interpretable as "typical %
+  // move over a calendar month" rather than a raw weekly mean.
+  const monthAvg = {};
+  for (let m = 0; m < 12; m++) {
+    const rs = byMonth[m] || [];
+    if (rs.length < 3) continue;
+    const meanWk = rs.reduce((s, r) => s + r, 0) / rs.length;
+    monthAvg[m] = (Math.pow(1 + meanWk, 4) - 1) * 100;
+  }
+  const entries = Object.entries(monthAvg).map(([m, v]) => ({ month: +m, avg: v }));
+  if (entries.length < 6) return null;   // need ≥ half the calendar covered
+  entries.sort((a, b) => b.avg - a.avg);
+  const best = entries[0];
+  const worst = entries[entries.length - 1];
+  const currentMonth = new Date().getMonth();
+  const currentAvg = monthAvg[currentMonth];
+  // "Tailwind" if current month's avg is in the top third of months by avg
+  // return AND positive. "Headwind" if in bottom third AND negative.
+  const sortedAvgs = entries.map(e => e.avg);
+  const topThreshold = sortedAvgs[Math.floor(entries.length / 3)];
+  const botThreshold = sortedAvgs[Math.floor(2 * entries.length / 3)];
+  let bias = 'neutral';
+  if (currentAvg != null) {
+    if (currentAvg >= topThreshold && currentAvg > 0) bias = 'tailwind';
+    else if (currentAvg <= botThreshold && currentAvg < 0) bias = 'headwind';
+  }
+  return {
+    bestMonth:  { name: _MONTHS[best.month],  avg: best.avg },
+    worstMonth: { name: _MONTHS[worst.month], avg: worst.avg },
+    currentMonth: _MONTHS[currentMonth],
+    currentAvg: currentAvg != null ? currentAvg : null,
+    bias,
+    years: Math.floor(bars.length / 52),
+    table: entries.slice().sort((a, b) => a.month - b.month).map(e => ({ name: _MONTHS[e.month], avg: e.avg })),
+  };
+}
+
+// ========================================================================
 // Buy-timing indicator — synthesises history + current price + forecast into
 // an ENTRY recommendation (when to put money in, not just yes/no). Inputs:
 //
@@ -12236,6 +12467,12 @@ function computeBuyTiming(bars, verdict, forecasts) {
 
   // ---------- Decision ----------
   let action, label, window, rationale;
+  // "Ahead-of-Rally" flag — true only on the BUY_NOW branch where price is
+  // still at/below MA40 AND RSI hasn't stretched. The math has turned bullish
+  // before the chart has, so entry comes at trend support rather than chasing
+  // a breakout. Surfaced as a distinct "EARLY" mark on the timing chip so
+  // users can scan a watchlist and spot these in one glance.
+  let earlyRally = false;
 
   // CONFLICT — verdict bullish AND model bearish. Both signals are working
   // off different inputs (verdict reads MA stack + RSI + momentum; forecast
@@ -12285,9 +12522,10 @@ function computeBuyTiming(bars, verdict, forecasts) {
     rationale = `Forecast is +${exp12.toFixed(1)}% (model expects a mean-reversion bounce), but recent action is bearish (1M ${monthChange >= 0 ? '+' : ''}${monthChange.toFixed(1)}%, 3M ${threeMoChange >= 0 ? '+' : ''}${threeMoChange.toFixed(1)}%) and verdict is HOLD. The forecast may be right, but timing-wise this is a falling knife — entering before the trend turns often catches more downside. Wait for a break above MA40 ($${fmt(ma40)}) or RSI > 55 before sizing up.`;
   } else if (exp12 >= 5 && !aboveMa40 && rsi < 65) {
     action = 'BUY_NOW';
-    label  = 'Buy now';
+    label  = 'Buy now · Ahead of rally';
     window = 'Next 1–2 weeks';
-    rationale = `Forecast is +${exp12.toFixed(1)}% over 12M and price ($${fmt(last)}) is at/below MA40 ($${fmt(ma40)}) — entering near trend support. Confidence ${conf12}%.`;
+    earlyRally = true;
+    rationale = `<b>Ahead-of-Rally setup.</b> Model forecasts +${exp12.toFixed(1)}% over 12M but price ($${fmt(last)}) is still at/below MA40 ($${fmt(ma40)}) and RSI is ${rsi.toFixed(0)} (not stretched). The math has turned bullish before the chart has — entry comes near trend support, not chasing a breakout. Confidence ${conf12}%.`;
   } else if (exp12 >= 5 && overbought) {
     action = 'BUY_ON_DIP';
     label  = 'Buy on a dip';
@@ -12337,6 +12575,7 @@ function computeBuyTiming(bars, verdict, forecasts) {
   return {
     action, label, window, rationale,
     confidence: timingConf,
+    earlyRally,
     signals: {
       extended: ma40DistPct > 10,
       ma40DistPct,
@@ -12344,8 +12583,126 @@ function computeBuyTiming(bars, verdict, forecasts) {
       sigmaAnn, highVol, veryHighVol,
       distFromHigh, distFromLow, fibPos,
       snr, slopeAgree, exp12, conf12,
+      earlyRally,
     },
   };
+}
+
+// Compact signal-chip row — Seasonality + Analyst-momentum (and future
+// signals plug in here). Each chip is muted-neutral by default and gains
+// .positive / .negative chrome only when the underlying signal is clearly
+// directional, so the row doesn't shout when the data is mid-range.
+//
+// Both chips ground out gracefully:
+//   - seasonality === null  → bars too short (< 3 yrs), chip is omitted
+//   - analystMomentum === null AND recs === undefined → "fetching" pending pill
+//   - analystMomentum === null AND recs === null      → coverage unavailable, omitted
+function _renderSignalChipsRow(seasonality, analystMomentum, analystRecs, insiderCluster, insiderTxns) {
+  const chips = [];
+  if (seasonality && seasonality.currentAvg != null) {
+    const cur = seasonality.currentAvg;
+    const sign = cur >= 0 ? '+' : '';
+    const cls = seasonality.bias === 'tailwind' ? 'positive'
+              : seasonality.bias === 'headwind' ? 'negative'
+              : '';
+    const arrow = seasonality.bias === 'tailwind' ? '▲'
+                : seasonality.bias === 'headwind' ? '▼'
+                : '·';
+    const tooltip = (
+      `Seasonality · ${seasonality.years}-year average of monthly returns by calendar month.\n\n` +
+      `${seasonality.currentMonth} historical average: ${sign}${cur.toFixed(2)}% per month.\n` +
+      `Best month: ${seasonality.bestMonth.name} (${seasonality.bestMonth.avg >= 0 ? '+' : ''}${seasonality.bestMonth.avg.toFixed(2)}%).\n` +
+      `Worst month: ${seasonality.worstMonth.name} (${seasonality.worstMonth.avg >= 0 ? '+' : ''}${seasonality.worstMonth.avg.toFixed(2)}%).\n\n` +
+      `Bias right now: ${seasonality.bias === 'tailwind' ? 'TAILWIND — current month is in the top third of historical performance' : seasonality.bias === 'headwind' ? 'HEADWIND — current month is in the bottom third of historical performance' : 'NEUTRAL — current month is mid-pack'}.\n\n` +
+      `What this means: ${tip('seasonality')}`
+    );
+    chips.push(
+      `<span class="signal-chip ${cls}" title="${tooltip.replace(/"/g,'&quot;')}">` +
+      `<span class="sc-arrow">${arrow}</span>` +
+      `<span class="sc-lbl">${seasonality.currentMonth} seasonal</span> ` +
+      `<span class="sc-val">${sign}${cur.toFixed(1)}%</span>` +
+      `</span>`
+    );
+  }
+  // Analyst momentum chip — three states: ready, pending, unavailable
+  if (analystMomentum) {
+    const dir = analystMomentum.direction;
+    const cls = dir === 'up' ? 'positive' : dir === 'down' ? 'negative' : '';
+    const arrow = dir === 'up' ? '▲' : dir === 'down' ? '▼' : '·';
+    const net = analystMomentum.net30;
+    const netStr = `${net > 0 ? '+' : ''}${net}`;
+    const c = analystMomentum.counts;
+    const tooltip = (
+      `Analyst recommendation momentum · Wall-Street ratings from Finnhub.\n\n` +
+      `Latest snapshot (${analystMomentum.period}):\n` +
+      `  Strong Buy: ${c.strongBuy} · Buy: ${c.buy} · Hold: ${c.hold} · Sell: ${c.sell} · Strong Sell: ${c.strongSell}\n` +
+      `  Bullish: ${analystMomentum.bullPct}%  Bearish: ${analystMomentum.bearPct}%  (of ${c.total} analysts)\n\n` +
+      `30-day change in coverage:\n` +
+      `  Bullish ratings: ${analystMomentum.deltaBull >= 0 ? '+' : ''}${analystMomentum.deltaBull}\n` +
+      `  Bearish ratings: ${analystMomentum.deltaBear >= 0 ? '+' : ''}${analystMomentum.deltaBear}\n` +
+      `  Net momentum: ${netStr}  →  ${dir === 'up' ? 'UPGRADES' : dir === 'down' ? 'DOWNGRADES' : 'STABLE'}\n\n` +
+      `What this means: ${tip('analystMomentum')}`
+    );
+    chips.push(
+      `<span class="signal-chip ${cls}" title="${tooltip.replace(/"/g,'&quot;')}">` +
+      `<span class="sc-arrow">${arrow}</span>` +
+      `<span class="sc-lbl">Analysts</span> ` +
+      `<span class="sc-val">${c.strongBuy + c.buy}↑ ${c.sell + c.strongSell}↓</span> ` +
+      `<span class="sc-val" style="opacity:.85">net ${netStr} 30d</span>` +
+      `</span>`
+    );
+  } else if (analystRecs === undefined && isLive()) {
+    chips.push(`<span class="signal-chip pending" title="Fetching analyst recommendations from Finnhub…">Analysts · loading…</span>`);
+  }
+  // Insider Form 4 cluster-buy chip — three states: ready, pending, unavailable
+  if (insiderCluster) {
+    const c = insiderCluster;
+    const cls = c.cluster === 'strong'  ? 'positive'
+              : c.cluster === 'forming' ? 'positive'
+              : c.netDollars30 < 0      ? 'negative'
+              : '';
+    const arrow = c.cluster === 'strong'  ? '▲'
+                : c.cluster === 'forming' ? '▲'
+                : c.distinctSellers > c.distinctBuyers ? '▼'
+                : '·';
+    const buyersLine = c.buyers30.length
+      ? c.buyers30.map(b => `    ${b.name} — ${b.shares.toLocaleString()} sh ($${Math.round(b.dollars/1000)}K)`).join('\n')
+      : '    (none)';
+    const sellersLine = c.sellers30.length
+      ? c.sellers30.map(b => `    ${b.name} — ${b.shares.toLocaleString()} sh ($${Math.round(b.dollars/1000)}K)`).join('\n')
+      : '    (none)';
+    const netSign = c.netDollars30 >= 0 ? '+' : '−';
+    const netMag = Math.abs(c.netDollars30);
+    const netStr = netMag >= 1e6
+      ? `${netSign}$${(netMag/1e6).toFixed(1)}M`
+      : netMag >= 1e3
+      ? `${netSign}$${(netMag/1e3).toFixed(0)}K`
+      : `${netSign}$${netMag.toFixed(0)}`;
+    const clusterLabel = c.cluster === 'strong'  ? 'STRONG CLUSTER (3+ insiders buying)'
+                       : c.cluster === 'forming' ? 'FORMING CLUSTER (2 insiders buying)'
+                       : c.cluster === 'single'  ? 'SINGLE INSIDER BUY (not yet a cluster)'
+                       : 'NO BUYS — SELLS ONLY';
+    const tooltip = (
+      `Insider activity (SEC Form 4 · last 30 days) · sourced from SEC EDGAR via Finnhub.\n\n` +
+      `Cluster signal: ${clusterLabel}\n\n` +
+      `Buyers (${c.distinctBuyers} distinct, ${c.purchaseTxns30} txns):\n${buyersLine}\n\n` +
+      `Sellers (${c.distinctSellers} distinct, ${c.saleTxns30} txns):\n${sellersLine}\n\n` +
+      `Net dollar flow (30d): ${netStr}\n\n` +
+      `What this means: ${tip('insiderCluster')}`
+    );
+    chips.push(
+      `<span class="signal-chip ${cls}" title="${tooltip.replace(/"/g,'&quot;')}">` +
+      `<span class="sc-arrow">${arrow}</span>` +
+      `<span class="sc-lbl">Insiders 30d</span> ` +
+      `<span class="sc-val">${c.distinctBuyers} buy${c.distinctBuyers === 1 ? '' : 's'} · ${c.distinctSellers} sell${c.distinctSellers === 1 ? '' : 's'}</span> ` +
+      `<span class="sc-val" style="opacity:.85">net ${netStr}</span>` +
+      `</span>`
+    );
+  } else if (insiderTxns === undefined && isLive()) {
+    chips.push(`<span class="signal-chip pending" title="Fetching SEC Form 4 insider transactions via Finnhub…">Insiders · loading…</span>`);
+  }
+  if (chips.length === 0) return '';
+  return `<div class="signal-chips-row">${chips.join('')}</div>`;
 }
 
 // Map each timing action to a compact icon (no emojis per project doctrine —
@@ -12365,16 +12722,24 @@ function renderTimingChip(timing, compact) {
   if (!timing) return '';
   const icon = _TIMING_ICONS[timing.action] || '·';
   const lbl = compact
-    ? (timing.action === 'BUY_NOW'    ? 'Buy'
+    ? (timing.action === 'BUY_NOW'    ? (timing.earlyRally ? 'Buy · Early' : 'Buy')
      : timing.action === 'BUY_ON_DIP' ? 'Dip'
      : timing.action === 'DCA'        ? 'DCA'
      : timing.action === 'WAIT'       ? 'Wait'
      : timing.action === 'AVOID'      ? 'Avoid'
      : '')
     : timing.label;
-  const tooltip = `${timing.label} · ${timing.window}\n\n${timing.rationale}\n\nConfidence ${timing.confidence}%`;
-  return `<span class="timing-chip timing-${timing.action}" title="${tooltip.replace(/"/g,'&quot;')}">
-    <span class="timing-icon">${icon}</span>${lbl}
+  // Strip HTML for the title attribute — tooltips show raw text only.
+  const plainRationale = String(timing.rationale || '').replace(/<\/?[^>]+>/g, '');
+  const tooltip = `${timing.label} · ${timing.window}\n\n${plainRationale}\n\nConfidence ${timing.confidence}%`;
+  // EARLY marker — appears ONLY on the BUY_NOW · price-still-at/below-MA40
+  // branch. The chip itself gets the .early-rally class so the chrome can
+  // pop (gradient border, soft glow) to make it scannable in a list.
+  const earlyMark = timing.earlyRally
+    ? `<span class="early-rally-mark" title="${tip('earlyRally')}">EARLY</span>`
+    : '';
+  return `<span class="timing-chip timing-${timing.action}${timing.earlyRally ? ' early-rally' : ''}" title="${tooltip.replace(/"/g,'&quot;')}">
+    <span class="timing-icon">${icon}</span>${lbl}${earlyMark}
   </span>`;
 }
 
@@ -12736,6 +13101,244 @@ function _kickEarningsFetch(ticker) {
   }).catch(() => { _earningsCache[ticker] = null; });
 }
 
+// Finnhub /stock/recommendation — Wall-Street analyst recommendation trends.
+// Returns the last ~12 monthly snapshots: { period, strongBuy, buy, hold, sell, strongSell }.
+// We compute a 30-day net upgrade direction from snapshots[0] vs snapshots[1]
+// — the closest free-tier proxy for "analysts are turning more bullish".
+//
+// Caching: 12 hours in localStorage (same TTL as earnings) — analyst counts
+// don't change intraday. In-memory cache mirrors the earnings pattern so a
+// re-render doesn't re-hit localStorage.
+const LS_KEY_ANALYST_CACHE_PREFIX = 'sp_analyst_';
+const _SP_ANALYST_TTL_MS = 12 * 60 * 60 * 1000;
+async function fetchAnalystRecs(ticker) {
+  if (!isLive()) return null;
+  const cacheKey = LS_KEY_ANALYST_CACHE_PREFIX + ticker;
+  try {
+    const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+    if (cached && (Date.now() - cached.fetchedAt) < _SP_ANALYST_TTL_MS) {
+      return cached.recs || null;
+    }
+  } catch (e) {}
+  try {
+    const url = `https://finnhub.io/api/v1/stock/recommendation?symbol=${encodeURIComponent(ticker)}&token=${encodeURIComponent(API_KEY)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      try { localStorage.setItem(cacheKey, JSON.stringify({ recs: null, fetchedAt: Date.now() })); } catch (e) {}
+      return null;
+    }
+    const j = await res.json();
+    // Finnhub returns most recent first. Guard: empty array means coverage is
+    // unavailable for this symbol (small caps, foreign listings, ETFs).
+    const recs = Array.isArray(j) && j.length ? j : null;
+    try { localStorage.setItem(cacheKey, JSON.stringify({ recs, fetchedAt: Date.now() })); } catch (e) {}
+    return recs;
+  } catch (e) {
+    return null;
+  }
+}
+const _analystCache = {};
+function getAnalystRecsCached(ticker) {
+  if (Object.prototype.hasOwnProperty.call(_analystCache, ticker)) return _analystCache[ticker];
+  return undefined;
+}
+function _kickAnalystFetch(ticker) {
+  if (Object.prototype.hasOwnProperty.call(_analystCache, ticker)) return;
+  _analystCache[ticker] = null;
+  fetchAnalystRecs(ticker).then(result => {
+    _analystCache[ticker] = result;
+    if (_selected === ticker && _data[_selected]) renderMain();
+  }).catch(() => { _analystCache[ticker] = null; });
+}
+
+// Derive a compact "analyst momentum" reading from the recommendation array.
+// Inputs: array of { period, strongBuy, buy, hold, sell, strongSell }, recent
+// first. Returns null if there are < 2 snapshots (no delta computable).
+//
+// What we compute:
+//   bullCount  = strongBuy + buy (current month)
+//   bearCount  = sell + strongSell
+//   total      = strongBuy + buy + hold + sell + strongSell
+//   bullPct    = bull / total
+//   deltaBull  = bull(now) - bull(1m ago)   — adds/drops in bullish ratings
+//   deltaBear  = bear(now) - bear(1m ago)
+//   net30      = deltaBull - deltaBear      — net upgrade momentum
+//   direction  = up | down | flat
+//
+// Honest framing: this is a LAGGING signal (analysts revise after price
+// moves, not before), but the DIRECTION of revisions correlates well with
+// fundamental-revision direction over the next quarter. Useful as a
+// confirmation overlay, not as a leading "ahead of rally" signal.
+function computeAnalystMomentum(recs) {
+  if (!recs || recs.length < 2) return null;
+  const r0 = recs[0], r1 = recs[1];
+  const bull = r => (r.strongBuy || 0) + (r.buy || 0);
+  const bear = r => (r.sell || 0) + (r.strongSell || 0);
+  const total = r => bull(r) + (r.hold || 0) + bear(r);
+  const t0 = total(r0);
+  const b0 = bull(r0);
+  const x0 = bear(r0);
+  const deltaBull = b0 - bull(r1);
+  const deltaBear = x0 - bear(r1);
+  const net30 = deltaBull - deltaBear;
+  let direction = 'flat';
+  if (net30 >= 2) direction = 'up';
+  else if (net30 <= -2) direction = 'down';
+  return {
+    period: r0.period || '',
+    counts: {
+      strongBuy: r0.strongBuy || 0,
+      buy: r0.buy || 0,
+      hold: r0.hold || 0,
+      sell: r0.sell || 0,
+      strongSell: r0.strongSell || 0,
+      total: t0,
+    },
+    bullCount: b0,
+    bearCount: x0,
+    bullPct: t0 ? Math.round((b0 / t0) * 100) : 0,
+    bearPct: t0 ? Math.round((x0 / t0) * 100) : 0,
+    deltaBull, deltaBear, net30, direction,
+  };
+}
+
+// Finnhub /stock/insider-transactions — pre-parsed SEC Form 4 filings.
+// Source is SEC EDGAR (Finnhub aggregates + parses the XML for us — same
+// data we'd get from data.sec.gov, but without the ticker→CIK lookup and
+// per-filing XML parse in the browser). Free tier covers it.
+//
+// Response shape:
+//   { data: [{ name, share, change, filingDate, transactionDate, transactionCode, transactionPrice }, ...], symbol }
+//
+// transactionCode values follow the SEC Form 4 spec:
+//   P = Open-market purchase  ← THIS is the cluster-buy signal
+//   S = Open-market sale
+//   A = Grant / award (compensation, NOT a buy decision)
+//   M = Option exercise        (NOT a buy decision)
+//   D = Disposition
+//   F = Tax payment via share withholding
+//   G = Gift
+//
+// Cached 12 hours per ticker — insider data updates daily-ish.
+const LS_KEY_INSIDER_CACHE_PREFIX = 'sp_insider_';
+const _SP_INSIDER_TTL_MS = 12 * 60 * 60 * 1000;
+async function fetchInsiderTrans(ticker) {
+  if (!isLive()) return null;
+  const cacheKey = LS_KEY_INSIDER_CACHE_PREFIX + ticker;
+  try {
+    const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+    if (cached && (Date.now() - cached.fetchedAt) < _SP_INSIDER_TTL_MS) {
+      return cached.txns || null;
+    }
+  } catch (e) {}
+  try {
+    // Last 90 days — gives us enough history to compute 30d and 60d windows.
+    const to = new Date();
+    const from = new Date(to.getTime() - 90 * 86400000);
+    const fmt = d => d.toISOString().slice(0, 10);
+    const url = `https://finnhub.io/api/v1/stock/insider-transactions?symbol=${encodeURIComponent(ticker)}&from=${fmt(from)}&to=${fmt(to)}&token=${encodeURIComponent(API_KEY)}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      try { localStorage.setItem(cacheKey, JSON.stringify({ txns: null, fetchedAt: Date.now() })); } catch (e) {}
+      return null;
+    }
+    const j = await res.json();
+    const txns = (j && Array.isArray(j.data)) ? j.data : null;
+    try { localStorage.setItem(cacheKey, JSON.stringify({ txns, fetchedAt: Date.now() })); } catch (e) {}
+    return txns;
+  } catch (e) {
+    return null;
+  }
+}
+const _insiderCache = {};
+function getInsiderTransCached(ticker) {
+  if (Object.prototype.hasOwnProperty.call(_insiderCache, ticker)) return _insiderCache[ticker];
+  return undefined;
+}
+function _kickInsiderFetch(ticker) {
+  if (Object.prototype.hasOwnProperty.call(_insiderCache, ticker)) return;
+  _insiderCache[ticker] = null;
+  fetchInsiderTrans(ticker).then(result => {
+    _insiderCache[ticker] = result;
+    if (_selected === ticker && _data[_selected]) renderMain();
+  }).catch(() => { _insiderCache[ticker] = null; });
+}
+
+// Derive a cluster-buying signal from raw Form 4 transactions. Returns null
+// when there's no usable data (empty / fetch failed / no recent activity).
+//
+// What we compute:
+//   buys30  — count of distinct insiders with a 'P' (purchase) transaction in last 30 days
+//   sells30 — count of distinct insiders with an 'S' (sale) transaction in last 30 days
+//   netDollars30 — sum(change × price) over all P + S transactions, signed
+//   buyers30 — array of distinct buyer names (for the tooltip drilldown)
+//   sellers30 — array of distinct seller names
+//   cluster — 'strong' (≥3 distinct buyers), 'forming' (2 buyers), 'single' (1), 'none' (0)
+//
+// Why cluster matters: a single insider buying is noise (CEO doing routine
+// 10b5-1 buyback). 3+ insiders buying within 30 days is the SEC-academic
+// definition of "informed insider activity" — historically a leading
+// indicator with 6-12 month return persistence (Jeng/Metrick/Zeckhauser 2003).
+function computeInsiderClusterSignal(txns) {
+  if (!Array.isArray(txns) || txns.length === 0) return null;
+  const now = Date.now();
+  const W30 = 30 * 86400000;
+  // Buyers/sellers tracked as Maps so distinct names within the window aren't
+  // double-counted when an insider files multiple slices of the same purchase.
+  const buyers30 = new Map();   // name -> { shares, dollars }
+  const sellers30 = new Map();
+  let netDollars30 = 0;
+  let purchaseTxns30 = 0;
+  let saleTxns30 = 0;
+  for (const t of txns) {
+    const dateStr = t.transactionDate || t.filingDate;
+    if (!dateStr) continue;
+    const ts = new Date(dateStr + 'T00:00:00Z').getTime();
+    if (!isFinite(ts) || (now - ts) > W30) continue;
+    const code = (t.transactionCode || '').toUpperCase();
+    const change = parseFloat(t.change) || 0;
+    const price = parseFloat(t.transactionPrice) || 0;
+    const dollars = Math.abs(change) * price;
+    if (code === 'P' && change > 0) {
+      purchaseTxns30++;
+      const existing = buyers30.get(t.name) || { shares: 0, dollars: 0 };
+      existing.shares += change;
+      existing.dollars += dollars;
+      buyers30.set(t.name, existing);
+      netDollars30 += dollars;
+    } else if (code === 'S' && change < 0) {
+      saleTxns30++;
+      const existing = sellers30.get(t.name) || { shares: 0, dollars: 0 };
+      existing.shares += Math.abs(change);
+      existing.dollars += dollars;
+      sellers30.set(t.name, existing);
+      netDollars30 -= dollars;
+    }
+    // 'A' (grant), 'M' (option exercise), 'F' (tax-withholding), 'G' (gift),
+    // 'D' (disposition) are intentionally excluded — they aren't free-will
+    // buy/sell decisions and would dilute the cluster signal.
+  }
+  const distinctBuyers = buyers30.size;
+  const distinctSellers = sellers30.size;
+  let cluster = 'none';
+  if (distinctBuyers >= 3) cluster = 'strong';
+  else if (distinctBuyers === 2) cluster = 'forming';
+  else if (distinctBuyers === 1) cluster = 'single';
+  // If we have no buys and no sells in the window, return null so the chip
+  // is omitted rather than showing "0 / 0" noise.
+  if (distinctBuyers === 0 && distinctSellers === 0) return null;
+  return {
+    buyers30: Array.from(buyers30.entries()).map(([name, v]) => ({ name, shares: v.shares, dollars: v.dollars })),
+    sellers30: Array.from(sellers30.entries()).map(([name, v]) => ({ name, shares: v.shares, dollars: v.dollars })),
+    distinctBuyers,
+    distinctSellers,
+    purchaseTxns30,
+    saleTxns30,
+    netDollars30,
+    cluster,
+  };
+}
+
 // Latest news via Finnhub /company-news — cached 5 minutes per ticker.
 // Returns a structured result so the UI can surface auth / rate-limit / paywall
 // failures instead of silently falling through to an empty "no headlines" panel.
@@ -12776,6 +13379,79 @@ async function fetchFinnhubNews(ticker) {
 }
 
 // Headline sentiment heuristic — turns a headline into ▲ / ▼ / ●
+// ============================================================
+// FinBERT (in-browser, free) news-sentiment classifier
+// ============================================================
+// Loads @huggingface/transformers v3 from a CDN on first use, then runs
+// Xenova/finbert (a financial-news-tuned BERT, ~60-100 MB quantized) entirely
+// in the browser. transformers.js caches model files in IndexedDB so the
+// download is a one-time cost. WebGPU is used when available (Chrome 113+,
+// Edge, Safari 18+), falls back to WASM CPU mode on older browsers.
+//
+// All state is module-local so the loader is idempotent — calling
+// _loadFinBERT() many times in parallel returns the same in-flight promise.
+//
+// On any failure (CDN blocked, model fetch failed, runtime error), the
+// classifier returns null and the caller falls back to the keyword regex.
+// ============================================================
+let _finBertClassifier = null;
+let _finBertLoadPromise = null;
+let _finBertLoadError = null;
+const _finBertHeadlineCache = new Map();   // text → result (full session)
+
+async function _loadFinBERT() {
+  if (_finBertClassifier) return _finBertClassifier;
+  if (_finBertLoadError) return null;
+  if (_finBertLoadPromise) return _finBertLoadPromise;
+  _finBertLoadPromise = (async () => {
+    try {
+      // Dynamic import works in non-module scripts in all evergreen browsers.
+      const mod = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2');
+      // Prefer WebGPU when available — ~10× faster than WASM CPU.
+      const device = (typeof navigator !== 'undefined' && navigator.gpu) ? 'webgpu' : 'wasm';
+      const classifier = await mod.pipeline('text-classification', 'Xenova/finbert', { device });
+      _finBertClassifier = classifier;
+      return classifier;
+    } catch (e) {
+      console.warn('FinBERT load failed — falling back to keyword classifier:', e);
+      _finBertLoadError = e;
+      _finBertLoadPromise = null;
+      return null;
+    }
+  })();
+  return _finBertLoadPromise;
+}
+
+// Classify a single headline with FinBERT. Returns the same shape as
+// classifyHeadlineSentiment() so it's a drop-in upgrade, with an extra
+// `source: 'finbert'` field and a `score` 0-1. Returns null on failure
+// so the caller can fall back.
+async function classifyHeadlineLLM(text) {
+  const key = (text || '').trim();
+  if (!key) return null;
+  if (_finBertHeadlineCache.has(key)) return _finBertHeadlineCache.get(key);
+  const classifier = await _loadFinBERT();
+  if (!classifier) return null;
+  try {
+    // FinBERT labels: 'positive' | 'neutral' | 'negative'. Truncate to ~512 chars
+    // — model max is 512 tokens and headlines + summaries can exceed that.
+    const out = await classifier(key.slice(0, 512));
+    const top = Array.isArray(out) ? out[0] : null;
+    if (!top) return null;
+    const label = (top.label || '').toLowerCase();
+    const score = top.score || 0;
+    const result = label === 'positive'
+      ? { type: 'pos',     icon: '▲', impact: 'POSITIVE', score, source: 'finbert' }
+      : label === 'negative'
+      ? { type: 'neg',     icon: '▼', impact: 'NEGATIVE', score, source: 'finbert' }
+      : { type: 'neutral', icon: '●', impact: 'NEUTRAL',  score, source: 'finbert' };
+    _finBertHeadlineCache.set(key, result);
+    return result;
+  } catch (e) {
+    return null;
+  }
+}
+
 function classifyHeadlineSentiment(text) {
   const t = (text || '').toLowerCase();
   const POS = /\b(beats?|beat|exceeds?|exceed|surge[sd]?|jump[sd]?|soar[sd]?|rally|rallies|rallied|rises?|rose|gain[sd]?|grow[snth]+|growth|record|outperform[sd]?|upgrade[sd]?|approval|approved|wins?|won|partnership|expand[sd]?|expansion|launches?|launched|breakthrough|positive|strong|optimistic|raises?|raised|bullish|target raised|price target)\b/;
@@ -12803,7 +13479,13 @@ function _escapeHtml(s) {
   return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function renderNewsCard(ticker, result) {
+function renderNewsCard(ticker, result, opts) {
+  opts = opts || {};
+  // opts.classifications: optional pre-computed sentiment per headline
+  //   (used when FinBERT result lands after the initial keyword render so
+  //    we re-render the same list with upgraded classifications)
+  // opts.sourceLabel: string to swap into the sub-line (e.g. "FinBERT (in-browser, free)")
+  // opts.loading:     true while the FinBERT model is downloading
   const slot = document.getElementById('news-slot');
   if (!slot) return;
   // Back-compat: a bare array still works
@@ -12839,15 +13521,22 @@ function renderNewsCard(ticker, result) {
     return;
   }
   const counts = { pos: 0, neg: 0, neutral: 0 };
-  const rendered = news.map(n => {
+  const usingFinBert = !!(opts.classifications && opts.classifications.some(c => c && c.source === 'finbert'));
+  const rendered = news.map((n, i) => {
     const text = (n.headline || '') + ' ' + (n.summary || '');
-    const sent = classifyHeadlineSentiment(text);
+    // Prefer the supplied classification (FinBERT) when present; fall back
+    // to the keyword classifier so first-render is instant and we never
+    // show an unclassified row.
+    const sent = (opts.classifications && opts.classifications[i]) || classifyHeadlineSentiment(text);
     counts[sent.type]++;
+    const srcTag = sent.source === 'finbert'
+      ? ` <span class="news-src" title="Classified by FinBERT (in-browser, free) — confidence ${(sent.score * 100).toFixed(0)}%">FinBERT</span>`
+      : '';
     return `<a class="news-item news-${sent.type}" href="${_escapeHtml(n.url || '#')}" target="_blank" rel="noopener noreferrer" title="${_escapeHtml((n.summary || n.headline || '').slice(0, 280))}">
       <div class="news-sym" aria-hidden="true" title="${tip('newsSent')}">${sent.icon}</div>
       <div class="news-body">
         <div class="news-head">${_escapeHtml(n.headline || 'Untitled')}</div>
-        <div class="news-meta">${_escapeHtml(n.source || 'Source')} · ${timeAgoFromUnix(n.datetime)}</div>
+        <div class="news-meta">${_escapeHtml(n.source || 'Source')} · ${timeAgoFromUnix(n.datetime)}${srcTag}</div>
       </div>
       <span class="news-impact ${sent.type === 'pos' ? 'pos' : sent.type === 'neg' ? 'neg' : 'neutral'}" title="${tip('newsSent')}">${sent.impact}</span>
     </a>`;
@@ -12855,9 +13544,65 @@ function renderNewsCard(ticker, result) {
   const dominant = counts.pos > counts.neg ? 'lean positive' : counts.neg > counts.pos ? 'lean negative' : 'mixed';
   slot.innerHTML = `<div class="news-list">${rendered}</div>
   <div class="news-foot">
-    <div class="news-summary">News flow: <b>${counts.pos}</b> positive · <b>${counts.neg}</b> negative · <b>${counts.neutral}</b> neutral — overall <b>${dominant}</b></div>
+    <div class="news-summary">News flow: <b>${counts.pos}</b> positive · <b>${counts.neg}</b> negative · <b>${counts.neutral}</b> neutral — overall <b>${dominant}</b>${usingFinBert ? ' · classified by <b>FinBERT</b>' : ''}</div>
     <a href="https://finance.yahoo.com/quote/${encodeURIComponent(ticker)}/news" target="_blank" rel="noopener">All news ↗</a>
   </div>`;
+  // Patch the sub-line at the news-card level (sits outside #news-slot).
+  // This is also where the FinBERT loading state surfaces.
+  const sub = document.querySelector('.news-card-sub');
+  if (sub) {
+    if (opts.loading) {
+      sub.innerHTML = `Loading FinBERT model… <span style="color:var(--muted);font-style:italic;">first visit downloads ~60 MB to your browser cache, instant after</span>`;
+    } else if (opts.sourceLabel) {
+      sub.textContent = opts.sourceLabel;
+    } else {
+      sub.textContent = FINBERT_ENABLED
+        ? 'Sentiment by FinBERT (in-browser, free) — falling back to keyword heuristic'
+        : 'Sentiment classified by keyword heuristic · last 14 days';
+    }
+  }
+}
+
+// FinBERT upgrade — runs after the initial keyword-render. Classifies each
+// headline with the in-browser model and re-renders the card with the new
+// classifications. Falls back to keyword (no-op) if the model fails to load.
+async function _upgradeNewsCardWithFinBERT(ticker, news) {
+  if (!FINBERT_ENABLED) return;
+  if (!news || !news.length) return;
+  // First-load UX — show "Loading model…" in the sub-line. Only fires
+  // before the classifier resolves; cached calls skip this.
+  if (!_finBertClassifier) {
+    renderNewsCard(ticker, { ok: true, news }, { loading: true });
+  }
+  const results = await Promise.all(news.map(n => {
+    const text = (n.headline || '') + ' ' + (n.summary || '');
+    return classifyHeadlineLLM(text);
+  }));
+  // Stop if the user clicked away to a different ticker mid-classification.
+  if (_selected !== ticker) return;
+  // If FinBERT failed for ALL headlines (model didn't load), restore the
+  // keyword-classified render with a clear sub-line note.
+  if (results.every(r => r == null)) {
+    renderNewsCard(ticker, { ok: true, news }, {
+      sourceLabel: 'FinBERT unavailable — using keyword heuristic (WebGPU/CDN required)',
+    });
+    return;
+  }
+  renderNewsCard(ticker, { ok: true, news }, {
+    classifications: results,
+    sourceLabel: 'Sentiment classified by FinBERT (in-browser, free) · falls back to keyword if unavailable',
+  });
+}
+
+// Toggle the FinBERT setting and re-classify the open news card. Persists
+// to localStorage. The user discovers this via a small button in the news
+// card head so it's contextual rather than buried in Settings.
+function toggleFinBERT() {
+  FINBERT_ENABLED = !FINBERT_ENABLED;
+  try { localStorage.setItem(LS_KEY_FINBERT, FINBERT_ENABLED ? '1' : '0'); } catch (e) {}
+  if (_selected) loadNewsFor(_selected);
+  // Re-render the dashboard so the toggle button reflects the new state.
+  if (_selected && _data[_selected]) renderMain();
 }
 
 // ---- Twelve Data cross-check (secondary provider for price sanity check) ----
@@ -12909,7 +13654,14 @@ async function loadNewsFor(ticker) {
   if (!isLive()) { renderNewsCard(ticker, { ok: false, reason: 'no_key', news: [] }); return; }
   slot.innerHTML = `<div class="news-loading">Loading latest news for ${ticker}…</div>`;
   const result = await fetchFinnhubNews(ticker);
-  if (_selected === ticker) renderNewsCard(ticker, result);
+  if (_selected !== ticker) return;
+  renderNewsCard(ticker, result);
+  // Upgrade with FinBERT if the user has it enabled. The keyword render
+  // above is already on-screen so the user sees results instantly; the
+  // FinBERT pass patches the rows once the model resolves.
+  if (FINBERT_ENABLED && result && result.ok && result.news && result.news.length) {
+    _upgradeNewsCardWithFinBERT(ticker, result.news);
+  }
 }
 
 // ---- Synthetic profile/metrics for DEMO ----
@@ -18641,6 +19393,18 @@ function renderMain() {
   const exec = buildExecutiveSummary(_selected, bars, v, profile, metrics);
   const forecast = buildForecast(bars, v, [12, 24, 36]);
   const timing = computeBuyTiming(bars, v, forecast);
+  // Seasonality — computed synchronously from existing bars (no API).
+  const seasonality = computeSeasonality(bars);
+  // Analyst recommendation momentum — async, lazy. First render uses
+  // whatever's cached; result triggers a re-render when it lands.
+  _kickAnalystFetch(_selected);
+  const analystRecs = getAnalystRecsCached(_selected);
+  const analystMomentum = analystRecs ? computeAnalystMomentum(analystRecs) : null;
+  // Insider Form 4 cluster-buying — async, lazy. Same fire-and-forget pattern.
+  // Data sourced from SEC EDGAR (via Finnhub's pre-parsed feed).
+  _kickInsiderFetch(_selected);
+  const insiderTxns = getInsiderTransCached(_selected);
+  const insiderCluster = insiderTxns ? computeInsiderClusterSignal(insiderTxns) : null;
   // Kick off async earnings-date fetch if LIVE — first render uses the
   // synthesized fallback; the response triggers a re-render with the real
   // date once it lands.
@@ -18668,6 +19432,7 @@ function renderMain() {
             <a class="verify-link" href="https://www.google.com/finance/quote/${encodeURIComponent(_selected)}" target="_blank" rel="noopener noreferrer">Google Finance ↗</a>
             <a class="verify-link analyst" href="https://finance.yahoo.com/quote/${encodeURIComponent(_selected)}/analysis" target="_blank" rel="noopener noreferrer" title="Wall-Street analyst price targets + recommendations">Analyst forecast ↗</a>
           </div>
+          ${_renderSignalChipsRow(seasonality, analystMomentum, analystRecs, insiderCluster, insiderTxns)}
         </div>
         <div>
           <div class="t-price" id="t-price">$${fmt(last.close)}</div>
@@ -18696,7 +19461,11 @@ function renderMain() {
     <div class="news-card">
       <div class="news-card-head">
         <div class="news-card-title">Latest News · headlines that could move ${_selected}</div>
-        <div class="news-card-sub">Sentiment classified by keyword heuristic · last 14 days</div>
+        <div class="news-card-sub">${FINBERT_ENABLED ? 'Sentiment by FinBERT (in-browser, free) — falling back to keyword heuristic' : 'Sentiment classified by keyword heuristic · last 14 days'}</div>
+        <button class="finbert-toggle ${FINBERT_ENABLED ? 'on' : ''}" onclick="toggleFinBERT()" title="${tip('finbert')}">
+          <span class="finbert-dot"></span>
+          <span class="finbert-lbl">FinBERT ${FINBERT_ENABLED ? 'on' : 'off'}</span>
+        </button>
       </div>
       <div id="news-slot"><div class="news-loading">Loading latest news for ${_selected}…</div></div>
     </div>
