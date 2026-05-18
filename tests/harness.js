@@ -25,6 +25,7 @@ function buildStubElement() {
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
     setAttribute() {}, getAttribute: () => null, removeAttribute() {},
     appendChild() {}, removeChild() {}, replaceChild() {}, insertBefore() {},
+    remove() {},
     addEventListener() {}, removeEventListener() {},
     querySelector: () => buildStubElement(),
     querySelectorAll: () => [],
@@ -136,7 +137,8 @@ function loadApp() {
     // Cockpit + live data
     '_cockpitRenderHeatmap', '_cockpitComputeOverview',
     'fetchTickerBundle', 'fetchBars', 'fetchQuote', 'fetchFinnhubProfile', 'fetchFinnhubMetrics',
-    'isLive', 'fmt',
+    'fetchYahooWeekly', 'fetchTwelveDataWeekly',
+    'isLive', 'fmt', 'API_KEY', 'TD_API_KEY',
   ];
   const exportTrailer = ';(' + exported.map(n =>
     `(typeof ${n} !== 'undefined') && (globalThis.${n} = ${n})`

@@ -12943,20 +12943,26 @@ function demoMetrics(ticker, bars) {
 }
 
 // Returns { bars, source, note? } where source is one of:
-//   'yahoo'    — real weekly bars from Yahoo Finance chart endpoint (no key)
-//   'live'     — real Finnhub candle data (paid tier)
-//   'hybrid'   — live current price from /quote overlaid on synthetic history
-//   'fallback' — both /candle and /quote failed; everything is synthetic
-//   'demo'     — no API key, intentional demo mode
+//   'yahoo'      — real weekly bars from Yahoo Finance chart endpoint (no key)
+//   'twelvedata' — real weekly bars from Twelve Data /time_series (CORS-clean)
+//   'live'       — real Finnhub candle data (paid tier)
+//   'hybrid'     — live current price from /quote overlaid on synthetic history
+//   'fallback'   — both /candle and /quote failed; everything is synthetic
+//   'demo'       — no API key, intentional demo mode
 //
 // Source-priority chain (highest fidelity → lowest):
-//   1. Yahoo chart endpoint (real OHLCV, weekly, 5y) — no key needed, the
-//      ideal primary because it removes the synthetic-baseline distortion
-//      affecting MAs / RSI / verdict signals.
-//   2. Finnhub /candle (paid tier only — free tier returns 403).
-//   3. Hybrid: live /quote price overlaid on a synthetic shape scaled to
+//   1. Yahoo chart endpoint — free, no key, but CORS-iffy from github.io
+//      origin. When it works it's the cleanest source.
+//   2. Twelve Data /time_series — CORS-clean, free 800/day, key already
+//      configured via TD_API_KEY (operator-baked + localStorage). Added
+//      2026-05-18 after RCA on ACN "Synthetic data — live fetch failed"
+//      banner: Yahoo CORS-blocked + Finnhub free-tier /candle 403 left
+//      us with no real-bars source, even though TD was already proven
+//      reachable (it feeds the cross-check chip on the same view).
+//   3. Finnhub /candle (paid tier only — free tier returns 403).
+//   4. Hybrid: live /quote price overlaid on a synthetic shape scaled to
 //      match. MAs are approximate, RSI even more so.
-//   4. Pure synthetic + freetier banner.
+//   5. Pure synthetic + freetier banner.
 async function fetchBars(ticker) {
   if (isLive()) {
     // 1) Yahoo Finance chart — free, no key, returns real OHLCV.
@@ -12966,11 +12972,21 @@ async function fetchBars(ticker) {
         return { bars: yBars, source: 'yahoo' };
       }
     } catch (_yErr) {
-      // Yahoo returned 4xx / 5xx / CORS error / no result — fall through to
-      // Finnhub. We don't surface this to the user because Yahoo CORS can
-      // be unreliable from github.io and we have a clean fallback chain.
+      // Yahoo returned 4xx / 5xx / CORS error / no result — fall through.
     }
-    // 2) Finnhub /candle (paid tier).
+    // 2) Twelve Data /time_series — CORS-clean fallback. Only attempt when
+    // the TD key is configured (it almost always is — operator-baked).
+    if (typeof TD_API_KEY !== 'undefined' && TD_API_KEY) {
+      try {
+        const tdBars = await fetchTwelveDataWeekly(ticker);
+        if (tdBars && tdBars.length > 100) {
+          return { bars: tdBars, source: 'twelvedata' };
+        }
+      } catch (_tdErr) {
+        // TD returned 4xx / quota-exceeded / symbol-not-found — fall through.
+      }
+    }
+    // 3) Finnhub /candle (paid tier).
     try {
       const bars = await fetchFinnhubWeekly(ticker);
       return { bars, source: 'live' };
@@ -13006,10 +13022,57 @@ async function fetchBars(ticker) {
   return { bars: generateDemoBars(ticker), source: 'demo' };
 }
 
+// Fetch real weekly OHLCV bars from Twelve Data's /time_series endpoint.
+// Free tier: 800 calls/day, 8/min (the same TD_API_KEY that feeds the
+// cross-check chip — operator-baked, CORS-clean from any origin). Used as
+// the secondary real-bars source when Yahoo CORS-blocks (common from
+// github.io). Returns bars in the same shape as fetchFinnhubWeekly:
+// [{ t (ms), open, high, low, close, volume }, ...] in ASCENDING time order.
+//
+// Twelve Data response shape:
+//   { meta: {...}, values: [{datetime, open, high, low, close, volume}, ...], status: 'ok' }
+// values[] is in DESCENDING time order (newest first) and every numeric
+// field is a string — we parse + reverse to match the rest of the app.
+async function fetchTwelveDataWeekly(ticker) {
+  if (!TD_API_KEY) throw new Error('Twelve Data key not configured');
+  const url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(ticker)}&interval=1week&outputsize=260&apikey=${encodeURIComponent(TD_API_KEY)}`;
+  const resp = await fetch(url, { method: 'GET' });
+  if (!resp.ok) throw new Error(`Twelve Data /time_series HTTP ${resp.status}`);
+  const data = await resp.json();
+  if (data && data.status && data.status !== 'ok') {
+    throw new Error(`Twelve Data status: ${data.status} ${data.message || ''}`);
+  }
+  if (!data || !Array.isArray(data.values) || data.values.length === 0) {
+    throw new Error('Twelve Data /time_series returned no values');
+  }
+  // Reverse to ascending order + parse string fields to numbers.
+  const out = [];
+  for (let i = data.values.length - 1; i >= 0; i--) {
+    const v = data.values[i];
+    if (!v || !v.datetime) continue;
+    const close = parseFloat(v.close);
+    if (!isFinite(close) || close <= 0) continue;
+    const t = new Date(v.datetime + 'T00:00:00Z').getTime();
+    const open  = parseFloat(v.open);
+    const high  = parseFloat(v.high);
+    const low   = parseFloat(v.low);
+    const vol   = parseFloat(v.volume);
+    out.push({
+      t,
+      open: isFinite(open) && open > 0 ? open : close,
+      high: isFinite(high) && high > 0 ? high : close,
+      low:  isFinite(low)  && low  > 0 ? low  : close,
+      close,
+      volume: isFinite(vol) ? vol : 0,
+    });
+  }
+  return out;
+}
+
 // Fetch real weekly OHLCV bars from Yahoo Finance's chart endpoint. Free,
 // no API key required. CORS-friendly from most browser contexts (query1
 // host sends Access-Control-Allow-Origin: *) — when it doesn't, we fall
-// through to the Finnhub path. Returns bars in the same shape as
+// through to the Twelve Data path. Returns bars in the same shape as
 // fetchFinnhubWeekly: [{ t (ms), open, high, low, close, volume }, ...].
 async function fetchYahooWeekly(ticker) {
   // 5y of weekly bars matches what the rest of the app expects (260 bars).
@@ -19114,6 +19177,7 @@ async function addStockByTicker(raw) {
     invalidateCatalogCaches();
     renderWatchlist($('search').value);
     const srcSuffix = _data[raw].barsSource === 'yahoo' ? ' (real bars · Yahoo)'
+                     : _data[raw].barsSource === 'twelvedata' ? ' (real bars · Twelve Data)'
                      : _data[raw].barsSource === 'live' ? ' (real bars · Finnhub)'
                      : _data[raw].barsSource === 'hybrid' ? ' (live price · synthetic history)'
                      : _data[raw].barsSource === 'fallback' ? ' (synthetic data — live fetch failed)'
