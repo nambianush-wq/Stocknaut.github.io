@@ -11101,8 +11101,8 @@ body { padding-bottom: 44px; }
 //   2. Commit + push to BOTH remotes (origin + stocknaut)
 //   3. Every visitor to the deployed URL inherits live mode on first load
 const _SP_BAKED_KEYS = {
-  finnhub:    '',   // ← paste your Finnhub API key here (60 calls/min free tier)
-  twelvedata: '',   // ← paste your Twelve Data API key here (optional cross-check)
+  finnhub:    'd84c6e1r01qutij8lm7gd84c6e1r01qutij8lm80',   // operator-baked, Finnhub free tier (60/min)
+  twelvedata: 'd10a8e6ee9324f76b507c9a33f87c66a',           // operator-baked, Twelve Data free tier (cross-check)
 };
 function _bakedKeyFor(primarySlot) {
   if (primarySlot === LS_KEY_API) return (_SP_BAKED_KEYS.finnhub    || '').trim();
