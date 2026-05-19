@@ -120,6 +120,33 @@ input:focus, select:focus { border-color: var(--accent); }
   height: calc(100vh - 52px);
 }
 
+/* Direction signal — glyph + value, never color-only (principle 11) */
+.dir { display: inline-flex; align-items: baseline; gap: 4px; font-variant-numeric: tabular-nums; }
+.dir-up    { color: var(--bull); }
+.dir-down  { color: var(--bear); }
+.dir-flat  { color: var(--muted); }
+.dir > .dir-glyph { font-size: .9em; opacity: .85; }
+
+/* Typography-first section divider — use INSTEAD of nested bordered boxes
+   (principle 5: hierarchy via type/weight/spacing). Apply to a child element
+   to add a labelled section without compartment-soup. */
+.section-rule {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-top: 14px;
+  margin-bottom: 8px;
+  border-top: 1px solid var(--line);
+}
+.section-rule.first { padding-top: 0; border-top: none; }
+.section-rule > .section-rule-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--dim); margin-left: 8px; }
+
+/* Plain-language definition under a section title — used to surface
+   tooltip-buried info inline (principle 7). */
+.lede-hint { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+
 /* Sidebar */
 #sidebar {
   width: 280px;
@@ -854,9 +881,49 @@ input:focus, select:focus { border-color: var(--accent); }
 }
 .fc-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
+@media (max-width: 760px) { .fc-grid { grid-template-columns: 1fr; } }
+
+/* Primary forecast cell — 12M, shown big. 24M/36M go inside .fc-longer details. */
+.fc-primary { padding: 18px 22px; margin-bottom: 4px; }
+.fc-primary-headline { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; margin-bottom: 8px; }
+.fc-primary-headline .fc-horizon { margin: 0; font-size: 11px; }
+.fc-primary-headline .dir { font-size: 22px; font-weight: 700; }
+.fc-primary-detail { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.fc-primary-detail .fc-price, .fc-primary-detail .fc-band { margin: 0; color: var(--muted); font-size: 12px; font-weight: 500; }
+.fc-primary-detail .fc-conf-label { display: inline; color: var(--muted); }
+.fc-primary-detail .fc-conf-label b { color: var(--text); margin: 0 4px; }
+.fc-longer { margin-top: 12px; }
+.fc-longer > summary { font-size: 11px; color: var(--muted); cursor: pointer; padding: 8px 0; list-style: none; }
+.fc-longer > summary::-webkit-details-marker { display: none; }
+.fc-longer > summary::before { content: '▸ '; transition: transform .15s; display: inline-block; }
+.fc-longer[open] > summary::before { content: '▾ '; }
+.fc-longer > summary:hover { color: var(--text); }
+.fc-longer .fc-grid { margin-top: 10px; }
+.fc-longer .fc-grid > .fc-cell { padding: 11px 12px; }
+.fc-longer .fc-grid .fc-price { font-size: 17px; }
+
+/* Signal-chip row — sits between timing card and news card (no longer in header). */
+.ticker-signal-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 18px; align-items: center; }
+
+/* Sources / verify footer — collapsible at the bottom of the ticker pane. */
+.ticker-sources { margin: 18px 0 8px; }
+.ticker-sources > summary { font-size: 12px; color: var(--muted); cursor: pointer; padding: 8px 0; list-style: none; }
+.ticker-sources > summary::-webkit-details-marker { display: none; }
+.ticker-sources > summary::before { content: '▸ '; }
+.ticker-sources[open] > summary::before { content: '▾ '; }
+.ticker-sources > summary:hover { color: var(--text); }
+.ticker-sources .verify-row { margin-top: 10px; }
+
+/* Executive Summary — collapsed technical-details block. */
+.exec-details { margin-top: 18px; }
+.exec-details > summary { font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; padding: 10px 0; list-style: none; border-top: 1px solid var(--line); }
+.exec-details > summary::-webkit-details-marker { display: none; }
+.exec-details > summary::before { content: '▸ '; }
+.exec-details[open] > summary::before { content: '▾ '; }
+.exec-details > summary:hover { color: var(--text); }
 .fc-cell {
   padding: 13px 14px 14px;
   background: var(--raised);
@@ -1678,6 +1745,28 @@ body.sectors-mode #sidebar { display: none; }
 .tile-multi-cell .tm-val.up { color: var(--bull); }
 .tile-multi-cell .tm-val.down { color: var(--bear); }
 
+/* Compact past-performance line — replaces the 1Y/3Y/5Y triple grid on the
+   sector tile. Full breakdown lives in the ticker dashboard drilldown. */
+.tile-past-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11.5px;
+  margin: 6px 0 0;
+  padding: 6px 0;
+  border-top: 1px solid rgba(138,146,166,.10);
+  border-bottom: 1px solid rgba(138,146,166,.10);
+  font-variant-numeric: tabular-nums;
+}
+.tile-past-line .tile-past-lbl {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.tile-past-line .tile-past-dd { color: var(--dim); font-size: 10.5px; margin-left: auto; }
+
 .tile-trend-row {
   display: flex;
   align-items: center;
@@ -2286,6 +2375,24 @@ body.whatif-mode #sidebar { display: none; }
   line-height: 1.6;
 }
 .wi-empty-msg strong { color: var(--text); font-weight: 600; }
+.wi-empty-headline {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -.01em;
+  margin-bottom: 8px;
+}
+.wi-empty-steps {
+  list-style: decimal;
+  text-align: left;
+  display: inline-block;
+  margin: 6px auto 0;
+  padding-left: 22px;
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.wi-empty-steps strong { color: var(--text); font-weight: 600; }
 
 /* Saved simulation bundles */
 .bundles-section {
@@ -2312,13 +2419,14 @@ body.whatif-mode #sidebar { display: none; }
   color: var(--muted);
 }
 .bundles-empty {
-  padding: 22px;
+  padding: 32px 22px;
   text-align: center;
   color: var(--muted);
   font-size: 12.5px;
   line-height: 1.55;
 }
 .bundles-empty strong { color: var(--text); font-weight: 600; }
+.bundles-empty-msg { max-width: 420px; margin: 0 auto 16px; }
 .bundle-card {
   background: var(--raised);
   border: 1px solid var(--line);
@@ -2355,6 +2463,22 @@ body.whatif-mode #sidebar { display: none; }
   color: var(--bear);
 }
 .bundle-btn.danger:hover { background: rgba(255,69,58,.25); border-color: rgba(255,69,58,.5); }
+
+/* Demoted Delete — small, muted, hover-only. Separates from Modify (principle 8). */
+.bundle-delete {
+  width: 22px; height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--dim);
+  font-size: 13px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 4px;
+  opacity: .55;
+  transition: opacity .15s, color .15s, background .15s;
+}
+.bundle-delete:hover { opacity: 1; color: var(--bear); background: rgba(255,69,58,.10); }
+.bundle-delete:focus { opacity: 1; color: var(--bear); outline: 1px solid rgba(255,69,58,.4); outline-offset: 1px; }
 .bundle-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2875,6 +2999,40 @@ body.whatif-mode #sidebar { display: none; }
   font-weight: 600;
   letter-spacing: .08em;
 }
+/* Collapsible mood-key — was visible by default and added vertical clutter. */
+.picks-jump-legend-collapsible { margin-bottom: 6px; }
+.picks-jump-legend-collapsible > summary {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+  display: inline-block;
+  padding: 4px 0;
+}
+.picks-jump-legend-collapsible > summary::-webkit-details-marker { display: none; }
+.picks-jump-legend-collapsible > summary:hover { color: var(--text); }
+.picks-jump-legend-collapsible[open] > .picks-jump-legend { margin-top: 4px; }
+
+/* Longer-horizon forecasts (24M / 36M) collapsed behind a chevron. */
+.pick-fc-longer { display: inline-block; vertical-align: top; }
+.pick-fc-longer > summary {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+  padding: 6px 8px;
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  background: transparent;
+  white-space: nowrap;
+}
+.pick-fc-longer > summary::-webkit-details-marker { display: none; }
+.pick-fc-longer > summary:hover { color: var(--text); border-color: var(--dim); }
+.pick-fc-longer-row { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
 .picks-jump-legend .swatch {
   display: inline-flex;
   align-items: center;
@@ -2910,6 +3068,36 @@ body.whatif-mode #sidebar { display: none; }
   color: var(--muted);
   font-size: 11px;
 }
+/* More-filters disclosure — collapses 5 advanced rows behind a toggle. */
+.sec-filters-advanced { margin: 2px 0; }
+.sec-filters-advanced > summary {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+  padding: 6px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.sec-filters-advanced > summary::-webkit-details-marker { display: none; }
+.sec-filters-advanced > summary::before { content: '▸ '; color: var(--dim); }
+.sec-filters-advanced[open] > summary::before { content: '▾ '; }
+.sec-filters-advanced > summary:hover { color: var(--text); }
+.sec-filters-advanced > summary > .sec-filter-adv-count {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  padding: 2px 7px;
+  border-radius: 99px;
+  background: rgba(0,113,227,.18);
+  color: var(--accent);
+  text-transform: none;
+}
+.sec-filters-advanced > .sec-filter-row { margin-top: 4px; }
 .sec-filter-lbl {
   font-size: 10px;
   text-transform: uppercase;
@@ -3306,16 +3494,8 @@ body.cockpit-mode.cockpit-sidebar-collapsed #main { margin-left: 0; }
   position: relative;
   overflow: hidden;
 }
-.cockpit-hero-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 2px;
-  background: var(--accent);
-  opacity: .6;
-}
-.cockpit-hero-card.up::before { background: var(--bull); }
-.cockpit-hero-card.down::before { background: var(--bear); }
-.cockpit-hero-card.warn::before { background: var(--warn); }
+/* Hero ::before color bar removed — direction is already carried by
+   .cockpit-hero-val color + glyph (principle 11, X2 dedupe). */
 .cockpit-hero-lbl {
   font-size: 9.5px;
   color: var(--muted);
@@ -3557,7 +3737,24 @@ body { padding-bottom: 44px; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.cockpit-sector-bar { height: 8px; background: var(--raised); border-radius: 4px; overflow: hidden; }
+.cockpit-sector-bar {
+  height: 8px;
+  background: var(--raised);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+/* Zero anchor — vertical hairline at the neutral (score = 0) midpoint, so
+   the user can read "above neutral" vs "below neutral" at a glance instead
+   of comparing widths to each other. */
+.cockpit-sector-bar::after {
+  content: '';
+  position: absolute;
+  top: -2px; bottom: -2px;
+  left: 50%; width: 1px;
+  background: rgba(138,146,166,.45);
+  pointer-events: none;
+}
 .cockpit-sector-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--bull));
@@ -3596,6 +3793,24 @@ body { padding-bottom: 44px; }
 .cockpit-alert-body { font-size: 12px; flex: 1; line-height: 1.45; }
 .cockpit-alert-body b { color: var(--text); font-weight: 600; }
 .cockpit-alert-sub { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+/* Kind badge — text label paired with the glyph (anti-pattern 11, X1 dedupe).
+   Example: "BUY FLIP", "OFF PACE", "DISCOVERY". */
+.cockpit-alert-kind {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  padding: 2px 6px;
+  margin-right: 8px;
+  border-radius: 4px;
+  vertical-align: middle;
+  background: rgba(138,146,166,.15);
+  color: var(--muted);
+}
+.cockpit-alert.bull .cockpit-alert-kind { background: rgba(48,209,88,.18); color: var(--bull); }
+.cockpit-alert.bear .cockpit-alert-kind { background: rgba(255,69,58,.18); color: var(--bear); }
+.cockpit-alert.warn .cockpit-alert-kind { background: rgba(255,159,10,.18); color: var(--warn); }
+.cockpit-alert.info .cockpit-alert-kind { background: rgba(0,113,227,.18); color: var(--accent); }
 .cockpit-empty { padding: 60px 20px; text-align: center; color: var(--muted); }
 
 /* Key-indices gauge grid — animated semicircle dials for major benchmarks.
@@ -3627,9 +3842,8 @@ body { padding-bottom: 44px; }
   transition: border-color .15s, transform .15s;
 }
 .cockpit-index-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-.cockpit-index-card.up   { border-top: 2px solid var(--bull); }
-.cockpit-index-card.down { border-top: 2px solid var(--bear); }
-.cockpit-index-card.warn { border-top: 2px solid var(--warn); }
+/* Top-border color removed — direction is already carried by the gauge needle
+   + headline % color (principle 11, X2 dedupe). */
 .cockpit-index-label {
   font-size: 9.5px;
   text-transform: uppercase;
@@ -4917,6 +5131,24 @@ body { padding-bottom: 44px; }
   color: var(--muted);
   margin-top: 2px;
 }
+.wi-risk-headline .wi-risk-cell { padding: 12px 14px; }
+.wi-risk-headline .wi-risk-cell .val { font-size: 19px; }
+.wi-risk-deep { margin-top: 12px; }
+.wi-risk-deep > summary { font-size: 11px; color: var(--muted); cursor: pointer; padding: 8px 0; list-style: none; }
+.wi-risk-deep > summary::-webkit-details-marker { display: none; }
+.wi-risk-deep > summary::before { content: '▸ '; }
+.wi-risk-deep[open] > summary::before { content: '▾ '; }
+.wi-risk-deep > summary:hover { color: var(--text); }
+
+/* Method-card — now a collapsible details block. */
+.wi-method-collapsible > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0;
+}
+.wi-method-collapsible > summary::-webkit-details-marker { display: none; }
+.wi-method-collapsible > summary::before { content: '▸ '; color: var(--muted); }
+.wi-method-collapsible[open] > summary::before { content: '▾ '; }
 
 /* ============================================================
    Responsive layer — phones, iPads, small laptops
@@ -11805,8 +12037,65 @@ const TIP = {
   insiderCluster: "Cluster-buying signal from SEC Form 4 insider transactions (last 30 days). Source: SEC EDGAR, aggregated and pre-parsed by Finnhub.\n\nWe count DISTINCT insiders who made open-market purchase transactions (Form 4 transaction code 'P'), and separately count distinct insiders who made open-market sales (code 'S'). Grants, option exercises, tax-withholding, gifts, and dispositions are excluded — those aren't free-will buy/sell decisions and would dilute the signal.\n\nCluster strength:\n  ≥ 3 distinct buyers in 30d  → STRONG CLUSTER  (the academic-definition signal)\n  2 distinct buyers           → FORMING CLUSTER\n  1 buyer                     → SINGLE BUY (treat as noise on its own)\n  0 buyers, sells present     → NEGATIVE\n\nWhy this matters: a single insider buying is usually noise (10b5-1 plan, routine bonus). When 3+ insiders buy in the same 30-day window, the SEC-academic literature (Jeng/Metrick/Zeckhauser 2003) shows it's one of the few genuinely leading indicators of out-performance over the next 6-12 months. Insiders trade on what they know, and clustered buying means MULTIPLE people with non-public information are voting with their wallets at the same time.\n\nHonest limits: not every cluster predicts a rally — small caps with thin float can be moved by a single director adding 1,000 shares. The dollar-magnitude (in the tooltip) and the seniority of the buyers matter as much as the count. Read the buyer list before sizing up.",
   analystMomentum: "Are Wall-Street analysts turning more bullish or bearish on this stock in the last 30 days?\n\nWe pull the Finnhub recommendation history and compare this month's counts vs last month's:\n  net30 = (Δ Strong Buy + Δ Buy) − (Δ Sell + Δ Strong Sell)\n  ≥ +2 = UPGRADES (analysts turning bullish)\n  ≤ −2 = DOWNGRADES\n  otherwise = STABLE\n\nHonest framing: analyst revisions are a LAGGING signal — Wall Street revises after price moves, not before. The direction of revisions correlates with fundamental-revision direction over the next quarter, so it's useful as a confirmation overlay, not as a leading 'ahead of rally' signal. Coverage may be unavailable for small caps, foreign listings, and ETFs.",
   earlyRally: "EARLY — Ahead-of-Rally signal.\n\nCriteria (ALL three must hold): (1) 12-month forecast ≥ +5%, (2) current price is still at or below the 40-week moving average (MA40 ≈ 1-year trend line), (3) RSI(14W) is below 65 — momentum is positive but not stretched.\n\nWhat this means: The model has turned bullish BEFORE the chart has broken out. The price hasn't yet cleared its 1-year average, so you would be entering near trend support instead of chasing a stock that has already run. This is the highest-conviction BUY_NOW shape — entries here put you ahead of buyers who only act once price clears MA40.\n\nWhat it does NOT mean: It is NOT insider knowledge, order-flow leakage, or dark-pool footprint. The signal is derived entirely from public weekly OHLCV bars (Yahoo Finance / Twelve Data). Forecasts are heuristic, so a positive 12M forecast is a directional bet, not a guarantee. Treat as a high-conviction setup, size accordingly, and watch the MA40 reclaim on volume for confirmation.",
+  vix: "VIX — the market's 'fear gauge'.\n\nWhat this means: Measures how much the S&P 500 is expected to swing over the next 30 days. Below 15 = calm. 15-20 = normal. 20-30 = nervous. Above 30 = fearful (often near market bottoms). VIX usually moves OPPOSITE to stocks — when stocks fall, VIX rises.",
+  breadth: "Market breadth — how many stocks are participating in the move.\n\nWhat this means: Counts how many of your watchlist stocks are above their 40-week moving average (long-term uptrend line). High breadth = broad rally (healthy). Low breadth = just a few mega-caps holding the index up (fragile).",
+  macd: "MACD — Moving Average Convergence Divergence.\n\nWhat this means: A momentum gauge built from two moving averages. When the MACD line crosses ABOVE its signal line, momentum is turning bullish. When it crosses BELOW, momentum is turning bearish. Use as a confirmation, not a trigger.",
+  thirteenF: "13F filings — quarterly disclosures of stock holdings filed with the SEC by large investors ($100M+ assets).\n\nWhat this means: The 13F badge shows how many tracked super-investors (Buffett, Burry, Ackman, etc.) own this stock. ≥3 = strong conviction across multiple pros. ≥2 = solid interest. ≥1 = at least one famous holder. Lags by up to 45 days — treat as confirmation, not a leading signal.",
+  dca: "DCA — Dollar-Cost Averaging.\n\nWhat this means: Spread your buy across several entries (e.g., 1/3 now, 1/3 next month, 1/3 after that) rather than buying all at once. Best when the chart is mixed — you don't know if it'll dip or rip, so you average in.",
+  buyNow: "Buy Now — the timing model says enter at the current price.\n\nWhat this means: Forecast is positive AND momentum is constructive AND there's no obvious 'wait for a dip' setup. Sized full-position entry is reasonable.",
+  buyOnDip: "Buy on Dip — wait for a pullback before entering.\n\nWhat this means: Forecast is positive but the stock is currently stretched (above MA40 with RSI elevated). A 5-10% pullback to support gives a better entry. Set a price alert near the moving average.",
+  waitTiming: "Wait — signals are unclear; no edge right now.\n\nWhat this means: Forecast and trend disagree, or the read is too mixed to act. Better to monitor than to force a trade.",
+  conflictTiming: "Conflict — model signals disagree.\n\nWhat this means: Bullish on one dimension (forecast) but bearish on another (trend). Treat as a 'wait' until one side resolves. Avoid sizing up here.",
+  avoidTiming: "Avoid — both forecast and trend are bearish.\n\nWhat this means: Don't open a new long position. If you already own it, the SELL verdict guides exit timing.",
+  allRounder: "All-Rounder — a stock that ranks highly across MULTIPLE investment goals (e.g., shows up in Growth + Value + Momentum top-20 at once).\n\nWhat this means: Rare birds. A stock that's top-20 under just one goal is normal; one that's top-20 under 3+ goals is unusual and worth a deeper look. Cross-goal strength means the bullish read doesn't depend on one narrow lens.",
+  crossGoal: "Cross-Goal Strength — the small G · P · I · V · M letters on each tile.\n\nWhat this means: G=Growth, P=Preservation, I=Income, V=Value, M=Momentum. Filled letters mean this ticker is in the top-20 for that goal. More filled letters = stronger across multiple investment styles.",
+  moodScale: "Sector mood — overall health rating from STRONG (deep green) to WEAK (deep red).\n\nWhat this means: Aggregates the verdicts and forecasts of every stock in the sector. STRONG = broad bullish read. HEALTHY = mostly bullish. MIXED = no clear direction. SOFT = leaning bearish. WEAK = broad bearish read.",
+  pace: "Pace vs Forecast — how the bundle is tracking against the 12-month forecast prorated for elapsed days.\n\nWhat this means: 'Ahead of pace' = doing BETTER than the forecast predicted at this point. 'Behind pace' = doing WORSE than predicted. The forecast was set the day you saved the bundle; pace tells you if reality is beating or missing the plan.",
 };
 function tip(key) { return (TIP[key] || '').replace(/"/g, '&quot;'); }
+
+// ---------------------------------------------------------------------------
+// dirSignal — single source of truth for direction-carrying values.
+// Always pairs color with a glyph + label so we never rely on color alone
+// (UI/UX principle 11: color is never the only status signal).
+// ---------------------------------------------------------------------------
+// dirClass(value, opts) → 'up' | 'down' | 'flat'
+// dirGlyph(value, opts) → '↑' | '↓' | '~'
+// dirSignal(value, opts) → HTML span: <span class="dir dir-up">↑ +12.3%</span>
+//   opts: { fmt: 'pct'|'num'|'currency', decimals: 1, neutralBand: 0,
+//           withGlyph: true, sign: true, suffix: '' }
+function dirClass(v, opts) {
+  const band = (opts && opts.neutralBand) || 0;
+  if (v == null || isNaN(v)) return 'flat';
+  if (v >  band) return 'up';
+  if (v < -band) return 'down';
+  return 'flat';
+}
+function dirGlyph(v, opts) {
+  const cls = dirClass(v, opts);
+  return cls === 'up' ? '↑' : cls === 'down' ? '↓' : '~';
+}
+function dirSignal(v, opts) {
+  opts = opts || {};
+  const cls   = dirClass(v, opts);
+  const glyph = opts.withGlyph === false ? '' : dirGlyph(v, opts);
+  if (v == null || isNaN(v)) {
+    return `<span class="dir dir-flat" aria-label="no data">${glyph} —</span>`;
+  }
+  const dec = opts.decimals != null ? opts.decimals : (opts.fmt === 'currency' ? 0 : 1);
+  const sign = (opts.sign === false || v < 0) ? '' : (v > 0 ? '+' : '');
+  let body;
+  if (opts.fmt === 'currency') {
+    body = (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  } else if (opts.fmt === 'num') {
+    body = sign + v.toFixed(dec);
+  } else { // pct (default)
+    body = sign + v.toFixed(dec) + '%';
+  }
+  const suffix = opts.suffix ? ' ' + opts.suffix : '';
+  const label = cls === 'up' ? 'gain' : cls === 'down' ? 'loss' : 'flat';
+  return `<span class="dir dir-${cls}" aria-label="${label}">${glyph ? glyph + ' ' : ''}${body}${suffix}</span>`;
+}
 
 let FAVORITES = loadStringSet(LS_KEY_FAVS);
 let SIM_SET   = loadStringSet(LS_KEY_SIMSET);
@@ -14971,6 +15260,11 @@ function renderSectorsFilterPills() {
     return `<div class="sec-filter-row"><span class="sec-filter-lbl">${label}</span>${pills}</div>`;
   };
   const activeCount = _countActiveSectorsFilters();
+  // Count active filters in the "advanced" group so we can show a hint on
+  // the toggle even when collapsed (e.g. "More filters · 2 active").
+  const ADV_KEYS = ['fcMin', 'confMin', 'cross', 'timing', 'inst'];
+  const advActive = ADV_KEYS.filter(k => _sectorsFilters[k] !== _DEFAULT_SECTORS_FILTERS[k]).length;
+  const advOpen = (() => { try { return localStorage.getItem('sp_sectors_adv_open_v1') === '1'; } catch (e) { return false; } })();
   host.innerHTML = `
     ${row('Sector', 'sector', [
       { v:'all',      l:'All',         t:'Every sector in the catalog' },
@@ -14981,52 +15275,54 @@ function renderSectorsFilterPills() {
       { v:'ind',      l:'Ind / Energy',t:'Industrials · Oil/Gas · Utilities · Materials · Aerospace · Mining · Transport' },
       { v:'etf',      l:'ETF',         t:'Basket funds — sector / index / strategy ETFs' },
     ])}
-    ${row('Verdict floor', 'verdict', [
+    ${row('Verdict', 'verdict', [
       { v:'all',         l:'Any',          t:'No verdict filter' },
       { v:'buy_plus',    l:'Buy or better',t:'Only BUY or STRONG BUY tickers' },
       { v:'strong_buy',  l:'Strong Buy',   t:'Only STRONG BUY tickers' },
-    ])}
-    ${row('Min 12M forecast', 'fcMin', [
-      { v:0,  l:'Any',     t:'No floor on 12-month expected return' },
-      { v:10, l:'≥ +10%',  t:'Only stocks with expected 12-month return ≥ 10%' },
-      { v:20, l:'≥ +20%',  t:'Only stocks with expected 12-month return ≥ 20% (aggressive)' },
-    ])}
-    ${row('Min confidence', 'confMin', [
-      { v:0,  l:'Any',   t:'No floor on forecast confidence' },
-      { v:40, l:'≥ 40%', t:'Filter out the noisiest forecasts (confidence ≥ 40%)' },
-      { v:60, l:'≥ 60%', t:'Only high-conviction forecasts (confidence ≥ 60%)' },
     ])}
     ${row('Dividend', 'div', [
       { v:'all',      l:'Any',        t:'No dividend filter' },
       { v:'pays',     l:'Pays',       t:'Only stocks that pay any dividend' },
       { v:'hi_yield', l:'High yield', t:'Only stocks with dividend yield ≥ 4%' },
     ])}
-    ${row('Cross-goal strength', 'cross', [
-      { v:'all',    l:'Any',                       t:'No cross-goal filter' },
-      { v:'cross2', l:'Strong in ≥ 2 goals',       t:'Stocks that rank in the top 20 across at least 2 of the 5 investment goals — versatile picks' },
-      { v:'cross3', l:'All-rounders (≥ 3 goals)',  t:'Stocks that rank in the top 20 across at least 3 of the 5 goals — strongest cross-style picks' },
-    ])}
-    ${row('Buy timing', 'timing', [
-      { v:'all',         l:'Any',            t:'No timing filter — show all stocks regardless of buy-now / wait recommendation' },
-      { v:'BUY_NOW',     l:'Buy now',        t:'Stocks where the model expects a positive 12M return AND trend is intact (price above MA40, not overbought)' },
-      { v:'EARLY_RALLY', l:'Ahead of rally', t:'Model forecasts a positive 12M return BUT price is still at/below MA40 and RSI < 65 — entry near trend support, not chasing a breakout' },
-      { v:'BUY_ON_DIP',  l:'Buy on dip',     t:'Strong forecast but the stock is overbought / stretched above MA40 — wait for a 5–10% pullback' },
-      { v:'DCA',        l:'DCA',        t:'Positive forecast but high volatility — dollar-cost-average over 4–8 weeks rather than lump-sum' },
-      { v:'WAIT',       l:'Wait',       t:'Flat forecast with mixed signals — no clear entry trigger yet, watch for a break' },
-      { v:'CONFLICT',   l:'Conflict',   t:'Verdict bullish (BUY or STRONG BUY) BUT forecast bearish (12M < -3%). The two engines disagree — recent technicals favour entry, long-term regression expects mean-reversion downside. Speculative only.' },
-      { v:'SELL',       l:'Sell',       t:'Verdict is SELL — trend + momentum bearish. Distinct from Avoid: model may forecast a bounce, but trend is against a long entry. If holding, consider trimming.' },
-      { v:'AVOID',      l:'Avoid',      t:'Negative 12M forecast OR Strong Sell verdict — capital better deployed elsewhere' },
-    ])}
-    ${row('Institutional (13F)', 'inst', [
-      { v:'all',   l:'Any',                                                                                  t:'No institutional-ownership filter' },
-      { v:'inst1', l:'Held by ≥ 1 manager',                                                                  t:'Stocks held by at least 1 of the top active 13F managers — institutional interest present' },
-      { v:'inst2', l:'Held by ≥ 2 managers',                                                                  t:'Stocks held by 2+ top managers — shared conviction' },
-      { v:'inst3', l:'Consensus (held by ≥ 3 managers)',                                                     t:'Stocks held by 3 or more top managers — strong institutional consensus' },
-    ])}
+    <details class="sec-filters-advanced"${advOpen ? ' open' : ''} ontoggle="try { localStorage.setItem('sp_sectors_adv_open_v1', this.open ? '1' : '0'); } catch(e) {}">
+      <summary>More filters${advActive > 0 ? ` <span class="sec-filter-adv-count">${advActive} active</span>` : ''}</summary>
+      ${row('Min 12M forecast', 'fcMin', [
+        { v:0,  l:'Any',     t:'No floor on 12-month expected return' },
+        { v:10, l:'≥ +10%',  t:'Only stocks with expected 12-month return ≥ 10%' },
+        { v:20, l:'≥ +20%',  t:'Only stocks with expected 12-month return ≥ 20% (aggressive)' },
+      ])}
+      ${row('Min confidence', 'confMin', [
+        { v:0,  l:'Any',   t:'No floor on forecast confidence' },
+        { v:40, l:'≥ 40%', t:'Filter out the noisiest forecasts (confidence ≥ 40%)' },
+        { v:60, l:'≥ 60%', t:'Only high-conviction forecasts (confidence ≥ 60%)' },
+      ])}
+      ${row('Cross-goal strength', 'cross', [
+        { v:'all',    l:'Any',                       t:'No cross-goal filter' },
+        { v:'cross2', l:'Strong in ≥ 2 goals',       t:'Stocks that rank in the top 20 across at least 2 of the 5 investment goals — versatile picks' },
+        { v:'cross3', l:'All-rounders (≥ 3 goals)',  t:'Stocks that rank in the top 20 across at least 3 of the 5 goals — strongest cross-style picks' },
+      ])}
+      ${row('Buy timing', 'timing', [
+        { v:'all',         l:'Any',            t:'No timing filter — show all stocks regardless of buy-now / wait recommendation' },
+        { v:'BUY_NOW',     l:'Buy now',        t:'Stocks where the model expects a positive 12M return AND trend is intact (price above MA40, not overbought)' },
+        { v:'EARLY_RALLY', l:'Ahead of rally', t:'Model forecasts a positive 12M return BUT price is still at/below MA40 and RSI < 65 — entry near trend support, not chasing a breakout' },
+        { v:'BUY_ON_DIP',  l:'Buy on dip',     t:'Strong forecast but the stock is overbought / stretched above MA40 — wait for a 5–10% pullback' },
+        { v:'DCA',        l:'DCA',        t:'Positive forecast but high volatility — dollar-cost-average over 4–8 weeks rather than lump-sum' },
+        { v:'WAIT',       l:'Wait',       t:'Flat forecast with mixed signals — no clear entry trigger yet, watch for a break' },
+        { v:'CONFLICT',   l:'Conflict',   t:'Verdict bullish (BUY or STRONG BUY) BUT forecast bearish (12M < -3%). The two engines disagree — speculative only.' },
+        { v:'SELL',       l:'Sell',       t:'Verdict is SELL — trend + momentum bearish. If holding, consider trimming.' },
+        { v:'AVOID',      l:'Avoid',      t:'Negative 12M forecast OR Strong Sell verdict — capital better deployed elsewhere' },
+      ])}
+      ${row('Institutional (13F)', 'inst', [
+        { v:'all',   l:'Any',                                  t:'No institutional-ownership filter' },
+        { v:'inst1', l:'Held by ≥ 1 manager',                  t:'Stocks held by at least 1 of the top active 13F managers — institutional interest present' },
+        { v:'inst2', l:'Held by ≥ 2 managers',                  t:'Stocks held by 2+ top managers — shared conviction' },
+        { v:'inst3', l:'Consensus (≥ 3 managers)',              t:'Stocks held by 3 or more top managers — strong institutional consensus' },
+      ])}
+    </details>
     <div class="sec-filter-row sec-filter-foot">
       <span class="sec-filter-lbl">${activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? '' : 's'} active` : 'No filters active'}</span>
       <button class="sec-filter-pill sec-filter-reset" onclick="clearSectorsFilters()" title="Clear every filter and show the full catalog ranking"${activeCount === 0 ? ' disabled' : ''}>Reset all</button>
-      <span class="sec-filter-legend" title="The G P I V M badge on each tile shows that ticker's top-20 inclusion across Growth · Preservation · Income · Value · Momentum. Lit letters = ticker ranks top-20 in that goal.">Tile badge: <b>G</b> Growth · <b>P</b> Preservation · <b>I</b> Income · <b>V</b> Value · <b>M</b> Momentum</span>
     </div>
   `;
 }
@@ -15589,8 +15885,12 @@ function applyWhatIfMode() {
 function renderWhatIfPage() {
   $('whatif-results').innerHTML = `
     <div class="wi-empty">
-      <div class="sectors-empty-glyph">$</div>
-      <div class="wi-empty-msg">Enter an investment amount and pick a goal above, then click <strong>Build Portfolio</strong> to see your optimized mix with every parameter shown — clone a top 13F manager's long-equity book, or hand-pick specific stocks and let us optimise their mix for your goal.</div>
+      <div class="wi-empty-headline">Build a portfolio in 3 steps</div>
+      <ol class="wi-empty-steps">
+        <li>Enter an investment amount above</li>
+        <li>Pick a goal (or clone an investor / hand-pick tickers)</li>
+        <li>Click <strong>Build Portfolio</strong> — your mix, expected return, and risk appear here</li>
+      </ol>
     </div>`;
   renderInvestorCloneStrip();
   renderPickerChips();
@@ -15903,10 +16203,13 @@ function renderSavedBundles() {
   if (!SAVED_BUNDLES || SAVED_BUNDLES.length === 0) {
     host.innerHTML = `<div class="bundles-section">
       <div class="bundles-section-head">
-        <div class="bundles-section-title">Saved Simulation Bundles</div>
-        <div class="news-card-sub">0 saved · build a portfolio below and click Save to track it over time</div>
+        <div class="bundles-section-title">My Portfolios</div>
+        <div class="news-card-sub">Track saved portfolios across days, weeks, and months.</div>
       </div>
-      <div class="bundles-empty">No saved bundles yet. <strong>Build a portfolio</strong> above and click <strong>Save as bundle</strong> in the results to track its daily and cumulative performance over time.</div>
+      <div class="bundles-empty">
+        <div class="bundles-empty-msg">No portfolios yet. Saved portfolios appear here so you can track their daily and cumulative P&amp;L.</div>
+        <button class="btn btn-primary" onclick="selectWhatIfMode('lab')">Start building →</button>
+      </div>
     </div>`;
     return;
   }
@@ -16566,7 +16869,7 @@ function renderBundleCard(b) {
       </div>
       <div class="bundle-actions">
         <button class="bundle-btn" onclick="openModifyBundle('${b.id}')" title="Add or remove holdings, change allocation %">Modify</button>
-        <button class="bundle-btn danger" onclick="deleteBundle('${b.id}')" title="Delete bundle">✕</button>
+        <button class="bundle-delete" onclick="deleteBundle('${b.id}')" title="Delete bundle (confirmation required)" aria-label="Delete bundle">✕</button>
       </div>
     </div>
     <div class="bundle-stats">
@@ -18100,7 +18403,7 @@ function renderWhatIfResults(p) {
     <div class="wi-save-row">
       <div class="wi-save-lbl">Save this simulation:</div>
       <input id="wi-save-name" type="text" value="${_escapeHtml(defaultBundleName)}" placeholder="${_escapeHtml(defaultBundleName)}" maxlength="80" autocomplete="off" title="Pre-filled with a sensible default — click to edit, or hit Save as bundle as-is. Saved bundle names appear in the saved-bundles list below + on the Cockpit alerts when behind pace.">
-      <button class="btn btn-primary" onclick="saveCurrentBundle()">💾 Save as bundle</button>
+      <button class="btn btn-primary" onclick="saveCurrentBundle()">Save bundle</button>
     </div>
     <div class="wi-summary-grid">
       <div class="wi-summary-card">
@@ -18149,39 +18452,44 @@ function renderWhatIfResults(p) {
     ${renderCalendarCard(p)}
 
     <div class="wi-mix-card">
-      <div class="wi-mix-title">Portfolio Risk — grounded on last ${p.historyYears} year${p.historyYears===1?'':'s'}<span class="wi-risk-approx-badge" title="The portfolio-level Sharpe, Volatility, Max Drawdown and Period Return shown below are weighted means of each holding's INDIVIDUAL value — they do not account for correlation between holdings (which is what a true portfolio-level calculation would require, via a covariance matrix). Diversification benefit is therefore NOT reflected. Beta and HHI are correctly computed at the portfolio level. Use these as directional comparisons across What If runs, not as a precise risk forecast.">~ approximation</span></div>
-      <div class="wi-risk-row">
+      <div class="wi-mix-title">Portfolio Risk — last ${p.historyYears} year${p.historyYears===1?'':'s'} of history<span class="wi-risk-approx-badge" title="The Sharpe, Volatility, Max Drawdown and Period Return shown are weighted averages of each holding's INDIVIDUAL value — they don't account for correlation between holdings (true portfolio risk would need a covariance matrix). Diversification benefit is NOT reflected. Beta and HHI ARE correctly computed at the portfolio level. Use these as directional comparisons across What If runs, not as a precise risk forecast.">~ approximation</span></div>
+      <div class="wi-risk-row wi-risk-headline">
         <div class="wi-risk-cell" title="${tip('periodReturn')}" style="cursor:help">
-          <div class="lbl">Period Return (${p.historyYears}Y)</div>
-          <div class="val ${stats.portfolioPeriodReturn >= 0 ? 'up' : 'down'}" style="color:${stats.portfolioPeriodReturn >= 0 ? 'var(--bull)' : 'var(--bear)'}">${stats.portfolioPeriodReturn >= 0 ? '+' : ''}${stats.portfolioPeriodReturn.toFixed(1)}%</div>
-          <div class="sub">Weighted across all holdings</div>
+          <div class="lbl">Total Return (${p.historyYears}Y)</div>
+          <div class="val">${dirSignal(stats.portfolioPeriodReturn)}</div>
+          <div class="sub">If you'd held this mix over the last ${p.historyYears} year${p.historyYears===1?'':'s'}</div>
         </div>
         <div class="wi-risk-cell" title="${tip('maxDd')}" style="cursor:help">
-          <div class="lbl">Max Drawdown</div>
-          <div class="val" style="color:var(--bear)">${stats.portfolioMaxDd.toFixed(1)}%</div>
-          <div class="sub">Worst peak-to-trough in window</div>
+          <div class="lbl">Worst Drop</div>
+          <div class="val dir-down">↓ ${stats.portfolioMaxDd.toFixed(1)}%</div>
+          <div class="sub">Biggest peak-to-trough loss before recovery</div>
         </div>
         <div class="wi-risk-cell" title="${tip('vol')}" style="cursor:help">
-          <div class="lbl">Volatility (annualised)</div>
-          <div class="val">${stats.portfolioVol.toFixed(1)}%</div>
-          <div class="sub">Higher = more price swing</div>
-        </div>
-        <div class="wi-risk-cell" title="${tip('sharpe')}" style="cursor:help">
-          <div class="lbl">Sharpe-like</div>
-          <div class="val">${stats.portfolioSharpe.toFixed(2)}</div>
-          <div class="sub">Return per unit of risk (4% rf)</div>
-        </div>
-        <div class="wi-risk-cell" title="${tip('beta')}" style="cursor:help">
-          <div class="lbl">Beta vs SPY</div>
-          <div class="val">${stats.portfolioBeta.toFixed(2)}</div>
-          <div class="sub">${stats.portfolioBeta > 1.1 ? 'More volatile than market' : stats.portfolioBeta < 0.9 ? 'Less volatile than market' : 'In line with market'}</div>
-        </div>
-        <div class="wi-risk-cell" title="${tip('hhi')}" style="cursor:help">
-          <div class="lbl">Concentration (HHI)</div>
-          <div class="val">${Math.round(stats.hhi)}</div>
-          <div class="sub">${stats.hhiText}</div>
+          <div class="lbl">Typical Swing</div>
+          <div class="val">~ ${stats.portfolioVol.toFixed(1)}%</div>
+          <div class="sub">${stats.portfolioVol < 15 ? 'Low (calm)' : stats.portfolioVol < 25 ? 'Moderate' : stats.portfolioVol < 35 ? 'High' : 'Very high'} year-on-year price swings</div>
         </div>
       </div>
+      <details class="wi-risk-deep">
+        <summary>Show advanced risk metrics · Sharpe, Beta, Concentration (HHI)</summary>
+        <div class="wi-risk-row">
+          <div class="wi-risk-cell" title="${tip('sharpe')}" style="cursor:help">
+            <div class="lbl">Sharpe ratio</div>
+            <div class="val">${stats.portfolioSharpe.toFixed(2)}</div>
+            <div class="sub">${stats.portfolioSharpe >= 1 ? 'Good — return rewards the risk' : stats.portfolioSharpe >= 0.5 ? 'OK' : 'Low — swings aren’t paying off'}</div>
+          </div>
+          <div class="wi-risk-cell" title="${tip('beta')}" style="cursor:help">
+            <div class="lbl">Beta vs S&amp;P 500</div>
+            <div class="val">${stats.portfolioBeta.toFixed(2)}</div>
+            <div class="sub">${stats.portfolioBeta > 1.1 ? 'More volatile than the market' : stats.portfolioBeta < 0.9 ? 'Less volatile than the market' : 'In line with the market'}</div>
+          </div>
+          <div class="wi-risk-cell" title="${tip('hhi')}" style="cursor:help">
+            <div class="lbl">Concentration</div>
+            <div class="val">${Math.round(stats.hhi)}</div>
+            <div class="sub">${stats.hhiText}</div>
+          </div>
+        </div>
+      </details>
     </div>
 
     <div class="wi-holdings-title">Recommended holdings · ranked by allocation</div>
@@ -18189,8 +18497,8 @@ function renderWhatIfResults(p) {
 
     ${renderSegmentAlternativesCard(p)}
 
-    <div class="wi-method-card">
-      <div class="wi-method-title">Method & parameters — facts behind the mix</div>
+    <details class="wi-method-card wi-method-collapsible">
+      <summary class="wi-method-title">How this portfolio was built · method &amp; parameters</summary>
       <div class="wi-method-grid">
         <div class="wi-method-row">
           <div class="wi-method-lbl">Strategy</div>
@@ -18237,7 +18545,7 @@ function renderWhatIfResults(p) {
           <div class="wi-method-val">Forecasts and confidence are heuristic — directional only, not predictive. Catalog-based rankings give consistent answers but won't reflect minute-to-minute market moves. <b>This is not investment advice.</b></div>
         </div>
       </div>
-    </div>
+    </details>
   `;
 }
 
@@ -18293,6 +18601,13 @@ let _picksTimingFilter = null;
 function setPicksTimingFilter(mode) {
   _picksTimingFilter = (_picksTimingFilter === mode) ? null : mode;
   _renderPicksTimingPills();
+  renderPicksPage();
+}
+function clearPicksFilters() {
+  _picksTimingFilter = null;
+  _picksInstFilter = null;
+  _renderPicksTimingPills();
+  _renderPicksInstPills();
   renderPicksPage();
 }
 function _renderPicksTimingPills() {
@@ -18472,14 +18787,17 @@ function renderPicksList() {
   // Jump bar — color-coded by each sector's mood
   const jump = $('picks-jump');
   if (jump) {
-    const legend = `<div class="picks-jump-legend" title="Each chip is colored by its sector's mood — quick visual scan for hot/cold sectors.">
-      <span class="lbl">Sector mood:</span>
-      <span class="swatch"><span class="swatch-dot" style="background:rgba(48,209,88,.45)"></span>Strong</span>
-      <span class="swatch"><span class="swatch-dot" style="background:rgba(48,209,88,.20)"></span>Healthy</span>
-      <span class="swatch"><span class="swatch-dot" style="background:rgba(138,146,166,.4)"></span>Mixed</span>
-      <span class="swatch"><span class="swatch-dot" style="background:rgba(255,159,10,.4)"></span>Soft</span>
-      <span class="swatch"><span class="swatch-dot" style="background:rgba(255,69,58,.5)"></span>Weak</span>
-    </div>`;
+    const legendTip = 'Sector mood — each chip is colored by its sector\'s overall verdict mix.\n\nGreen (Strong / Healthy) = mostly bullish sector. Grey (Mixed) = no clear direction. Amber (Soft) / Red (Weak) = bearish.';
+    const legend = `<details class="picks-jump-legend-collapsible">
+      <summary title="${legendTip.replace(/"/g, '&quot;')}">Sector mood key ▾</summary>
+      <div class="picks-jump-legend">
+        <span class="swatch"><span class="swatch-dot" style="background:rgba(48,209,88,.45)"></span>Strong</span>
+        <span class="swatch"><span class="swatch-dot" style="background:rgba(48,209,88,.20)"></span>Healthy</span>
+        <span class="swatch"><span class="swatch-dot" style="background:rgba(138,146,166,.4)"></span>Mixed</span>
+        <span class="swatch"><span class="swatch-dot" style="background:rgba(255,159,10,.4)"></span>Soft</span>
+        <span class="swatch"><span class="swatch-dot" style="background:rgba(255,69,58,.5)"></span>Weak</span>
+      </div>
+    </details>`;
     const links = finalEntries.map(e => {
       const mood = moodFor(e.avgScore);
       const moodKey = mood.cls.replace('mood-', 'jump-');
@@ -18491,7 +18809,11 @@ function renderPicksList() {
   }
 
   if (finalEntries.length === 0) {
-    host.innerHTML = `<div class="sectors-empty"><div class="sectors-empty-glyph">∅</div><div class="sectors-empty-msg">No qualifying sectors in the catalog right now.</div></div>`;
+    const filtersActive = (_picksTimingFilter !== null) || (_picksInstFilter !== null);
+    host.innerHTML = `<div class="sectors-empty">
+      <div class="sectors-empty-msg">${filtersActive ? 'No stocks match the current filters.' : 'No qualifying sectors in the catalog right now.'}</div>
+      ${filtersActive ? `<button class="btn btn-primary" onclick="clearPicksFilters()" style="margin-top:14px;">Clear filters</button>` : ''}
+    </div>`;
     return;
   }
 
@@ -18556,7 +18878,6 @@ function renderPickRow(m, rank) {
         <span class="pick-sym">${m.ticker}</span>
         <span class="pick-name">${m.name}</span>
         <span class="pick-verdict ${verdictClass}" title="${verdictTip.replace(/"/g, '&quot;')}" style="cursor:help">${m.verdict}</span>
-        <span class="pos-neg-pill ${pn.cls}"><span class="pn-sym">${pn.sym}</span>${pn.label}</span>
         ${m._timingFull ? renderTimingChip(m._timingFull, true) : ''}
         ${render13FBadge(m.ticker, true)}
         ${rowActionsHtml(m.ticker)}
@@ -18582,16 +18903,24 @@ function renderPickRow(m, rank) {
           <div class="pick-fc-spark">${spark}</div>
         </div>`;
       })() : ''}
-      ${m.forecasts.map(f => {
-        const fdir = f.expReturn >= 0 ? 'up' : 'down';
-        const tipKey = f.months === 12 ? 'forecast12' : f.months === 24 ? 'forecast24' : 'forecast36';
-        return `<div class="pick-fc" title="${tip(tipKey)}\n\n— Confidence —\n${tip('confidence')}" style="cursor:help">
-          <div class="pick-fc-h">${f.months}-Month</div>
-          <div class="pick-fc-pct ${fdir}">${f.expReturn >= 0 ? '+' : ''}${f.expReturn.toFixed(1)}%</div>
-          <div class="pick-fc-px">→ $${fmt(f.expPrice)}</div>
-          <div class="pick-fc-conf"><div class="bar"><div class="fill" style="width:${f.confidence}%"></div></div><span>${f.confidence}%</span></div>
-        </div>`;
-      }).join('')}
+      ${(() => {
+        const primary = m.forecasts.find(f => f.months === 12) || m.forecasts[0];
+        const others  = m.forecasts.filter(f => f !== primary);
+        const fcCell = (f) => {
+          const fdir = f.expReturn >= 0 ? 'up' : 'down';
+          const tipKey = f.months === 12 ? 'forecast12' : f.months === 24 ? 'forecast24' : 'forecast36';
+          return `<div class="pick-fc" title="${tip(tipKey)}\n\n— Confidence —\n${tip('confidence')}" style="cursor:help">
+            <div class="pick-fc-h">${f.months}-Month</div>
+            <div class="pick-fc-pct ${fdir}">${f.expReturn >= 0 ? '+' : ''}${f.expReturn.toFixed(1)}%</div>
+            <div class="pick-fc-px">→ $${fmt(f.expPrice)}</div>
+            <div class="pick-fc-conf"><div class="bar"><div class="fill" style="width:${f.confidence}%"></div></div><span>${f.confidence}%</span></div>
+          </div>`;
+        };
+        const longer = others.length
+          ? `<details class="pick-fc-longer" onclick="event.stopPropagation()"><summary>+${others.length} longer ▾</summary><div class="pick-fc-longer-row">${others.map(fcCell).join('')}</div></details>`
+          : '';
+        return fcCell(primary) + longer;
+      })()}
     </div>
   </div>`;
 }
@@ -18766,26 +19095,14 @@ function renderTilesFromCache() {
       </div>
       ${_renderTileCrossGoalBadge(m)}
       ${(m.history1Y && m.history3Y && m.history5Y) ? (() => {
-        const cell = (lbl, ret, dd, active, tipText) => {
-          const d = ret >= 0 ? 'up' : 'down';
-          return `<div class="tile-multi-cell${active ? ' active-period' : ''}" title="${tipText}" style="cursor:help">
-            <div class="tm-lbl">${lbl}</div>
-            <div class="tm-val ${d}">${ret >= 0 ? '+' : ''}${ret.toFixed(1)}%</div>
-          </div>`;
-        };
         const h1 = m.history1Y, h3 = m.history3Y, h5 = m.history5Y;
         const activePeriod = m.historyYears || 3;
-        return `<div class="tile-multi">
-          <div class="tile-multi-label past" title="${tip('periodReturn')}\n\nMax Drawdown over each window:\n  1Y: ${h1.maxDd.toFixed(1)}%\n  3Y: ${h3.maxDd.toFixed(1)}%\n  5Y: ${h5.maxDd.toFixed(1)}%\n\n${tip('maxDd')}">← Past Performance (Total Return)</div>
-          <div class="tile-multi-row">
-            ${cell('1Y', h1.periodReturn, h1.maxDd, activePeriod === 1, '1-Year total return.\\n\\nMax Drawdown: ' + h1.maxDd.toFixed(1) + '%\\n\\n' + tip('periodReturn'))}
-            ${cell('3Y', h3.periodReturn, h3.maxDd, activePeriod === 3, '3-Year total return.\\n\\nMax Drawdown: ' + h3.maxDd.toFixed(1) + '%\\n\\n' + tip('periodReturn'))}
-            ${cell('5Y', h5.periodReturn, h5.maxDd, activePeriod === 5, '5-Year total return.\\n\\nMax Drawdown: ' + h5.maxDd.toFixed(1) + '%\\n\\n' + tip('periodReturn'))}
-          </div>
-          <div class="tile-trend-row" title="Price trend over the selected window (filter at top of page)">
-            <span class="trend-lbl">Trend ${activePeriod}Y</span>
-            <span class="trend-sparkline">${sparklineSvg(m.history.sparkSamples, 120, 20)}</span>
-          </div>
+        const hActive = activePeriod === 1 ? h1 : activePeriod === 5 ? h5 : h3;
+        const dd = hActive.maxDd.toFixed(1);
+        return `<div class="tile-past-line" title="${tip('periodReturn')}\n\nMax Drawdown ${activePeriod}Y: ${dd}%\n\n${tip('maxDd')}\n\nFull 1Y / 3Y / 5Y breakdown + price chart in the ticker dashboard (click the tile)." style="cursor:help">
+          <span class="tile-past-lbl">Past ${activePeriod}Y</span>
+          ${dirSignal(hActive.periodReturn)}
+          <span class="tile-past-dd">worst drop ${dd}%</span>
         </div>`;
       })() : ''}
       <div class="tile-multi">
@@ -19350,6 +19667,7 @@ function _cockpitRenderAlerts(ov) {
       alerts.push({
         cls,
         icon: cls === 'bull' ? '▲' : cls === 'bear' ? '▼' : '●',
+        kind: cls === 'bull' ? 'BUY FLIP' : cls === 'bear' ? 'SELL FLIP' : 'HOLD FLIP',
         title: `<b>${r.ticker}</b> flipped from <b>${prev}</b> to <b>${r.verdict}</b>`,
         sub: `1W ${r.wkChg >= 0 ? '+' : ''}${r.wkChg.toFixed(2)}% · price $${fmt(r.last)} · click to open the full dashboard`,
         ticker: r.ticker,
@@ -19370,6 +19688,7 @@ function _cockpitRenderAlerts(ov) {
           alerts.push({
             cls: 'warn',
             icon: '⚠',
+            kind: 'OFF PACE',
             title: `Bundle <b>${_escapeHtml(b.name)}</b> is behind pace`,
             sub: `${corr.paceDelta.toFixed(2)}% behind expected · ${corr.moves.length} suggested move${corr.moves.length === 1 ? '' : 's'} · open What If → expand corrections to act`,
             priority: 3,
@@ -19391,6 +19710,7 @@ function _cockpitRenderAlerts(ov) {
       alerts.push({
         cls: 'info',
         icon: '★',
+        kind: 'DISCOVERY',
         title: `Discovery: <b>${m.ticker}</b> ranks top-20 in <b>${m.crossCount}/5</b> goals`,
         sub: `${m.name} · ${shortIndustry(m.industry)} · heat ${m.score >= 0 ? '+' : ''}${m.score.toFixed(0)} · 12M forecast ${m.forecast12 >= 0 ? '+' : ''}${m.forecast12.toFixed(1)}% · click to add and analyse`,
         ticker: m.ticker,
@@ -19405,10 +19725,11 @@ function _cockpitRenderAlerts(ov) {
   alerts.sort((a, b) => a.priority - b.priority);
   host.innerHTML = alerts.slice(0, 8).map(a => {
     const click = a.ticker ? ` onclick="selectTicker('${a.ticker}'); showView('watchlist');" style="cursor:pointer;"` : '';
+    const kindBadge = a.kind ? `<span class="cockpit-alert-kind">${a.kind}</span>` : '';
     return `<div class="cockpit-alert ${a.cls}"${click}>
-      <div class="cockpit-alert-icon">${a.icon}</div>
+      <div class="cockpit-alert-icon" aria-hidden="true">${a.icon}</div>
       <div class="cockpit-alert-body">
-        <div>${a.title}</div>
+        <div>${kindBadge}${a.title}</div>
         <div class="cockpit-alert-sub">${a.sub}</div>
       </div>
     </div>`;
@@ -19809,16 +20130,6 @@ function renderMain() {
           </div>
           ${(d.barsSource === 'hybrid' || d.barsSource === 'fallback') ? `<div class="data-warning ${d.barsSource === 'fallback' ? 'bad' : ''}" title="${(d.barsNote || '').replace(/"/g, '&quot;')}">${d.barsSource === 'hybrid' ? 'Hybrid data — live current price, synthetic history' : 'Synthetic data — live fetch failed'}</div>` : ''}
           <div id="cross-check-slot"></div>
-          ${render13FBadge(_selected, false)}
-          <div class="verify-row">
-            <span class="verify-lbl">Verify on</span>
-            <a class="verify-link" href="https://finance.yahoo.com/quote/${encodeURIComponent(_selected)}" target="_blank" rel="noopener noreferrer">Yahoo Finance ↗</a>
-            <a class="verify-link" href="https://www.tradingview.com/symbols/${encodeURIComponent(_selected)}/" target="_blank" rel="noopener noreferrer">TradingView ↗</a>
-            <a class="verify-link" href="https://stockcharts.com/h-sc/ui?s=${encodeURIComponent(_selected)}" target="_blank" rel="noopener noreferrer">StockCharts ↗</a>
-            <a class="verify-link" href="https://www.google.com/finance/quote/${encodeURIComponent(_selected)}" target="_blank" rel="noopener noreferrer">Google Finance ↗</a>
-            <a class="verify-link analyst" href="https://finance.yahoo.com/quote/${encodeURIComponent(_selected)}/analysis" target="_blank" rel="noopener noreferrer" title="Wall-Street analyst price targets + recommendations">Analyst forecast ↗</a>
-          </div>
-          ${_renderSignalChipsRow(seasonality, analystMomentum, analystRecs, insiderCluster, insiderTxns)}
         </div>
         <div>
           <div class="t-price" id="t-price">$${fmt(last.close)}</div>
@@ -19836,12 +20147,17 @@ function renderMain() {
 
     <div class="timing-card action-${timing.action}" title="${timing.rationale.replace(/"/g, '&quot;')}">
       <div class="timing-card-head">
-        <div class="timing-card-eyebrow">Best time to buy · history + current price + forecast</div>
-        <div class="timing-card-conf" title="Confidence is anchored to the 12M forecast signal-to-noise ratio (drift ÷ volatility band), plus bonuses when 1Y and 3Y trend slopes agree and when the technical setup (RSI, MA40 position) aligns with the action.">Confidence ${timing.confidence}%</div>
+        <div class="timing-card-eyebrow">When to act</div>
+        <div class="timing-card-conf" title="How confident the model is in this timing call. Based on the 12-month forecast signal vs noise, plus whether 1Y/3Y trends agree and whether RSI / MA40 confirm.">Confidence ${timing.confidence}%</div>
       </div>
       <div class="timing-card-headline">${timing.label}</div>
       <div class="timing-card-window">Window: <b style="color:var(--text)">${timing.window}</b></div>
       <div class="timing-card-rationale">${timing.rationale}</div>
+    </div>
+
+    <div class="ticker-signal-row">
+      ${_renderSignalChipsRow(seasonality, analystMomentum, analystRecs, insiderCluster, insiderTxns)}
+      ${render13FBadge(_selected, false)}
     </div>
 
     <div class="news-card">
@@ -19868,56 +20184,67 @@ function renderMain() {
         <p>${exec.momentum}</p>
         <p>${exec.action}</p>
 
-        <div class="exec-divider">Bottom-line readings (So-WHAT)</div>
-        <table class="sw-table"><tbody>
-          ${exec.signalTable.map(r => `<tr><td class="sw-label">${r.label}</td><td class="sw-reading">${r.reading}</td></tr>`).join('')}
-        </tbody></table>
+        <details class="exec-details">
+          <summary>Show technical details · signal table + indicator readings + fundamentals</summary>
 
-        <div class="exec-divider">How each indicator reads</div>
-        <div class="sw-panes">
-          ${exec.paneReadings.map(p => `<div class="sw-pane-row"><div class="sw-pane-name">${p.pane}</div><div class="sw-pane-text">${p.text}</div></div>`).join('')}
-        </div>
+          <div class="exec-divider">Bottom-line readings (So-WHAT)</div>
+          <table class="sw-table"><tbody>
+            ${exec.signalTable.map(r => `<tr><td class="sw-label">${r.label}</td><td class="sw-reading">${r.reading}</td></tr>`).join('')}
+          </tbody></table>
 
-        <div class="exec-divider">Fundamental context</div>
-        ${exec.fundamental.map(f => `<p>${f.text}</p>`).join('')}
+          <div class="exec-divider">How each indicator reads</div>
+          <div class="sw-panes">
+            ${exec.paneReadings.map(p => `<div class="sw-pane-row"><div class="sw-pane-name">${p.pane}</div><div class="sw-pane-text">${p.text}</div></div>`).join('')}
+          </div>
 
-        <div class="exec-divider">What would change this read</div>
-        <p>${exec.risk}</p>
-      </div>
-      <div class="exec-perf">
-        <div>
-          <div class="exec-perf-lbl">Past Week</div>
-          <div class="exec-perf-val ${exec.wkChange >= 0 ? 'up' : 'down'}">${exec.wkChange >= 0 ? '+' : ''}${exec.wkChange.toFixed(2)}%</div>
-        </div>
-        <div>
-          <div class="exec-perf-lbl">Past Month</div>
-          <div class="exec-perf-val ${exec.monthChange >= 0 ? 'up' : 'down'}">${exec.monthChange >= 0 ? '+' : ''}${exec.monthChange.toFixed(2)}%</div>
-        </div>
-        <div>
-          <div class="exec-perf-lbl">Past Year</div>
-          <div class="exec-perf-val ${exec.yearChange >= 0 ? 'up' : 'down'}">${exec.yearChange >= 0 ? '+' : ''}${exec.yearChange.toFixed(2)}%</div>
-        </div>
+          <div class="exec-divider">Fundamental context</div>
+          ${exec.fundamental.map(f => `<p>${f.text}</p>`).join('')}
+
+          <div class="exec-divider">What would change this read</div>
+          <p>${exec.risk}</p>
+        </details>
       </div>
     </div>
 
+    ${(() => {
+      const primary = forecast.find(f => /12/.test(f.label)) || forecast[0];
+      const others  = forecast.filter(f => f !== primary);
+      const confLabel = primary.confidence >= 60 ? 'High' : primary.confidence >= 35 ? 'Medium' : 'Low';
+      return `
     <div id="forecast-card">
       <div class="fc-head">
-        <div class="fc-title">Price Forecast · Next 6 / 12 / 18 / 24 Months</div>
-        <div class="fc-disclaimer">Model-based estimate — not investment advice. Confidence falls as the horizon extends.</div>
+        <div class="fc-title">12-Month Forecast · what the model expects</div>
+        <div class="fc-disclaimer">Heuristic estimate, not investment advice. Confidence reflects how clean the signal is.</div>
       </div>
-      <div class="fc-grid">
-        ${forecast.map(f => `
-          <div class="fc-cell ${f.dir}">
-            <div class="fc-horizon">${f.label}</div>
-            <div class="fc-price">$${fmt(f.expPrice)}</div>
-            <div class="fc-return ${f.dir}">${f.expReturn >= 0 ? '+' : ''}${f.expReturn.toFixed(1)}%</div>
-            <div class="fc-band">Range: $${fmt(f.low)} – $${fmt(f.high)}</div>
-            <div class="fc-conf-bar"><div class="fc-conf-fill" style="width:${f.confidence}%"></div></div>
-            <div class="fc-conf-label"><span>Confidence</span><b>${f.confidence}%</b></div>
-          </div>
-        `).join('')}
+      <div class="fc-primary fc-cell ${primary.dir}">
+        <div class="fc-primary-headline">
+          <div class="fc-horizon">${primary.label}</div>
+          ${dirSignal(primary.expReturn, { suffix: 'expected return' })}
+        </div>
+        <div class="fc-primary-detail">
+          <span class="fc-price">Target $${fmt(primary.expPrice)}</span>
+          <span class="fc-band">Range $${fmt(primary.low)} – $${fmt(primary.high)}</span>
+          <span class="fc-conf-label" title="${tip('confidence')}">Confidence <b>${confLabel}</b> (${primary.confidence}%)</span>
+        </div>
       </div>
-    </div>
+      ${others.length ? `
+      <details class="fc-longer">
+        <summary>Show longer horizons · ${others.map(o => o.label).join(' & ')}</summary>
+        <div class="fc-grid">
+          ${others.map(f => `
+            <div class="fc-cell ${f.dir}">
+              <div class="fc-horizon">${f.label}</div>
+              <div class="fc-price">$${fmt(f.expPrice)}</div>
+              <div class="fc-return ${f.dir}">${f.expReturn >= 0 ? '+' : ''}${f.expReturn.toFixed(1)}%</div>
+              <div class="fc-band">Range: $${fmt(f.low)} – $${fmt(f.high)}</div>
+              <div class="fc-conf-bar"><div class="fc-conf-fill" style="width:${f.confidence}%"></div></div>
+              <div class="fc-conf-label"><span>Confidence</span><b>${f.confidence}%</b></div>
+            </div>
+          `).join('')}
+        </div>
+      </details>` : ''}
+    </div>`;
+    })()}
 
     <div id="events-card">
       <div class="ev-head">
@@ -19978,45 +20305,60 @@ function renderMain() {
 
     <div class="chart-panel">
       <div class="chart-head">
-        <div class="chart-title">Price · Weekly · MA15 / MA40 / MA100 · Fibonacci</div>
+        <div class="chart-title">Price chart · weekly bars with trend lines</div>
         <div class="legend">
-          <div class="legend-item"><div class="legend-swatch" style="background:#ff9f0a"></div>MA15</div>
-          <div class="legend-item"><div class="legend-swatch" style="background:#0071e3"></div>MA40</div>
-          <div class="legend-item"><div class="legend-swatch" style="background:#bf5af2"></div>MA100</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#ff9f0a"></div>MA15 (3-mo)</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#0071e3"></div>MA40 (1-yr)</div>
+          <div class="legend-item"><div class="legend-swatch" style="background:#bf5af2"></div>MA100 (2-yr)</div>
         </div>
       </div>
       <div class="chart-body"><div id="price-chart" style="height:380px"></div></div>
+      <div class="lede-hint">Dashed grey lines = Fibonacci levels — historical support / resistance bands where the price often pauses.</div>
     </div>
 
     <div class="chart-panel">
       <div class="chart-head">
-        <div class="chart-title" title="${tip('rsi').replace(/"/g,'&quot;')}">RSI(14W) · Overbought 70 / Oversold 30 · weekly bars</div>
-        <div class="legend"><div class="legend-item"><div class="legend-swatch" style="background:#bf5af2"></div>RSI</div></div>
+        <div class="chart-title" title="${tip('rsi').replace(/"/g,'&quot;')}">Momentum (RSI) · is the stock stretched?</div>
+        <div class="legend"><div class="legend-item"><div class="legend-swatch" style="background:#bf5af2"></div>RSI(14W)</div></div>
       </div>
       <div class="chart-body"><div id="rsi-chart" style="height:140px"></div></div>
+      <div class="lede-hint">Above 70 = hot (often pulls back). Below 30 = oversold (may bounce). 50 = neutral.</div>
     </div>
 
     <div class="chart-panel">
       <div class="chart-head">
-        <div class="chart-title">Volume</div>
+        <div class="chart-title">Trading activity · is the move backed by volume?</div>
       </div>
       <div class="chart-body"><div id="vol-chart" style="height:120px"></div></div>
+      <div class="lede-hint">Tall bars = unusually heavy trading. Spikes often confirm a breakout or warn of a reversal.</div>
     </div>
 
     <div id="signals-panel">
       <div id="signals-head">
-        <div class="chart-title">Active signals</div>
+        <div class="chart-title">Active signals · what's driving the verdict</div>
         <div style="font-size:11px;color:var(--muted)">${v.signals.length} contributing factors</div>
       </div>
       <div id="signals-grid">
         ${v.signals.map(s => `
           <div class="signal ${s.type}">
-            <div class="signal-icon">${s.type === 'bull' ? '↑' : s.type === 'bear' ? '↓' : '•'}</div>
+            <div class="signal-icon">${s.type === 'bull' ? '↑' : s.type === 'bear' ? '↓' : '~'}</div>
             <div>${s.text}</div>
           </div>
         `).join('')}
       </div>
     </div>
+
+    <details class="ticker-sources">
+      <summary>Verify on external sources ↗</summary>
+      <div class="verify-row">
+        <span class="verify-lbl">Open ${_selected} on</span>
+        <a class="verify-link" href="https://finance.yahoo.com/quote/${encodeURIComponent(_selected)}" target="_blank" rel="noopener noreferrer">Yahoo Finance ↗</a>
+        <a class="verify-link" href="https://www.tradingview.com/symbols/${encodeURIComponent(_selected)}/" target="_blank" rel="noopener noreferrer">TradingView ↗</a>
+        <a class="verify-link" href="https://stockcharts.com/h-sc/ui?s=${encodeURIComponent(_selected)}" target="_blank" rel="noopener noreferrer">StockCharts ↗</a>
+        <a class="verify-link" href="https://www.google.com/finance/quote/${encodeURIComponent(_selected)}" target="_blank" rel="noopener noreferrer">Google Finance ↗</a>
+        <a class="verify-link analyst" href="https://finance.yahoo.com/quote/${encodeURIComponent(_selected)}/analysis" target="_blank" rel="noopener noreferrer" title="Wall-Street analyst price targets + recommendations">Analyst forecast ↗</a>
+      </div>
+    </details>
   `;
 
   // Apply verdict-changed animation if applicable
