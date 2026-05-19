@@ -28,6 +28,29 @@ The `stocknaut` remote was originally set up as a force-push (the destination re
 
 ---
 
+## AI features — where they live (2026-05-19)
+
+StockPulse has two on-demand Gemini-powered surfaces on the ticker dashboard:
+
+- **"✦ Why this verdict?"** button in the verdict card → narrates the heat-score signals + recent news in plain English (3-4 sentences).
+- **"✦ Resolve this conflict"** button under the timing card, shown only when `computeBuyTiming()` returns `CONFLICT` → suggests a concrete posture (DCA / wait / skip).
+
+**Both gated on `hasLLM()`** — when no Gemini key is present (neither local nor baked), buttons hide and the app behaves identically.
+
+**Key code anchors:**
+- `callLLM(prompt, opts)` — provider-agnostic helper, currently talks to `gemini-2.5-flash` via v1beta REST. Returns `{ok, text, error}`. Single seam for future provider swaps / in-browser fallback.
+- `_aiContextSnapshot(ticker)` — compact factual block (verdict + signals + 12M forecast + timing + last 5 headlines) consumed by both prompt builders.
+- `_aiPromptForVerdict(ctx)` / `_aiPromptForConflict(ctx)` — prompt templates. One place to audit / iterate prompt wording.
+- `whyVerdict(ticker)` / `resolveConflict(ticker)` — UI handlers wired via inline `onclick=`.
+- TIP dictionary entries `whyVerdict` + `resolveConflict` carry the layman-language tooltips.
+- `_SP_BAKED_KEYS.gemini` — deployment-wide baked key (same model as Finnhub / Twelve Data).
+- `LS_KEY_GEMINI` + `LS_KEY_GEMINI_BACKUP` — dual-slot per-browser persistence.
+- 24h per-`(ticker · day · verdict-score)` localStorage cache (`sp_llm_cache:` prefix) — repeat clicks cost zero tokens.
+
+**Commit history note (search-aid):** the AI module was inadvertently bundled into commit `0e5e06c` ("RCA: Sidebar-toggle tooltip stale-state") because the parallel sidebar-tooltip fix was committed via `git commit -a` while the AI work was uncommitted in the working tree. The follow-up commit `19a9efa` ("AI features: ...") added only the baked Gemini key + status-display parity, hence its small diff. `git log -S 'function callLLM' -- index.html` is the reliable way to find when the module landed.
+
+---
+
 ## File location
 
 `C:\Users\anush.nambi\OneDrive - Accenture\DESKTOP\CLAUDE CODE\CLAUDE AGENTS\STOCK PULSE\index.html`
