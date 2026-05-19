@@ -11929,7 +11929,7 @@ body.menu-open #mobile-menu-backdrop { display: block; }
       <div class="modal-row">
         <label for="gemini-api-key">Google Gemini API key (optional · AI explanations)</label>
         <input id="gemini-api-key" type="password" placeholder="Paste your Gemini key to unlock the AI features">
-        <div class="help-text">Powers the <b>Why this verdict?</b> narrator and the <b>Resolve conflict</b> panel on the ticker dashboard. Without a key those buttons stay hidden and the rest of the app is unchanged. <b>Free tier:</b> ~15 requests/min, 1M tokens/day, no credit card required. Get a key in 2 minutes at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>. Answers are cached per (ticker · day) to keep usage well under the free cap.</div>
+        <div class="help-text">Powers the <b>Why this verdict?</b> narrator and the <b>Resolve conflict</b> panel on the ticker dashboard. Without a key those buttons stay hidden and the rest of the app is unchanged. <b>Free tier:</b> ~15 requests/min, 1M tokens/day, no credit card required. Get a key in 2 minutes at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>. Answers are cached per (ticker · day) to keep usage well under the free cap. If a deployment-wide key is baked into the source by the operator, the storage status below shows it as <i>inherited from deployment-wide baked key</i> — pasting a personal key here overrides that for this browser only.</div>
       </div>
       <div class="modal-row">
         <label>Storage status</label>
@@ -11986,6 +11986,9 @@ body.menu-open #mobile-menu-backdrop { display: block; }
 //   • Every visitor's API calls consume YOUR free-tier quota:
 //       - Finnhub: 60 calls/min total, shared across all visitors
 //       - Twelve Data: 800 calls/day, 8/min, shared across all visitors
+//       - Gemini: ~15 RPM and 1M tokens/day, shared across all visitors.
+//         Mitigated by the 24h per-(ticker · day · verdict) localStorage
+//         cache in callLLM() — repeat clicks cost zero tokens.
 //   • For personal-portfolio / educational deployments only — never use
 //     this for a commercial or high-traffic site.
 //   • A user can still override the baked key in their own browser via
@@ -11999,7 +12002,7 @@ body.menu-open #mobile-menu-backdrop { display: block; }
 const _SP_BAKED_KEYS = {
   finnhub:    'd84c6e1r01qutij8lm7gd84c6e1r01qutij8lm80',   // operator-baked, Finnhub free tier (60/min)
   twelvedata: 'd10a8e6ee9324f76b507c9a33f87c66a',           // operator-baked, Twelve Data free tier (cross-check)
-  gemini:     '',                                           // operator-baked, Google Gemini free tier (AI features). Leave blank — each visitor brings their own.
+  gemini:     'AIzaSyAgLPrdNQvduzwbdyVxxxLwCsftdauvw3o',     // operator-baked, Google Gemini free tier (AI features · ~15 RPM / 1M tokens/day, shared across all visitors)
 };
 function _bakedKeyFor(primarySlot) {
   if (primarySlot === LS_KEY_API)    return (_SP_BAKED_KEYS.finnhub    || '').trim();
@@ -21317,8 +21320,9 @@ function renderKeyStorageStatus() {
   const host = document.getElementById('settings-key-status');
   if (!host) return;
   const s = keyStorageStatus();
-  const fhSrc = keySourceFor(LS_KEY_API, LS_KEY_API_BACKUP);
-  const tdSrc = keySourceFor(LS_KEY_TD,  LS_KEY_TD_BACKUP);
+  const fhSrc  = keySourceFor(LS_KEY_API,    LS_KEY_API_BACKUP);
+  const tdSrc  = keySourceFor(LS_KEY_TD,     LS_KEY_TD_BACKUP);
+  const gemSrc = keySourceFor(LS_KEY_GEMINI, LS_KEY_GEMINI_BACKUP);
   const lines = [];
   // Finnhub status
   if (fhSrc === 'baked' && !s.finnhub.has) {
@@ -21340,9 +21344,14 @@ function renderKeyStorageStatus() {
   } else {
     lines.push(`<span style="color:var(--muted)">○ Twelve Data key not set (no cross-check)</span>`);
   }
-  // Gemini status
-  if (s.gemini.has && s.gemini.hasBackup && s.gemini.inSync) {
-    lines.push(`<span style="color:var(--bull)">✓ Gemini key saved on this browser (primary + backup, in sync) — AI features enabled</span>`);
+  // Gemini status — mirror Finnhub/Twelve Data: surface the baked
+  // deployment-wide inheritance branch so visitors with no personal
+  // key see whether AI features are still enabled via the operator's
+  // baked key.
+  if (gemSrc === 'baked' && !s.gemini.has) {
+    lines.push(`<span style="color:var(--accent)">⊕ Gemini key inherited from <b>deployment-wide</b> baked key (operator-provided · shared across all visitors · AI features enabled)</span>`);
+  } else if (s.gemini.has && s.gemini.hasBackup && s.gemini.inSync) {
+    lines.push(`<span style="color:var(--bull)">✓ Gemini key saved on this browser (primary + backup, in sync)${_bakedKeyFor(LS_KEY_GEMINI) ? ' — overrides the deployment-wide baked key' : ' — AI features enabled'}</span>`);
   } else if (s.gemini.has) {
     lines.push(`<span style="color:var(--warn)">⚠ Gemini key saved on this browser but backup is out of sync — click Save to re-sync</span>`);
   } else {
