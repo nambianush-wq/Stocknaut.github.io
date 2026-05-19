@@ -4263,103 +4263,105 @@ body { padding-bottom: 44px; }
 .ai-btn .ai-btn-spark { font-size: 10px; opacity: .85; }
 .ai-btn[disabled], .ai-btn.disabled { opacity: .5; cursor: not-allowed; }
 
-.ai-slot {
-  display: none;
-  margin-top: 10px;
-  padding: 12px 14px;
-  background: linear-gradient(135deg, rgba(83,58,253,.06), rgba(191,90,242,.04));
-  border: 1px solid rgba(83,58,253,.25);
-  border-radius: 10px;
-  font-size: 13px;
-  line-height: 1.55;
+/* AI modal lives at body level (outside #content) so renderMain
+   re-renders cannot wipe it. Sized for a comfortable read of a
+   100-130 word LLM explanation. */
+#ai-modal .ai-modal-card {
+  width: 560px;
+  max-width: 95vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  border-top: 3px solid rgba(83,58,253,.55);
+}
+#ai-modal .modal-head {
+  background: linear-gradient(135deg, rgba(83,58,253,.10), rgba(191,90,242,.06));
+}
+#ai-modal .modal-title {
   color: var(--text);
 }
-.ai-slot.open { display: block; animation: ai-fade .25s ease-out; }
-@keyframes ai-fade {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.ai-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-.ai-title {
-  font-size: 11px;
+#ai-modal .modal-title::before {
+  content: '✦ ';
+  color: rgb(191,90,242);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  color: var(--accent);
+  margin-right: 4px;
 }
-.ai-meta {
+#ai-modal .modal-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+#ai-modal .ai-modal-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 20px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--raised);
+  border-radius: 0 0 12px 12px;
+}
+#ai-modal .ai-modal-foot:empty { display: none; }
+.ai-foot-meta {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px;
+  font-size: 11px;
+}
+.ai-foot-note {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--muted);
+  line-height: 1.4;
 }
 .ai-src {
-  padding: 2px 7px;
-  background: var(--raised);
+  display: inline-block;
+  padding: 3px 9px;
+  background: var(--panel);
+  border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);
   font-weight: 600;
   letter-spacing: .03em;
   cursor: help;
 }
-.ai-close {
-  background: transparent;
-  border: 0;
-  color: var(--muted);
-  font-size: 13px;
-  cursor: pointer;
-  padding: 0 4px;
-  line-height: 1;
-}
-.ai-close:hover { color: var(--text); }
 .ai-body { color: var(--text); }
-.ai-body p { margin: 0 0 8px; }
+.ai-body p { margin: 0 0 10px; }
 .ai-body p:last-child { margin-bottom: 0; }
-.ai-body b { color: var(--text); }
-.ai-body ul { margin: 4px 0 8px; padding-left: 18px; }
-.ai-body li { margin: 2px 0; }
-.ai-foot {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--line);
-  font-size: 10.5px;
-  font-style: italic;
-  color: var(--muted);
-}
+.ai-body b { color: var(--text); font-weight: 700; }
+.ai-body ul { margin: 6px 0 10px; padding-left: 20px; }
+.ai-body li { margin: 3px 0; }
 .ai-loading {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: 10px;
+  font-size: 13px;
   color: var(--muted);
+  padding: 6px 0;
 }
 .ai-spin {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border: 2px solid var(--line);
-  border-top-color: var(--accent);
+  border-top-color: rgb(191,90,242);
   border-radius: 50%;
   animation: ai-spin 0.8s linear infinite;
 }
 @keyframes ai-spin { to { transform: rotate(360deg); } }
 .ai-empty, .ai-error {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--muted);
   padding: 2px 0;
+  line-height: 1.55;
 }
 .ai-error { color: var(--text); }
 .ai-error code {
   background: var(--raised);
   padding: 1px 5px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* Clone top investors strip — sits in the What-If controls panel.
@@ -11991,6 +11993,22 @@ body.menu-open #mobile-menu-backdrop { display: block; }
   </div>
 </div>
 
+<!-- AI explanation modal — lives OUTSIDE #content so it survives any
+     renderMain() re-paint (which happens 3× per ticker pick as async
+     fetches for analyst / insider / earnings complete). Earlier inline
+     #ai-verdict-slot was wiped on the next async re-render before the
+     user could see the result. -->
+<div id="ai-modal" class="modal-overlay hidden" onclick="if(event.target===this) closeAIModal()">
+  <div class="modal ai-modal-card">
+    <div class="modal-head">
+      <div class="modal-title" id="ai-modal-title">AI explanation</div>
+      <button class="modal-close" onclick="closeAIModal()">✕</button>
+    </div>
+    <div class="modal-body" id="ai-modal-body"></div>
+    <div class="modal-foot ai-modal-foot" id="ai-modal-foot"></div>
+  </div>
+</div>
+
 <div id="toast-host"></div>
 
 <footer id="sp-footer" role="contentinfo" aria-label="Disclaimer">
@@ -13974,7 +13992,7 @@ function _kickEarningsFetch(ticker) {
   fetchEarningsDate(ticker).then(result => {
     _earningsCache[ticker] = result;
     // Only re-render if the user is still looking at this ticker
-    if (_selected === ticker && _data[_selected]) renderMain();
+    if (_selected === ticker && _data[_selected]) renderMainSoon();
   }).catch(() => { _earningsCache[ticker] = null; });
 }
 
@@ -14024,7 +14042,7 @@ function _kickAnalystFetch(ticker) {
   _analystCache[ticker] = null;
   fetchAnalystRecs(ticker).then(result => {
     _analystCache[ticker] = result;
-    if (_selected === ticker && _data[_selected]) renderMain();
+    if (_selected === ticker && _data[_selected]) renderMainSoon();
   }).catch(() => { _analystCache[ticker] = null; });
 }
 
@@ -14137,7 +14155,7 @@ function _kickInsiderFetch(ticker) {
   _insiderCache[ticker] = null;
   fetchInsiderTrans(ticker).then(result => {
     _insiderCache[ticker] = result;
-    if (_selected === ticker && _data[_selected]) renderMain();
+    if (_selected === ticker && _data[_selected]) renderMainSoon();
   }).catch(() => { _insiderCache[ticker] = null; });
 }
 
@@ -14710,90 +14728,111 @@ No price targets. No guarantees. Hedged language only.`;
 }
 
 // ----- UI handlers (called from inline onclick=) -----
+//
+// We render results into a body-level <div id="ai-modal"> rather than into
+// inline #ai-verdict-slot / #ai-conflict-slot inside #content. Reason:
+// renderMain() rebuilds root.innerHTML on every call, and three async
+// fetches (analyst, insider, earnings) each trigger renderMain after a
+// ticker pick. An inline slot was wiped before the user could see the
+// result. The body-level modal lives outside #content so it survives any
+// number of re-renders and is dismissed only by the user (✕ / outside
+// click / ESC).
+
+function _aiModalShow(title, bodyHtml, footHtml) {
+  const modal = document.getElementById('ai-modal');
+  if (!modal) return;
+  document.getElementById('ai-modal-title').textContent = title;
+  document.getElementById('ai-modal-body').innerHTML = bodyHtml;
+  document.getElementById('ai-modal-foot').innerHTML = footHtml || '';
+  modal.classList.remove('hidden');
+}
+
+function closeAIModal() {
+  const modal = document.getElementById('ai-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+// ESC dismisses the AI modal (matches the Settings modal pattern).
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const m = document.getElementById('ai-modal');
+    if (m && !m.classList.contains('hidden')) closeAIModal();
+  }
+});
 
 async function whyVerdict(ticker) {
   ticker = ticker || _selected;
-  const slot = document.getElementById('ai-verdict-slot');
-  if (!slot) return;
   if (!hasLLM()) {
-    slot.innerHTML = `<div class="ai-empty">Add a Google Gemini key in <b>⚙ Settings</b> to unlock AI explanations. Free tier — no credit card required.</div>`;
-    slot.classList.add('open');
+    _aiModalShow('AI explanations require a key',
+      `<div class="ai-empty">Add a Google Gemini key in <b>⚙ Settings</b> to unlock AI explanations. Free tier — no credit card required at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</div>`,
+      '');
     return;
   }
   const ctx = _aiContextSnapshot(ticker);
   if (!ctx) {
-    slot.innerHTML = `<div class="ai-empty">No data loaded for ${ticker} yet — refresh and try again.</div>`;
-    slot.classList.add('open');
+    _aiModalShow('Not enough data',
+      `<div class="ai-empty">No data loaded for ${ticker} yet — refresh and try again.</div>`,
+      '');
     return;
   }
-  slot.classList.add('open');
-  slot.innerHTML = `<div class="ai-loading"><span class="ai-spin"></span> Asking Gemini why ${ticker} is rated <b>${ctx.v.label}</b>…</div>`;
+  _aiModalShow(`Why ${ticker} reads as ${ctx.v.label}`,
+    `<div class="ai-loading"><span class="ai-spin"></span> Asking Gemini why ${ticker} is rated <b>${ctx.v.label}</b>…</div>`,
+    '');
   const today = new Date().toISOString().slice(0, 10);
   const cacheKey = `why:${ticker}:${today}:${ctx.v.score}`;
   const out = await callLLM(_aiPromptForVerdict(ctx), { cacheKey, maxTokens: 350 });
-  // Bail if user navigated away mid-call
+  // Bail if user dismissed the modal mid-call OR navigated to a different ticker.
+  const modal = document.getElementById('ai-modal');
+  if (!modal || modal.classList.contains('hidden')) return;
   if (_selected !== ticker) return;
   if (!out.ok) {
-    slot.innerHTML = `<div class="ai-error">${_aiErrorMsg(out)}</div>`;
+    document.getElementById('ai-modal-body').innerHTML = `<div class="ai-error">${_aiErrorMsg(out)}</div>`;
     return;
   }
   const sourceTag = out.source === 'cache'
     ? `<span class="ai-src" title="Served from this browser's cache — no token cost. Cache TTL is 24h.">cached</span>`
     : `<span class="ai-src" title="Live Gemini 2.5 Flash response. Cached locally for the next 24h.">Gemini 2.5 Flash</span>`;
-  slot.innerHTML = `
-    <div class="ai-head">
-      <div class="ai-title">Why ${ticker} reads as <b>${ctx.v.label}</b></div>
-      <div class="ai-meta">${sourceTag}<button class="ai-close" onclick="closeWhyVerdict()" title="Hide this panel">✕</button></div>
-    </div>
-    <div class="ai-body">${_renderLLMMarkdown(out.text)}</div>
-    <div class="ai-foot">AI-generated explanation · not investment advice · always cross-check with the signal table below.</div>`;
-}
-
-function closeWhyVerdict() {
-  const slot = document.getElementById('ai-verdict-slot');
-  if (slot) { slot.classList.remove('open'); slot.innerHTML = ''; }
+  document.getElementById('ai-modal-body').innerHTML = `<div class="ai-body">${_renderLLMMarkdown(out.text)}</div>`;
+  document.getElementById('ai-modal-foot').innerHTML =
+    `<div class="ai-foot-meta">${sourceTag}</div>
+     <div class="ai-foot-note">AI-generated explanation · not investment advice · always cross-check with the signal table.</div>`;
 }
 
 async function resolveConflict(ticker) {
   ticker = ticker || _selected;
-  const slot = document.getElementById('ai-conflict-slot');
-  if (!slot) return;
   if (!hasLLM()) {
-    slot.innerHTML = `<div class="ai-empty">Add a Google Gemini key in <b>⚙ Settings</b> to get a concrete conflict-resolution suggestion.</div>`;
-    slot.classList.add('open');
+    _aiModalShow('AI explanations require a key',
+      `<div class="ai-empty">Add a Google Gemini key in <b>⚙ Settings</b> to get a concrete conflict-resolution suggestion.</div>`,
+      '');
     return;
   }
   const ctx = _aiContextSnapshot(ticker);
   if (!ctx) {
-    slot.innerHTML = `<div class="ai-empty">No data loaded for ${ticker} yet.</div>`;
-    slot.classList.add('open');
+    _aiModalShow('Not enough data',
+      `<div class="ai-empty">No data loaded for ${ticker} yet.</div>`,
+      '');
     return;
   }
-  slot.classList.add('open');
-  slot.innerHTML = `<div class="ai-loading"><span class="ai-spin"></span> Asking Gemini how to resolve the CONFLICT on ${ticker}…</div>`;
+  _aiModalShow(`Resolving the conflict on ${ticker}`,
+    `<div class="ai-loading"><span class="ai-spin"></span> Asking Gemini how to resolve the CONFLICT on ${ticker}…</div>`,
+    '');
   const today = new Date().toISOString().slice(0, 10);
   const cacheKey = `conflict:${ticker}:${today}:${ctx.v.score}`;
   const out = await callLLM(_aiPromptForConflict(ctx), { cacheKey, maxTokens: 400 });
+  const modal = document.getElementById('ai-modal');
+  if (!modal || modal.classList.contains('hidden')) return;
   if (_selected !== ticker) return;
   if (!out.ok) {
-    slot.innerHTML = `<div class="ai-error">${_aiErrorMsg(out)}</div>`;
+    document.getElementById('ai-modal-body').innerHTML = `<div class="ai-error">${_aiErrorMsg(out)}</div>`;
     return;
   }
   const sourceTag = out.source === 'cache'
     ? `<span class="ai-src" title="Served from this browser's cache — no token cost.">cached</span>`
     : `<span class="ai-src" title="Live Gemini 2.5 Flash response. Cached locally for 24h.">Gemini 2.5 Flash</span>`;
-  slot.innerHTML = `
-    <div class="ai-head">
-      <div class="ai-title">Resolving the conflict on ${ticker}</div>
-      <div class="ai-meta">${sourceTag}<button class="ai-close" onclick="closeResolveConflict()" title="Hide this panel">✕</button></div>
-    </div>
-    <div class="ai-body">${_renderLLMMarkdown(out.text)}</div>
-    <div class="ai-foot">AI-suggested posture · not investment advice · size to your own risk tolerance.</div>`;
-}
-
-function closeResolveConflict() {
-  const slot = document.getElementById('ai-conflict-slot');
-  if (slot) { slot.classList.remove('open'); slot.innerHTML = ''; }
+  document.getElementById('ai-modal-body').innerHTML = `<div class="ai-body">${_renderLLMMarkdown(out.text)}</div>`;
+  document.getElementById('ai-modal-foot').innerHTML =
+    `<div class="ai-foot-meta">${sourceTag}</div>
+     <div class="ai-foot-note">AI-suggested posture · not investment advice · size to your own risk tolerance.</div>`;
 }
 
 function _aiErrorMsg(out) {
@@ -20673,6 +20712,25 @@ function closeMobileMenu() {
   document.body.classList.remove('menu-open');
 }
 
+// Debounced renderMain — coalesces re-render bursts from async-fetch
+// completions (analyst recs + insider Form 4 + earnings date all resolve
+// independently within ~1s of a ticker pick, each previously firing its
+// own renderMain → 3 full DOM rebuilds + 6 chart destroys/creates in
+// ~1s, which felt sluggish AND occasionally wiped in-content UI state
+// before the user could interact with it). 80ms is short enough to feel
+// instant to a human but wide enough to bundle 3 near-simultaneous
+// fetch callbacks into one paint. User-initiated calls (selectTicker,
+// Save settings, etc.) still call renderMain() directly for immediate
+// feedback.
+let _renderMainTimer = null;
+function renderMainSoon() {
+  if (_renderMainTimer) clearTimeout(_renderMainTimer);
+  _renderMainTimer = setTimeout(() => {
+    _renderMainTimer = null;
+    renderMain();
+  }, 80);
+}
+
 function renderMain() {
   const root = $('content');
   if (!_selected || !_data[_selected]) {
@@ -20772,8 +20830,6 @@ function renderMain() {
       </div>
     </div>
 
-    <div id="ai-verdict-slot" class="ai-slot"></div>
-
     ${(() => {
       // Data-quality marker — when bars come from the synthetic-scaled hybrid
       // or full-synthetic fallback path, the MA40-based timing window (e.g.
@@ -20802,7 +20858,6 @@ function renderMain() {
       ${(timing.action === 'CONFLICT' && hasLLM()) ? `<button class="ai-btn" style="margin-top:10px;" onclick="resolveConflict('${_selected}')" title="${tip('resolveConflict')}"><span class="ai-btn-spark">✦</span> Resolve this conflict</button>` : ''}
     </div>`;
     })()}
-    <div id="ai-conflict-slot" class="ai-slot"></div>
 
     <div class="ticker-signal-row">
       ${_renderSignalChipsRow(seasonality, analystMomentum, analystRecs, insiderCluster, insiderTxns)}
