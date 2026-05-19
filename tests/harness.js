@@ -38,7 +38,10 @@ function buildStubElement() {
     value: '',
   };
   Object.defineProperty(el, 'innerHTML', { get() { return el._innerHTML; }, set(v) { el._innerHTML = String(v); } });
-  Object.defineProperty(el, 'textContent', { get() { return ''; }, set(_v) {} });
+  // textContent is read-write — needed by tests that observe label updates
+  // (sidebar toggle, cockpit meta count, etc.).
+  el._textContent = '';
+  Object.defineProperty(el, 'textContent', { get() { return el._textContent; }, set(v) { el._textContent = String(v); } });
   return el;
 }
 
@@ -137,6 +140,9 @@ function loadApp() {
     // Sectors page tile rendering + filter state
     'renderTilesFromCache', 'selectGoal', '_sectorsFilters', '_currentGoal',
     'buildSectorsCache', '_applySectorsFilters', '_verdictTooltip',
+    // Sidebar toggle (topbar)
+    '_applyTopbarSidebarToggle', 'toggleSidebar', '_isCockpitSidebarCollapsed',
+    'LS_KEY_COCKPIT_SIDEBAR',
     // Cockpit + live data
     '_cockpitRenderHeatmap', '_cockpitComputeOverview',
     'fetchTickerBundle', 'fetchBars', 'fetchQuote', 'fetchFinnhubProfile', 'fetchFinnhubMetrics',

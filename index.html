@@ -4205,6 +4205,133 @@ body { padding-bottom: 44px; }
   letter-spacing: .03em;
 }
 
+/* ---------------------------------------------------------------
+   AI explainability panels — sit under the verdict card and under
+   the timing card on the ticker dashboard. Hidden until the user
+   clicks the corresponding button; collapsed state is the default.
+   --------------------------------------------------------------- */
+.ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  background: linear-gradient(135deg, rgba(83,58,253,.12), rgba(191,90,242,.10));
+  border: 1px solid rgba(83,58,253,.4);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all .15s;
+}
+.ai-btn:hover {
+  background: linear-gradient(135deg, rgba(83,58,253,.22), rgba(191,90,242,.18));
+  border-color: rgb(191,90,242);
+}
+.ai-btn .ai-btn-spark { font-size: 10px; opacity: .85; }
+.ai-btn[disabled], .ai-btn.disabled { opacity: .5; cursor: not-allowed; }
+
+.ai-slot {
+  display: none;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(83,58,253,.06), rgba(191,90,242,.04));
+  border: 1px solid rgba(83,58,253,.25);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.ai-slot.open { display: block; animation: ai-fade .25s ease-out; }
+@keyframes ai-fade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ai-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.ai-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--accent);
+}
+.ai-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+}
+.ai-src {
+  padding: 2px 7px;
+  background: var(--raised);
+  border-radius: 999px;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: .03em;
+  cursor: help;
+}
+.ai-close {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+.ai-close:hover { color: var(--text); }
+.ai-body { color: var(--text); }
+.ai-body p { margin: 0 0 8px; }
+.ai-body p:last-child { margin-bottom: 0; }
+.ai-body b { color: var(--text); }
+.ai-body ul { margin: 4px 0 8px; padding-left: 18px; }
+.ai-body li { margin: 2px 0; }
+.ai-foot {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  font-size: 10.5px;
+  font-style: italic;
+  color: var(--muted);
+}
+.ai-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.ai-spin {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: ai-spin 0.8s linear infinite;
+}
+@keyframes ai-spin { to { transform: rotate(360deg); } }
+.ai-empty, .ai-error {
+  font-size: 12.5px;
+  color: var(--muted);
+  padding: 2px 0;
+}
+.ai-error { color: var(--text); }
+.ai-error code {
+  background: var(--raised);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
 /* Clone top investors strip — sits in the What-If controls panel.
    5 cards, one per investor; click to build their 13F-long book. */
 .wi-investor-section {
@@ -11800,6 +11927,11 @@ body.menu-open #mobile-menu-backdrop { display: block; }
         <div class="help-text">If set, every stock you view fetches a second-source quote from Twelve Data and shows the delta vs Finnhub. Helps catch stale or anomalous data. Free tier: 800/day, 8/min — kept under the limit by caching cross-check prices for 60s. Get a key at <a href="https://twelvedata.com/register" target="_blank">twelvedata.com/register</a>.</div>
       </div>
       <div class="modal-row">
+        <label for="gemini-api-key">Google Gemini API key (optional · AI explanations)</label>
+        <input id="gemini-api-key" type="password" placeholder="Paste your Gemini key to unlock the AI features">
+        <div class="help-text">Powers the <b>Why this verdict?</b> narrator and the <b>Resolve conflict</b> panel on the ticker dashboard. Without a key those buttons stay hidden and the rest of the app is unchanged. <b>Free tier:</b> ~15 requests/min, 1M tokens/day, no credit card required. Get a key in 2 minutes at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>. Answers are cached per (ticker · day) to keep usage well under the free cap.</div>
+      </div>
+      <div class="modal-row">
         <label>Storage status</label>
         <div id="settings-key-status" class="help-text" style="line-height:1.6"></div>
         <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
@@ -11867,10 +11999,12 @@ body.menu-open #mobile-menu-backdrop { display: block; }
 const _SP_BAKED_KEYS = {
   finnhub:    'd84c6e1r01qutij8lm7gd84c6e1r01qutij8lm80',   // operator-baked, Finnhub free tier (60/min)
   twelvedata: 'd10a8e6ee9324f76b507c9a33f87c66a',           // operator-baked, Twelve Data free tier (cross-check)
+  gemini:     '',                                           // operator-baked, Google Gemini free tier (AI features). Leave blank — each visitor brings their own.
 };
 function _bakedKeyFor(primarySlot) {
-  if (primarySlot === LS_KEY_API) return (_SP_BAKED_KEYS.finnhub    || '').trim();
-  if (primarySlot === LS_KEY_TD)  return (_SP_BAKED_KEYS.twelvedata || '').trim();
+  if (primarySlot === LS_KEY_API)    return (_SP_BAKED_KEYS.finnhub    || '').trim();
+  if (primarySlot === LS_KEY_TD)     return (_SP_BAKED_KEYS.twelvedata || '').trim();
+  if (primarySlot === LS_KEY_GEMINI) return (_SP_BAKED_KEYS.gemini     || '').trim();
   return '';
 }
 
@@ -11885,6 +12019,14 @@ const LS_KEY_SIMSET   = 'sp_sim_set';
 const LS_KEY_TD       = 'sp_td_key';
 const LS_KEY_API_BACKUP = 'sp_finnhub_key_backup';
 const LS_KEY_TD_BACKUP  = 'sp_td_key_backup';
+// Google Gemini (free tier) — powers the AI explainability features:
+//   • "Why this verdict?" narrator on the ticker dashboard
+//   • "Resolve conflict" panel when buy-timing returns CONFLICT
+// Same dual-slot resilience as the Finnhub / Twelve Data keys. No baked
+// fallback — Gemini's free tier is per-key, so sharing one across all
+// visitors would hit rate limits within minutes.
+const LS_KEY_GEMINI       = 'sp_gemini_key';
+const LS_KEY_GEMINI_BACKUP = 'sp_gemini_key_backup';
 const LS_KEY_KEYS_SAVED_AT = 'sp_keys_saved_at';
 // Backup slots for every persisted user-data list, mirroring the API-key
 // resilience pattern. Any user data that takes effort to rebuild gets a
@@ -11966,14 +12108,22 @@ function keyStorageStatus() {
     const apiBak = localStorage.getItem(LS_KEY_API_BACKUP) || '';
     const td = localStorage.getItem(LS_KEY_TD) || '';
     const tdBak = localStorage.getItem(LS_KEY_TD_BACKUP) || '';
+    const gem = localStorage.getItem(LS_KEY_GEMINI) || '';
+    const gemBak = localStorage.getItem(LS_KEY_GEMINI_BACKUP) || '';
     const savedAt = parseInt(localStorage.getItem(LS_KEY_KEYS_SAVED_AT) || '0', 10);
     return {
       finnhub: { has: !!api, hasBackup: !!apiBak, inSync: api === apiBak },
       td:      { has: !!td,  hasBackup: !!tdBak, inSync: td === tdBak },
+      gemini:  { has: !!gem, hasBackup: !!gemBak, inSync: gem === gemBak },
       savedAt,
     };
   } catch (e) {
-    return { finnhub: { has: false, hasBackup: false, inSync: false }, td: { has: false, hasBackup: false, inSync: false }, savedAt: 0 };
+    return {
+      finnhub: { has: false, hasBackup: false, inSync: false },
+      td:      { has: false, hasBackup: false, inSync: false },
+      gemini:  { has: false, hasBackup: false, inSync: false },
+      savedAt: 0,
+    };
   }
 }
 
@@ -12104,6 +12254,8 @@ const TIP = {
   crossGoal: "Cross-Goal Strength — the small G · P · I · V · M letters on each tile.\n\nWhat this means: G=Growth, P=Preservation, I=Income, V=Value, M=Momentum. Filled letters mean this ticker is in the top-20 for that goal. More filled letters = stronger across multiple investment styles.",
   moodScale: "Sector mood — overall health rating from STRONG (deep green) to WEAK (deep red).\n\nWhat this means: Aggregates the verdicts and forecasts of every stock in the sector. STRONG = broad bullish read. HEALTHY = mostly bullish. MIXED = no clear direction. SOFT = leaning bearish. WEAK = broad bearish read.",
   pace: "Pace vs Forecast — how the bundle is tracking against the 12-month forecast prorated for elapsed days.\n\nWhat this means: 'Ahead of pace' = doing BETTER than the forecast predicted at this point. 'Behind pace' = doing WORSE than predicted. The forecast was set the day you saved the bundle; pace tells you if reality is beating or missing the plan.",
+  whyVerdict: "Asks Google Gemini (the free LLM) to explain the verdict in plain English.\n\nWhat this does: Sends the verdict score + driving signals + recent news headlines + 12M forecast to Gemini 2.5 Flash and gets back a 3-4 sentence explanation of WHY the model rates this stock the way it does — including any disagreement between the chart and the news.\n\nWhy this matters: The heat score is a number. The signals list is technical jargon. This turns both into a sentence that says \"the chart is bullish BUT the company just guided down — consider waiting.\" It's the human read on top of the math.\n\nRequires a free Gemini key (Settings → Google Gemini API key). Without one, this button is hidden. Free tier: ~15 requests/minute, 1M tokens/day — no credit card. Answers are cached for 24h per ticker so re-clicking is instant and free.\n\nIMPORTANT: AI-generated explanations are advisory, not investment advice. Always cross-check with the signal table.",
+  resolveConflict: "Asks Google Gemini (the free LLM) how to handle a CONFLICT timing signal.\n\nWhat this does: CONFLICT means the chart says one thing (e.g. bullish technicals) and the forecast says another (e.g. bearish 12M return). The timing engine refuses to commit. This button asks Gemini to (1) name which side is pulling each way in plain English, (2) say which side has more current evidence, and (3) propose ONE concrete action — e.g. \"half-size DCA over 3 buys\", \"wait for next earnings\", \"skip entirely\".\n\nWhy this matters: Without this, a CONFLICT chip leaves you stuck with no next step. The model can read the recent news and weigh which side is more credible right now.\n\nRequires a free Gemini key (Settings). Cached for 24h. AI-suggested posture, not investment advice — size to your own risk tolerance.",
 };
 function tip(key) { return (TIP[key] || '').replace(/"/g, '&quot;'); }
 
@@ -12450,6 +12602,7 @@ function updateSidebarCounters() {
 let WATCHLIST = loadWatchlist();
 let API_KEY = loadKey(LS_KEY_API, LS_KEY_API_BACKUP);
 let TD_API_KEY = loadKey(LS_KEY_TD, LS_KEY_TD_BACKUP);
+let GEMINI_API_KEY = loadKey(LS_KEY_GEMINI, LS_KEY_GEMINI_BACKUP);
 let REFRESH_SEC = parseInt(localStorage.getItem(LS_KEY_REFRESH) || '300', 10);
 let NOTIFY_ON_CHANGE = (localStorage.getItem(LS_KEY_NOTIFY) || 'true') === 'true';
 // FinBERT (in-browser, free) news-sentiment toggle. When ON, the news card
@@ -14294,6 +14447,331 @@ function toggleFinBERT() {
   if (_selected) loadNewsFor(_selected);
   // Re-render the dashboard so the toggle button reflects the new state.
   if (_selected && _data[_selected]) renderMain();
+}
+
+// ============================================================
+// AI features — Google Gemini Flash (free tier) explainability
+// ============================================================
+// Powers two on-demand surfaces on the ticker dashboard:
+//
+//   1) "Why this verdict?"  — narrates the heat-score signals in plain
+//      English alongside the latest news, so a retail investor can see
+//      *why* the chart is rated BUY/HOLD/SELL rather than just the number.
+//
+//   2) "Resolve conflict"   — appears under the timing card only when
+//      computeBuyTiming returned CONFLICT (verdict bullish + forecast
+//      bearish, or vice-versa). Suggests a concrete posture (smaller
+//      size, DCA, wait for earnings, etc.) instead of leaving the user
+//      stuck on an ambiguous chip.
+//
+// All calls go through callLLM() which is provider-agnostic — if/when an
+// in-browser fallback (transformers.js text-gen model) lands, only this
+// one helper needs to swap backends; the feature handlers stay unchanged.
+//
+// Cache strategy: per (ticker, day, feature) in localStorage with a 24h
+// TTL. A repeat click on the same ticker the same day costs zero tokens.
+// The cache key embeds the verdict score so a flipped verdict invalidates
+// stale explanations automatically. Free-tier (~1M tokens/day) is well
+// under cap with this caching even for power users.
+// ============================================================
+
+function hasLLM() { return !!(GEMINI_API_KEY && GEMINI_API_KEY.trim()); }
+
+const _llmInflight = new Map();   // dedupe concurrent calls (same prompt key)
+const LLM_CACHE_PREFIX = 'sp_llm_cache:';
+const LLM_CACHE_TTL_MS = 24 * 60 * 60 * 1000;   // 24h — verdict-day grain
+
+function _llmCacheGet(key) {
+  try {
+    const raw = localStorage.getItem(LLM_CACHE_PREFIX + key);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj || !obj.ts || (Date.now() - obj.ts) > LLM_CACHE_TTL_MS) return null;
+    return obj.text || null;
+  } catch (e) { return null; }
+}
+function _llmCacheSet(key, text) {
+  try {
+    localStorage.setItem(LLM_CACHE_PREFIX + key, JSON.stringify({ ts: Date.now(), text }));
+  } catch (e) { /* quota or private mode — non-fatal */ }
+}
+
+// Provider-agnostic LLM call. Returns { ok, text, error }.
+//   opts.cacheKey  — required for caching; pass null to bypass
+//   opts.maxTokens — output budget (default 600)
+//   opts.temp      — sampling temperature (default 0.3 for deterministic explanations)
+async function callLLM(prompt, opts) {
+  opts = opts || {};
+  const cacheKey = opts.cacheKey || null;
+  if (cacheKey) {
+    const cached = _llmCacheGet(cacheKey);
+    if (cached) return { ok: true, text: cached, source: 'cache' };
+    if (_llmInflight.has(cacheKey)) return _llmInflight.get(cacheKey);
+  }
+  if (!hasLLM()) {
+    return { ok: false, error: 'no_key', text: '' };
+  }
+  const promise = (async () => {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+      const body = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: opts.temp != null ? opts.temp : 0.3,
+          maxOutputTokens: opts.maxTokens || 600,
+        },
+      };
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => '');
+        if (res.status === 401 || res.status === 403) {
+          return { ok: false, error: 'auth', text: '', detail };
+        }
+        if (res.status === 429) {
+          return { ok: false, error: 'rate_limit', text: '', detail };
+        }
+        return { ok: false, error: 'api_error', text: '', detail: `HTTP ${res.status} ${detail.slice(0, 200)}` };
+      }
+      const data = await res.json();
+      const cand = data && data.candidates && data.candidates[0];
+      const text = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+      if (!text) {
+        const blockReason = data && data.promptFeedback && data.promptFeedback.blockReason;
+        return { ok: false, error: blockReason ? 'blocked' : 'empty', text: '', detail: blockReason || '' };
+      }
+      const clean = text.trim();
+      if (cacheKey) _llmCacheSet(cacheKey, clean);
+      return { ok: true, text: clean, source: 'live' };
+    } catch (e) {
+      return { ok: false, error: 'network', text: '', detail: e.message || String(e) };
+    } finally {
+      if (cacheKey) _llmInflight.delete(cacheKey);
+    }
+  })();
+  if (cacheKey) _llmInflight.set(cacheKey, promise);
+  return promise;
+}
+
+// Minimal markdown → HTML so Gemini's natural **bold** / *italic* / line-break
+// output renders cleanly. NOT a full markdown lib — only the shapes we ask
+// for in the system prompts. Escapes HTML first so model output can never
+// inject script tags or unintended HTML.
+function _renderLLMMarkdown(text) {
+  let s = _escapeHtml(text || '');
+  // **bold**
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>');
+  // *italic* (single asterisks, no double-asterisk run)
+  s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<i>$2</i>');
+  // bullet lines starting with "- " or "* "
+  s = s.replace(/(^|\n)\s*[-*]\s+([^\n]+)/g, '$1<li>$2</li>');
+  // wrap consecutive <li> into <ul>
+  s = s.replace(/(<li>[^<]+<\/li>(?:\s*<li>[^<]+<\/li>)*)/g, '<ul>$1</ul>');
+  // paragraphs from double line breaks
+  s = s.split(/\n{2,}/).map(p => p.trim() ? (p.startsWith('<ul>') ? p : `<p>${p.replace(/\n/g, '<br>')}</p>`) : '').join('');
+  return s;
+}
+
+// Build a compact, factual context block for the AI prompts. Same shape
+// for both Why-Verdict and Resolve-Conflict so the model sees consistent
+// inputs and we can audit prompts in one place.
+function _aiContextSnapshot(ticker) {
+  const d = _data[ticker];
+  if (!d || !d.bars || !d.bars.length) return null;
+  const bars = d.bars;
+  const last = bars[bars.length - 1];
+  const v = d.verdict || computeVerdict(bars);
+  const forecasts = (typeof buildForecast === 'function') ? buildForecast(bars, v, [12, 24, 36]) : [];
+  const timing = (typeof computeBuyTiming === 'function') ? computeBuyTiming(bars, v, forecasts) : null;
+  const profile = d.profile || {};
+  const metrics = d.metrics || {};
+  const newsEntry = _newsCache[ticker];
+  const news = (newsEntry && newsEntry.result && Array.isArray(newsEntry.result.news))
+    ? newsEntry.result.news.slice(0, 5).map(n => ({
+        headline: (n.headline || '').slice(0, 200),
+        source: n.source || '',
+        when: timeAgoFromUnix(n.datetime),
+      }))
+    : [];
+  return { ticker, last, v, forecasts, timing, profile, metrics, news };
+}
+
+function _aiPromptForVerdict(ctx) {
+  const f12 = (ctx.forecasts || []).find(f => /12/.test(f.label));
+  const fcLine = f12
+    ? `12M forecast: ${f12.expectedReturn >= 0 ? '+' : ''}${(f12.expectedReturn * 100).toFixed(1)}% (confidence ${f12.confidence}%)`
+    : 'No forecast available';
+  const signalLines = (ctx.v.signals || []).slice(0, 8).map(s => `  - ${s}`).join('\n');
+  const newsLines = ctx.news.length
+    ? ctx.news.map((n, i) => `  ${i + 1}. [${n.when}] ${n.headline} (${n.source})`).join('\n')
+    : '  (No recent headlines fetched.)';
+  const timingLine = ctx.timing
+    ? `${ctx.timing.label} — ${(ctx.timing.rationale || '').replace(/<\/?[^>]+>/g, '').slice(0, 300)}`
+    : 'n/a';
+  return `You are explaining a stock verdict to a NON-PROFESSIONAL retail investor in plain English.
+
+The verdict below was computed by a deterministic technical-analysis model (moving averages, RSI, momentum, volume). Your job is to explain WHY the verdict reads the way it does AND to flag any disagreement between the chart-based signals and the recent news.
+
+TICKER: ${ctx.ticker} — ${ctx.profile.name || ''} (${ctx.profile.finnhubIndustry || ctx.profile.sector || 'sector unknown'})
+PRICE: $${(ctx.last.close || 0).toFixed(2)}
+VERDICT: ${ctx.v.label} (heat score ${ctx.v.score >= 0 ? '+' : ''}${ctx.v.score} / 100)
+SIGNALS DRIVING THE VERDICT:
+${signalLines}
+${fcLine}
+TIMING MODEL SAYS: ${timingLine}
+
+RECENT HEADLINES (last 14 days):
+${newsLines}
+
+Write a 3-4 sentence explanation in plain English:
+  1. WHY does the model rate this stock the way it does — pick the 1-2 most important signals from the list above and translate them to plain language.
+  2. Does the recent news SUPPORT or CONTRADICT the technical read? Be specific — name the headline.
+  3. End with a one-line **practical takeaway** for someone deciding whether to enter a position today.
+
+Constraints:
+  - Plain English. NO finance jargon without a parenthetical explanation.
+  - Do NOT recommend a price target.
+  - Do NOT promise outcomes. Use hedged language ("the chart suggests…", "if news holds…").
+  - Use **bold** sparingly for the single most important phrase.
+  - Total output ≤ 120 words.`;
+}
+
+function _aiPromptForConflict(ctx) {
+  const f12 = (ctx.forecasts || []).find(f => /12/.test(f.label));
+  const fcLine = f12
+    ? `12M forecast: ${f12.expectedReturn >= 0 ? '+' : ''}${(f12.expectedReturn * 100).toFixed(1)}% (confidence ${f12.confidence}%)`
+    : 'no forecast';
+  const signalLines = (ctx.v.signals || []).slice(0, 8).map(s => `  - ${s}`).join('\n');
+  const newsLines = ctx.news.length
+    ? ctx.news.slice(0, 4).map((n, i) => `  ${i + 1}. [${n.when}] ${n.headline}`).join('\n')
+    : '  (No recent headlines.)';
+  return `You are advising a retail investor on a CONFLICTED setup. The model says the chart and the forecast disagree, so the timing engine returned CONFLICT and refuses to commit to BUY or WAIT.
+
+TICKER: ${ctx.ticker} — ${ctx.profile.name || ''}
+PRICE: $${(ctx.last.close || 0).toFixed(2)}
+VERDICT: ${ctx.v.label} (heat ${ctx.v.score >= 0 ? '+' : ''}${ctx.v.score})
+SIGNALS:
+${signalLines}
+${fcLine}
+TIMING: ${ctx.timing ? ctx.timing.label : 'CONFLICT'} — ${(ctx.timing && ctx.timing.rationale ? ctx.timing.rationale.replace(/<\/?[^>]+>/g, '') : '').slice(0, 300)}
+
+RECENT HEADLINES:
+${newsLines}
+
+Resolve the conflict in 3 short blocks (use markdown bullets, total ≤ 130 words):
+
+**What's pulling each way**
+- 1 line: the bullish signal in plain English
+- 1 line: the bearish signal in plain English
+
+**Which side is more trustworthy right now**
+- 1 short sentence: based on the news flow + signal strength, which side has more current evidence? Hedge appropriately.
+
+**Suggested posture**
+- ONE concrete action: e.g. "Wait for the next earnings print and re-check", "Half-size DCA over 3 buys", "Skip — re-evaluate when RSI clears 50 on weekly", etc. Match the action to the conflict shape — do NOT default to "wait" for every case.
+
+No price targets. No guarantees. Hedged language only.`;
+}
+
+// ----- UI handlers (called from inline onclick=) -----
+
+async function whyVerdict(ticker) {
+  ticker = ticker || _selected;
+  const slot = document.getElementById('ai-verdict-slot');
+  if (!slot) return;
+  if (!hasLLM()) {
+    slot.innerHTML = `<div class="ai-empty">Add a Google Gemini key in <b>⚙ Settings</b> to unlock AI explanations. Free tier — no credit card required.</div>`;
+    slot.classList.add('open');
+    return;
+  }
+  const ctx = _aiContextSnapshot(ticker);
+  if (!ctx) {
+    slot.innerHTML = `<div class="ai-empty">No data loaded for ${ticker} yet — refresh and try again.</div>`;
+    slot.classList.add('open');
+    return;
+  }
+  slot.classList.add('open');
+  slot.innerHTML = `<div class="ai-loading"><span class="ai-spin"></span> Asking Gemini why ${ticker} is rated <b>${ctx.v.label}</b>…</div>`;
+  const today = new Date().toISOString().slice(0, 10);
+  const cacheKey = `why:${ticker}:${today}:${ctx.v.score}`;
+  const out = await callLLM(_aiPromptForVerdict(ctx), { cacheKey, maxTokens: 350 });
+  // Bail if user navigated away mid-call
+  if (_selected !== ticker) return;
+  if (!out.ok) {
+    slot.innerHTML = `<div class="ai-error">${_aiErrorMsg(out)}</div>`;
+    return;
+  }
+  const sourceTag = out.source === 'cache'
+    ? `<span class="ai-src" title="Served from this browser's cache — no token cost. Cache TTL is 24h.">cached</span>`
+    : `<span class="ai-src" title="Live Gemini 2.5 Flash response. Cached locally for the next 24h.">Gemini 2.5 Flash</span>`;
+  slot.innerHTML = `
+    <div class="ai-head">
+      <div class="ai-title">Why ${ticker} reads as <b>${ctx.v.label}</b></div>
+      <div class="ai-meta">${sourceTag}<button class="ai-close" onclick="closeWhyVerdict()" title="Hide this panel">✕</button></div>
+    </div>
+    <div class="ai-body">${_renderLLMMarkdown(out.text)}</div>
+    <div class="ai-foot">AI-generated explanation · not investment advice · always cross-check with the signal table below.</div>`;
+}
+
+function closeWhyVerdict() {
+  const slot = document.getElementById('ai-verdict-slot');
+  if (slot) { slot.classList.remove('open'); slot.innerHTML = ''; }
+}
+
+async function resolveConflict(ticker) {
+  ticker = ticker || _selected;
+  const slot = document.getElementById('ai-conflict-slot');
+  if (!slot) return;
+  if (!hasLLM()) {
+    slot.innerHTML = `<div class="ai-empty">Add a Google Gemini key in <b>⚙ Settings</b> to get a concrete conflict-resolution suggestion.</div>`;
+    slot.classList.add('open');
+    return;
+  }
+  const ctx = _aiContextSnapshot(ticker);
+  if (!ctx) {
+    slot.innerHTML = `<div class="ai-empty">No data loaded for ${ticker} yet.</div>`;
+    slot.classList.add('open');
+    return;
+  }
+  slot.classList.add('open');
+  slot.innerHTML = `<div class="ai-loading"><span class="ai-spin"></span> Asking Gemini how to resolve the CONFLICT on ${ticker}…</div>`;
+  const today = new Date().toISOString().slice(0, 10);
+  const cacheKey = `conflict:${ticker}:${today}:${ctx.v.score}`;
+  const out = await callLLM(_aiPromptForConflict(ctx), { cacheKey, maxTokens: 400 });
+  if (_selected !== ticker) return;
+  if (!out.ok) {
+    slot.innerHTML = `<div class="ai-error">${_aiErrorMsg(out)}</div>`;
+    return;
+  }
+  const sourceTag = out.source === 'cache'
+    ? `<span class="ai-src" title="Served from this browser's cache — no token cost.">cached</span>`
+    : `<span class="ai-src" title="Live Gemini 2.5 Flash response. Cached locally for 24h.">Gemini 2.5 Flash</span>`;
+  slot.innerHTML = `
+    <div class="ai-head">
+      <div class="ai-title">Resolving the conflict on ${ticker}</div>
+      <div class="ai-meta">${sourceTag}<button class="ai-close" onclick="closeResolveConflict()" title="Hide this panel">✕</button></div>
+    </div>
+    <div class="ai-body">${_renderLLMMarkdown(out.text)}</div>
+    <div class="ai-foot">AI-suggested posture · not investment advice · size to your own risk tolerance.</div>`;
+}
+
+function closeResolveConflict() {
+  const slot = document.getElementById('ai-conflict-slot');
+  if (slot) { slot.classList.remove('open'); slot.innerHTML = ''; }
+}
+
+function _aiErrorMsg(out) {
+  const link = `<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>`;
+  if (out.error === 'no_key')     return `Add a Gemini key in <b>⚙ Settings</b> to enable this. Free at ${link}.`;
+  if (out.error === 'auth')       return `<b style="color:var(--bear)">Gemini key rejected (HTTP 401/403).</b> Open <b>⚙ Settings</b> and paste a fresh key from ${link}.`;
+  if (out.error === 'rate_limit') return `Gemini free-tier rate limit hit (~15/min). Wait a minute and click again — cached answers stay free.`;
+  if (out.error === 'blocked')    return `Gemini's safety filter blocked the response${out.detail ? ` (${_escapeHtml(out.detail)})` : ''}. Try again — usually transient on financial prompts.`;
+  if (out.error === 'empty')      return `Gemini returned no answer. Try again.`;
+  if (out.error === 'network')    return `Network error reaching Gemini: <code>${_escapeHtml(out.detail || '')}</code>. Check connectivity and retry.`;
+  return `AI call failed: ${_escapeHtml(out.error || 'unknown')}${out.detail ? ` — ${_escapeHtml(out.detail).slice(0, 200)}` : ''}.`;
 }
 
 // ---- Twelve Data cross-check (secondary provider for price sanity check) ----
@@ -19882,7 +20360,16 @@ function _applyTopbarSidebarToggle() {
   const btn = document.getElementById('sidebar-toggle-btn');
   if (icon)  icon.textContent  = collapsed ? '⇥' : '⇤';
   if (label) label.textContent = collapsed ? ' Show sidebar' : ' Hide sidebar';
-  if (btn)   btn.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+  if (btn) {
+    btn.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
+    // Tooltip MUST track the label — defect 2026-05-19: static HTML title said
+    // "Hide the watchlist sidebar…" and was never updated. When the sidebar
+    // was hidden, label switched to "Show sidebar" but tooltip still read
+    // "Hide…" — user-reported via screenshot. Now state-sync'd.
+    btn.title = collapsed
+      ? 'Show the watchlist sidebar to bring it back. Setting is remembered across sessions.'
+      : 'Hide the watchlist sidebar to give the main view full width. Setting is remembered across sessions.';
+  }
 }
 
 // Cockpit auto-refresh — periodic refreshAll + renderCockpit while the user
@@ -20238,8 +20725,11 @@ function renderMain() {
         <div id="verdict-meter">
           <div id="verdict-meter-fill" style="width:${meterWidth}%; ${v.score < 0 ? 'left:50%; transform:translateX(-100%); right:auto;' : 'left:50%;'}"></div>
         </div>
+        ${hasLLM() ? `<button class="ai-btn" onclick="whyVerdict('${_selected}')" title="${tip('whyVerdict')}"><span class="ai-btn-spark">✦</span> Why this verdict?</button>` : ''}
       </div>
     </div>
+
+    <div id="ai-verdict-slot" class="ai-slot"></div>
 
     <div class="timing-card action-${timing.action}" title="${timing.rationale.replace(/"/g, '&quot;')}">
       <div class="timing-card-head">
@@ -20249,7 +20739,9 @@ function renderMain() {
       <div class="timing-card-headline">${timing.label}</div>
       <div class="timing-card-window">Window: <b style="color:var(--text)">${timing.window}</b></div>
       <div class="timing-card-rationale">${timing.rationale}</div>
+      ${(timing.action === 'CONFLICT' && hasLLM()) ? `<button class="ai-btn" style="margin-top:10px;" onclick="resolveConflict('${_selected}')" title="${tip('resolveConflict')}"><span class="ai-btn-spark">✦</span> Resolve this conflict</button>` : ''}
     </div>
+    <div id="ai-conflict-slot" class="ai-slot"></div>
 
     <div class="ticker-signal-row">
       ${_renderSignalChipsRow(seasonality, analystMomentum, analystRecs, insiderCluster, insiderTxns)}
@@ -20803,6 +21295,8 @@ function openSettings() {
   $('api-key').value = API_KEY;
   const tdInput = $('td-api-key');
   if (tdInput) tdInput.value = TD_API_KEY;
+  const gemInput = $('gemini-api-key');
+  if (gemInput) gemInput.value = GEMINI_API_KEY;
   $('refresh-interval').value = String(REFRESH_SEC);
   $('notify-on-change').checked = NOTIFY_ON_CHANGE;
   renderKeyStorageStatus();
@@ -20835,6 +21329,14 @@ function renderKeyStorageStatus() {
     lines.push(`<span style="color:var(--warn)">⚠ Twelve Data key saved on this browser but backup is out of sync — click Save to re-sync</span>`);
   } else {
     lines.push(`<span style="color:var(--muted)">○ Twelve Data key not set (no cross-check)</span>`);
+  }
+  // Gemini status
+  if (s.gemini.has && s.gemini.hasBackup && s.gemini.inSync) {
+    lines.push(`<span style="color:var(--bull)">✓ Gemini key saved on this browser (primary + backup, in sync) — AI features enabled</span>`);
+  } else if (s.gemini.has) {
+    lines.push(`<span style="color:var(--warn)">⚠ Gemini key saved on this browser but backup is out of sync — click Save to re-sync</span>`);
+  } else {
+    lines.push(`<span style="color:var(--muted)">○ Gemini key not set (AI features hidden — the rest of the app is unaffected)</span>`);
   }
   if (s.savedAt > 0) {
     const ago = Math.floor((Date.now() - s.savedAt) / 1000);
@@ -20876,6 +21378,7 @@ function exportKeys() {
     keys: {
       finnhub:    API_KEY || '',
       twelvedata: TD_API_KEY || '',
+      gemini:     GEMINI_API_KEY || '',
     },
     watchlist:  Array.isArray(WATCHLIST) ? WATCHLIST.slice() : [],
     favorites:  [...FAVORITES],
@@ -20921,8 +21424,16 @@ function importKeysFromFile() {
         if (parsed.keys && typeof parsed.keys === 'object') {
           const fh = (parsed.keys.finnhub || '').trim();
           const td = (parsed.keys.twelvedata || '').trim();
+          const gem = (parsed.keys.gemini || '').trim();
           if (fh) { $('api-key').value = fh; API_KEY = fh; persistKey(LS_KEY_API, LS_KEY_API_BACKUP, fh); restored.keys++; }
           if (td) { $('td-api-key').value = td; TD_API_KEY = td; persistKey(LS_KEY_TD, LS_KEY_TD_BACKUP, td); restored.keys++; }
+          if (gem) {
+            const gemInput = $('gemini-api-key');
+            if (gemInput) gemInput.value = gem;
+            GEMINI_API_KEY = gem;
+            persistKey(LS_KEY_GEMINI, LS_KEY_GEMINI_BACKUP, gem);
+            restored.keys++;
+          }
         }
         if (Array.isArray(parsed.watchlist) && parsed.watchlist.length) {
           // Union with current watchlist — don't drop tickers the user added on this origin
@@ -20969,20 +21480,29 @@ function importKeysFromFile() {
         }
       } else {
         // Legacy v1 TXT — keys only
-        let fh = '', td = '';
+        let fh = '', td = '', gem = '';
         text.split('\n').forEach(line => {
-          const m = line.match(/^\s*(FINNHUB|TWELVEDATA)\s*=\s*(.*?)\s*$/i);
+          const m = line.match(/^\s*(FINNHUB|TWELVEDATA|GEMINI)\s*=\s*(.*?)\s*$/i);
           if (m) {
-            if (m[1].toUpperCase() === 'FINNHUB') fh = m[2];
-            else if (m[1].toUpperCase() === 'TWELVEDATA') td = m[2];
+            const k = m[1].toUpperCase();
+            if (k === 'FINNHUB') fh = m[2];
+            else if (k === 'TWELVEDATA') td = m[2];
+            else if (k === 'GEMINI') gem = m[2];
           }
         });
-        if (!fh && !td) {
+        if (!fh && !td && !gem) {
           showToast({ title: 'No data found in file', body: 'File must be a stockpulse-backup JSON or a legacy keys.txt.', type: 'bear' });
           return;
         }
         if (fh) { $('api-key').value = fh; API_KEY = fh; persistKey(LS_KEY_API, LS_KEY_API_BACKUP, fh); restored.keys++; }
         if (td) { $('td-api-key').value = td; TD_API_KEY = td; persistKey(LS_KEY_TD, LS_KEY_TD_BACKUP, td); restored.keys++; }
+        if (gem) {
+          const gemInput = $('gemini-api-key');
+          if (gemInput) gemInput.value = gem;
+          GEMINI_API_KEY = gem;
+          persistKey(LS_KEY_GEMINI, LS_KEY_GEMINI_BACKUP, gem);
+          restored.keys++;
+        }
       }
       try { localStorage.setItem(LS_KEY_KEYS_SAVED_AT, String(Date.now())); } catch (e) {}
       // Re-render every surface that consumes the restored state
@@ -21013,22 +21533,27 @@ async function saveSettings() {
   const newKey = $('api-key').value.trim();
   const tdInput = $('td-api-key');
   const newTdKey = tdInput ? tdInput.value.trim() : TD_API_KEY;
+  const gemInput = $('gemini-api-key');
+  const newGemKey = gemInput ? gemInput.value.trim() : GEMINI_API_KEY;
   const newRefresh = parseInt($('refresh-interval').value, 10);
   const newNotify = $('notify-on-change').checked;
   const keyChanged = newKey !== API_KEY;
   const tdKeyChanged = newTdKey !== TD_API_KEY;
+  const gemKeyChanged = newGemKey !== GEMINI_API_KEY;
   API_KEY = newKey;
   TD_API_KEY = newTdKey;
+  GEMINI_API_KEY = newGemKey;
   REFRESH_SEC = newRefresh;
   NOTIFY_ON_CHANGE = newNotify;
   // Persist with backup slots for resilience against accidental localStorage clear
   const apiResult = persistKey(LS_KEY_API, LS_KEY_API_BACKUP, API_KEY);
   const tdResult  = persistKey(LS_KEY_TD,  LS_KEY_TD_BACKUP,  TD_API_KEY);
+  const gemResult = persistKey(LS_KEY_GEMINI, LS_KEY_GEMINI_BACKUP, GEMINI_API_KEY);
   try { localStorage.setItem(LS_KEY_KEYS_SAVED_AT, String(Date.now())); } catch (e) {}
   try { localStorage.setItem(LS_KEY_REFRESH, String(REFRESH_SEC)); } catch (e) {}
   try { localStorage.setItem(LS_KEY_NOTIFY, String(NOTIFY_ON_CHANGE)); } catch (e) {}
   // Warn if storage failed silently
-  if ((newKey && !apiResult.okPrimary) || (newTdKey && !tdResult.okPrimary)) {
+  if ((newKey && !apiResult.okPrimary) || (newTdKey && !tdResult.okPrimary) || (newGemKey && !gemResult.okPrimary)) {
     showToast({ title: 'Warning: keys may not have saved', body: 'Your browser may be in private mode or localStorage is full. Try again or export your keys.', type: 'bear' });
   }
   updateModeIndicators();
@@ -21037,6 +21562,10 @@ async function saveSettings() {
   if (tdKeyChanged) {
     Object.keys(_crossCheckCache).forEach(k => delete _crossCheckCache[k]);
     if (_selected && _data[_selected]) renderMain();
+  }
+  if (gemKeyChanged && _selected && _data[_selected]) {
+    // Re-render so the "Why?" / "Resolve conflict" buttons appear or disappear.
+    renderMain();
   }
   if (keyChanged) {
     showToast({ title: 'Settings saved', body: 'Refreshing data with new key…' });
