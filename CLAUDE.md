@@ -119,10 +119,20 @@ When a filter / pill / chip / signal exists on **any** page, it MUST exist on **
 
 **Rule:** every value emitted by `computeBuyTiming().action` (currently `BUY_NOW`, `EARLY_RALLY`, `BUY_ON_DIP`, `DCA`, `WAIT`, `CONFLICT`, `SELL`, `AVOID`) MUST appear as a filter option in **all four** surfaces above (those with filters). The same applies to:
 
-- Verdict pills (`STRONG BUY` / `BUY` / `HOLD` / `SELL` / `STRONG SELL`) — Watchlist, Sectors, Top Picks, Ticker dashboard
+- Verdict pills (`STRONG BUY` / `BUY` / `HOLD` / `SELL` / `STRONG SELL`) — Sectors tile, Top Picks row, Ticker dashboard. **Exception (2026-05-19):** NOT shown on the Watchlist sidebar row because verdict + timing on the same compact row produced contradictory readings (e.g. `HOLD` + `Buy` — verdict says "don't act" while timing says "buy now"). On Watchlist rows the timing chip supersedes the verdict pill; verdict is still carried by (a) the left-edge heat-color bar (cold = SELL tier, hot = BUY tier), (b) the row-level hover tooltip (now includes verdict + score + signal trace), and (c) the full ticker dashboard.
 - Type pills (`Div` / `Hi-Yld` / `ETF` / `Stocks`) — Watchlist, Sectors (the "Dividend" filter row)
 - 13F pills (`≥1 / ≥2 / ≥3`) — Watchlist, Sectors, Top Picks
 - Heat tier colours / icons — every surface that shows a ticker
+
+**Verdict vs Timing — which goes where:**
+
+| Surface | Show verdict pill? | Show timing chip? | Reason |
+|---|---|---|---|
+| Watchlist sidebar row | ❌ no | ✅ yes | Space-constrained; timing is the actionable refinement of verdict. Heat bar carries the verdict tier. |
+| Top Picks row | ✅ yes | ✅ yes | Has a verdict-filter UI at the top — pill needs to be visible for the filter to be verifiable. |
+| Sectors tile | ✅ yes | ✅ yes | Same reason as Top Picks — verdict-filter UI on this page. |
+| Ticker dashboard | ✅ yes (`#verdict-card`) | ✅ yes (timing-card) | Full info surface — both clearly labelled with their own card. |
+| Cockpit perf card | inline text only | ❌ no | At-a-glance compact card; verdict appears as inline text next to price. |
 
 **Test before shipping:** when adding any new pill / chip / signal, search the codebase for the other three surfaces and add the same option there too. If you can't — leave a `TODO(consistency)` comment with the date so it's not forgotten.
 

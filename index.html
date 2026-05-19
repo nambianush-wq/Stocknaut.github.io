@@ -20569,8 +20569,19 @@ function renderWatchlist(filter = '') {
       const wlTiming    = computeBuyTiming(d.bars, d.verdict, wlForecasts);
       timingChipHtml = renderTimingChip(wlTiming, true);
     } catch (e) { /* tolerate per-row compute failure */ }
+    // Verdict-trace tooltip surfaced via the row-level title — the verdict
+    // pill itself is no longer rendered on the watchlist row. User feedback
+    // 2026-05-19: HOLD verdict + Buy timing on the same row was contradictory
+    // ("HOLD says don't act, Buy says buy now"). Timing supersedes verdict —
+    // it's the more refined output that USES verdict as input. The verdict
+    // signal still reaches the user via:
+    //   1. The left-edge heat color bar (cold = SELL tier, hot = BUY tier)
+    //   2. The hover-tooltip on the row (now includes verdict + score)
+    //   3. The hover-tooltip on the timing chip (carries rationale)
+    //   4. The full ticker dashboard (#verdict-card + signals panel)
     const verdictTip = _verdictTooltip(d.verdict);
-    return `<div class="wl-item heat-${tier} ${isActive ? 'active' : ''} ${isAlert ? 'alert' : ''}" data-ticker="${t}" onclick="selectTicker('${t}')" title="Heat score: ${score >= 0 ? '+' : ''}${score}">
+    const rowTitle = `Verdict: ${d.verdict.label}  ·  Heat score: ${score >= 0 ? '+' : ''}${score}\n\n${verdictTip.split('\n').slice(2).join('\n')}`;
+    return `<div class="wl-item heat-${tier} ${isActive ? 'active' : ''} ${isAlert ? 'alert' : ''}" data-ticker="${t}" onclick="selectTicker('${t}')" title="${rowTitle.replace(/"/g, '&quot;')}">
       <div class="wl-heat" style="--heat-color: ${heat}"></div>
       <button class="wl-remove" onclick="event.stopPropagation(); removeStock('${t}')" title="Remove">✕</button>
       <div class="wl-row1">
@@ -20579,7 +20590,6 @@ function renderWatchlist(filter = '') {
       </div>
       <div class="wl-row2">
         <div class="wl-change ${direction}">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</div>
-        <div class="wl-verdict ${verdictClass}" title="${verdictTip.replace(/"/g, '&quot;')}" style="cursor:help">${d.verdict.label}</div>
         ${timingChipHtml}
         ${render13FBadge(t, true)}
         ${rowActionsHtml(t)}
