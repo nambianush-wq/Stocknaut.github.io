@@ -3800,33 +3800,18 @@ body { padding-bottom: 44px; }
   color: var(--bear);
 }
 
-/* "Ahead-of-Rally" — fires only on the BUY_NOW branch where price is still
-   at/below MA40 AND RSI hasn't stretched. Chip chrome gets a green→blue
-   gradient + soft outer glow so the user can scan a watchlist and spot the
-   highest-conviction early entries instantly. The inner EARLY pill carries
-   its own tooltip with the full plain-English explanation. */
-.timing-chip.timing-BUY_NOW.early-rally {
+/* EARLY_RALLY — distinct timing action (was a flag on BUY_NOW pre-2026-05-19).
+   Fires when model forecasts +5% over 12M BUT price is still at/below MA40 and
+   RSI < 65 — entry near trend support, not chasing a breakout. Chip chrome
+   uses a green→blue gradient + soft outer glow so the user can scan a list
+   and spot these high-conviction early entries instantly. */
+.timing-chip.timing-EARLY_RALLY {
   background: linear-gradient(135deg, rgba(48,209,88,.18), rgba(0,113,227,.18));
   border-color: rgba(48,209,88,.6);
+  color: var(--bull);
   box-shadow: 0 0 0 1px rgba(48,209,88,.18), 0 0 8px rgba(48,209,88,.18);
 }
-.early-rally-mark {
-  margin-left: 4px;
-  padding: 1px 5px;
-  border-radius: 6px;
-  font-size: 8.5px;
-  font-weight: 800;
-  letter-spacing: .08em;
-  background: rgba(48,209,88,.24);
-  color: var(--bull);
-  border: 1px solid rgba(48,209,88,.45);
-  cursor: help;
-  line-height: 1.2;
-}
-.early-rally-mark:hover {
-  background: rgba(48,209,88,.34);
-  border-color: rgba(48,209,88,.7);
-}
+.timing-chip.timing-EARLY_RALLY .timing-icon { color: var(--accent); }
 
 /* 13F-holder badge — appears on every stock that's held by one or more of
    the curated active managers. Same look across watchlist, sectors, picks,
@@ -4898,23 +4883,296 @@ body { padding-bottom: 44px; }
   margin-top: 2px;
 }
 
-/* Responsive */
-@media (max-width: 1100px) {
-  #stats-strip { grid-template-columns: repeat(3, 1fr); }
+/* ============================================================
+   Responsive layer — phones, iPads, small laptops
+   Order matters: rules cascade from largest to smallest viewport
+   so narrower breakpoints override wider ones. The sidebar becomes
+   an off-canvas drawer at <=768px, toggled via the hamburger
+   button in #topbar.
+   ============================================================ */
+
+/* Mobile-only hamburger menu toggle in #topbar. Hidden on desktop
+   via display:none; the <=768px breakpoint re-enables it. */
+#menu-toggle {
+  display: none;
+  width: 36px; height: 36px;
+  padding: 0;
+  font-size: 18px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
-@media (max-width: 760px) {
+
+/* Backdrop for the mobile drawer — covers everything below the
+   topbar when the sidebar is open. Click anywhere on it to close. */
+#mobile-menu-backdrop {
+  display: none;
+  position: fixed;
+  inset: 52px 0 0 0;
+  background: rgba(0,0,0,.55);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  z-index: 85;
+}
+body.menu-open #mobile-menu-backdrop { display: block; }
+
+/* Large tablet / narrow laptop (<=1280px) */
+@media (max-width: 1280px) {
+  #main { padding: 20px 22px; }
+  #sectors-page { padding: 20px 22px; }
+  #picks-page { padding: 20px 22px; }
+  #whatif-page { padding: 20px 22px; }
+  #cockpit-page { padding: 20px 22px; }
+  #stats-strip { grid-template-columns: repeat(3, 1fr); }
+  #topbar { padding: 0 16px; }
+  .tab-nav { margin-left: 16px; }
+  .tab { padding: 7px 12px; font-size: 12.5px; }
+}
+
+/* iPad portrait & small tablet (<=1024px) */
+@media (max-width: 1024px) {
+  /* Narrower inline sidebar — gives the chart / cockpit ~70% of viewport
+     on iPad portrait (820px) instead of 71% with the previous 240px. */
   #sidebar { width: 220px; }
-  #stats-strip { grid-template-columns: repeat(2, 1fr); }
-  .t-sym, .t-price { font-size: 24px; }
+  #sidebar-head { padding: 10px; }
+  /* Compact sidebar contents at tablet widths so the watchlist itself
+     gets more vertical room (the dense filter pills + heat legend +
+     counters were eating 60% of sidebar height before scrolling kicked
+     in). */
+  #heat-legend { margin-top: 8px; }
+  .heat-legend-bar { height: 4px; }
+  .heat-legend-labels { font-size: 8px; margin-top: 3px; }
+  .sidebar-counters { margin-top: 8px; gap: 4px; }
+  .sidebar-counter { padding: 5px 7px; font-size: 10px; }
+  .verdict-filter { margin-top: 6px; gap: 3px; }
+  .vf-pill { padding: 4px 6px; font-size: 9px; }
+  .wl-item { padding: 9px 9px 9px 18px; margin-bottom: 3px; }
+  .wl-sym { font-size: 13px; }
+  .wl-price { font-size: 12px; }
+  .wl-change { font-size: 10px; }
+  .wl-verdict { font-size: 9px; padding: 1px 6px; }
+  #main { padding: 16px 18px; }
+  #sectors-page,
+  #picks-page,
+  #whatif-page,
+  #cockpit-page { padding: 16px 18px; }
+  #topbar { padding: 0 12px; }
+  #topbar .brand { font-size: 14px; gap: 8px; }
+  .tab-nav {
+    margin-left: 10px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tab-nav::-webkit-scrollbar { display: none; }
+  .tab { padding: 6px 10px; font-size: 12px; flex-shrink: 0; }
+  #topbar .actions { gap: 6px; }
+  #topbar .actions .btn { padding: 6px 10px; font-size: 12px; }
+  .modal { width: 92vw; max-width: 520px; }
+  .t-sym, .t-price { font-size: 26px; }
+
+  /* Tile grid lays out densely on tablets without becoming microscopic */
+  .tile-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+}
+
+/* Phone landscape & small tablet portrait (<=768px) — sidebar becomes drawer */
+@media (max-width: 768px) {
+  html, body { font-size: 12.5px; }
+
+  /* Topbar: pack children from the LEFT (override desktop's
+     space-between, which pushes the last child off-screen when total
+     children exceed container width) and pin actions to the right
+     via margin-left:auto. Only .tab-nav shrinks; brand + menu-toggle
+     + actions keep their natural width. overflow:hidden + clip-path
+     guarantee children can never visually escape the topbar bounds. */
+  #topbar {
+    height: 52px;
+    padding: 0 8px;
+    gap: 6px;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow: hidden;
+  }
+  #menu-toggle { display: inline-flex; }
+  /* Hide menu toggle only on views where the sidebar genuinely doesn't
+     exist (sectors / picks / whatif use display:none on #sidebar).
+     Cockpit and Watchlist both surface the sidebar inline on desktop,
+     so the drawer toggle is meaningful in both on mobile. */
+  body.sectors-mode #menu-toggle,
+  body.picks-mode #menu-toggle,
+  body.whatif-mode #menu-toggle { display: none; }
+
+  #topbar .brand {
+    font-size: 13px;
+    gap: 6px;
+    flex-shrink: 0;
+    min-width: 0;
+  }
+  #topbar .brand-dot { width: 8px; height: 8px; flex-shrink: 0; }
+  .brand-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tab-nav {
+    margin-left: 4px;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .tab { padding: 6px 9px; font-size: 11.5px; flex-shrink: 0; }
+  #topbar .actions {
+    gap: 4px;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+  #topbar .actions .mode-pill { display: none; }
+  #topbar .actions .btn {
+    padding: 6px 10px;
+    font-size: 13px;
+    min-width: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Hide verbose button labels on phones; the icon glyph carries
+     the meaning. The icon stays visible via .btn-icon. */
+  .btn-label { display: none; }
+  .btn-icon { font-size: 15px; line-height: 1; }
+
+  /* Off-canvas sidebar drawer. Width is intentionally moderate
+     (was 320px / 86vw which dominated the screen on phones, making
+     the chart unreadable when the drawer was open). 280px / 82vw
+     keeps ~20% of the main area visible behind the dimmed backdrop
+     so the user retains spatial context while picking a ticker. */
+  #layout { position: relative; }
+  #sidebar {
+    position: fixed;
+    top: 52px; left: 0; bottom: 0;
+    width: min(82vw, 280px);
+    z-index: 90;
+    transform: translateX(-105%);
+    transition: transform .25s cubic-bezier(.2,.8,.2,1);
+    box-shadow: 0 12px 40px rgba(0,0,0,.55);
+  }
+  body.menu-open #sidebar { transform: translateX(0); }
+  /* Override view-specific display:none so the drawer can open even
+     if the body is in a non-watchlist mode (rarely happens — toggle
+     is hidden in those modes — but defensive). */
+  body.menu-open #sidebar { display: flex !important; }
+
+  #main { padding: 14px 12px; margin-left: 0 !important; }
+  #sectors-page,
+  #picks-page,
+  #whatif-page,
+  #cockpit-page { padding: 14px 12px; }
+
+  /* Ticker header */
+  .t-sym, .t-price { font-size: 22px; }
+  .t-name { font-size: 12px; }
+  #ticker-head { gap: 12px; margin-bottom: 16px; }
+
+  /* Modals expand toward full-screen with internal scroll */
+  .modal {
+    width: 95vw;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .modal-body {
+    overflow-y: auto;
+    padding: 14px;
+    flex: 1 1 auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-foot {
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px 14px;
+  }
+  .modal-foot .btn { flex: 1 1 auto; min-width: 120px; }
+
+  /* Stats strip compresses to 2 columns */
+  #stats-strip { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat { padding: 10px 12px; }
+  .stat-val { font-size: 14px; }
+
+  /* Cockpit collapse button is meaningless when sidebar is a drawer */
+  #cockpit-sidebar-btn { display: none; }
+
+  /* Charts and tables can scroll horizontally without breaking layout */
+  table { font-size: 11.5px; }
+}
+
+/* Narrow phones (<=640px) — hide brand text to give tabs more room.
+   Below this width "StockPulse" steals ~80px that the tab nav needs
+   to keep all five tabs visible without aggressive horizontal scroll. */
+@media (max-width: 640px) {
+  #topbar .brand .brand-text { display: none; }
+  #topbar .brand { gap: 0; }
+}
+
+/* Phone portrait (<=480px) — squeeze further */
+@media (max-width: 480px) {
+  #topbar { padding: 0 6px; gap: 4px; }
+  #menu-toggle { width: 34px; height: 34px; font-size: 17px; }
+  .tab { padding: 6px 8px; font-size: 11px; }
+  .tab-nav { gap: 2px; }
+  #main { padding: 12px 10px; }
+  #sectors-page,
+  #picks-page,
+  #whatif-page,
+  #cockpit-page { padding: 12px 10px; }
+
+  /* On tiny phones the partial drawer pattern stops being useful — the
+     remaining ~70px of dimmed main area can't show enough chart to be
+     orientating. Promote the drawer to a full-screen Watchlist page
+     instead: the user is in one of two modes at any moment (Watchlist
+     picker OR chart), not a hybrid. Picking a ticker closes the picker
+     and reveals the full-width chart. */
+  #sidebar { width: 100vw; max-width: 100vw; }
+  #mobile-menu-backdrop { display: none !important; }
+
+  /* Full-screen modal on tiny phones — easier to read & tap */
+  .modal-overlay { align-items: stretch; }
+  .modal {
+    width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+  #stats-strip { grid-template-columns: 1fr 1fr; }
+  .t-sym, .t-price { font-size: 20px; }
+
+  /* Tile grid: 1 wider tile on phones — easier to read */
+  .tile-grid { grid-template-columns: 1fr; }
+}
+
+/* Touch devices: enforce minimum tap targets per Apple/Material guidelines */
+@media (hover: none) and (pointer: coarse) {
+  .btn,
+  .tab,
+  .goal-pill,
+  .wl-item { min-height: 36px; }
+  .modal-close { width: 32px; height: 32px; }
+  .fav-btn,
+  .sim-btn { width: 28px; height: 28px; font-size: 13px; }
+  /* Always show the wl-item remove button on touch (no hover state) */
+  .wl-item .wl-remove { display: flex; }
 }
 </style>
 </head>
 <body class="">
 
 <div id="topbar">
+  <button class="btn" id="menu-toggle" onclick="toggleMobileMenu()" aria-label="Toggle watchlist menu" title="Open watchlist">☰</button>
   <div class="brand">
     <div class="brand-dot"></div>
-    StockPulse
+    <span class="brand-text">StockPulse</span>
   </div>
   <nav class="tab-nav" role="tablist" aria-label="Primary navigation">
     <button class="tab active" data-view="cockpit" role="tab" aria-selected="true" onclick="showView('cockpit')" title="Real-time dashboard for the entire watchlist">Cockpit</button>
@@ -4925,10 +5183,11 @@ body { padding-bottom: 44px; }
   </nav>
   <div class="actions">
     <span id="mode-pill" class="mode-pill live">LIVE</span>
-    <button class="btn" onclick="openAddStock()">+ Add Stock</button>
-    <button class="btn" onclick="openSettings()">⚙ Settings</button>
+    <button class="btn" onclick="openAddStock()" title="Add stock"><span class="btn-icon">+</span><span class="btn-label"> Add Stock</span></button>
+    <button class="btn" onclick="openSettings()" title="Settings"><span class="btn-icon">⚙</span><span class="btn-label"> Settings</span></button>
   </div>
 </div>
+<div id="mobile-menu-backdrop" onclick="closeMobileMenu()" aria-hidden="true"></div>
 
 <div id="layout">
   <aside id="sidebar">
@@ -11661,7 +11920,7 @@ function _timingForWatchlistRow(ticker) {
   }
 }
 function countByTimingBucket() {
-  const c = { BUY_NOW: 0, BUY_ON_DIP: 0, DCA: 0, WAIT: 0, CONFLICT: 0, SELL: 0, AVOID: 0, total: 0 };
+  const c = { BUY_NOW: 0, EARLY_RALLY: 0, BUY_ON_DIP: 0, DCA: 0, WAIT: 0, CONFLICT: 0, SELL: 0, AVOID: 0, total: 0 };
   for (const t of WATCHLIST) {
     const a = _timingForWatchlistRow(t);
     if (!a) continue;
@@ -11678,8 +11937,9 @@ function updateTimingFilterPills() {
   const pill = (key, label, full) => `<button class="vf-pill ${mode === key ? 'active' : ''}" onclick="setTimingFilter('${key}')" title="${full.replace(/"/g,'&quot;')}">${label} <b>${c[key]}</b></button>`;
   host.innerHTML = `
     <button class="vf-pill ${mode === null ? 'active' : ''}" onclick="setTimingFilter(null)" title="Show all tickers regardless of buy timing">All <b>${c.total}</b></button>
-    ${pill('BUY_NOW',    'Buy',  'Model expects positive 12M return AND conditions favour immediate entry')}
-    ${pill('BUY_ON_DIP', 'Dip',  'Strong forecast but the stock is overbought / stretched — wait for 5–10% pullback')}
+    ${pill('BUY_NOW',     'Buy',   'Model expects positive 12M return AND trend is intact (price above MA40, not overbought)')}
+    ${pill('EARLY_RALLY', 'Early', 'Ahead-of-rally setup — model forecasts a positive 12M return BUT price is still at/below MA40 and RSI < 65. Entry near trend support rather than chasing a breakout.')}
+    ${pill('BUY_ON_DIP',  'Dip',   'Strong forecast but the stock is overbought / stretched — wait for 5–10% pullback')}
     ${pill('DCA',        'DCA',  'Positive forecast but high volatility — average in over 4–8 weeks')}
     ${pill('WAIT',       'Wait', 'Flat forecast / mixed signals — no clear trigger yet')}
     ${pill('CONFLICT',   'Cnflct', 'Verdict BUY-tier but forecast bearish — two engines disagree, speculative only')}
@@ -12521,7 +12781,11 @@ function computeBuyTiming(bars, verdict, forecasts) {
     window = 'Wait for break above MA40 — typically 4–8 weeks';
     rationale = `Forecast is +${exp12.toFixed(1)}% (model expects a mean-reversion bounce), but recent action is bearish (1M ${monthChange >= 0 ? '+' : ''}${monthChange.toFixed(1)}%, 3M ${threeMoChange >= 0 ? '+' : ''}${threeMoChange.toFixed(1)}%) and verdict is HOLD. The forecast may be right, but timing-wise this is a falling knife — entering before the trend turns often catches more downside. Wait for a break above MA40 ($${fmt(ma40)}) or RSI > 55 before sizing up.`;
   } else if (exp12 >= 5 && !aboveMa40 && rsi < 65) {
-    action = 'BUY_NOW';
+    // User feedback 2026-05-19: "Ahead of rally should be its own filter pill
+    // in all tabs". Promoted from a flag on BUY_NOW to a distinct timing
+    // action so filters can target it independently. earlyRally flag kept
+    // for chip-styling backwards-compat.
+    action = 'EARLY_RALLY';
     label  = 'Buy now · Ahead of rally';
     window = 'Next 1–2 weeks';
     earlyRally = true;
@@ -12708,13 +12972,14 @@ function _renderSignalChipsRow(seasonality, analystMomentum, analystRecs, inside
 // Map each timing action to a compact icon (no emojis per project doctrine —
 // using Unicode geometric/math symbols).
 const _TIMING_ICONS = {
-  BUY_NOW:    '▲',
-  BUY_ON_DIP: '↘',
-  DCA:        '≡',
-  WAIT:       '◇',
-  CONFLICT:   '⚠',
-  SELL:       '▼',
-  AVOID:      '✕',
+  BUY_NOW:     '▲',
+  EARLY_RALLY: '◆',
+  BUY_ON_DIP:  '↘',
+  DCA:         '≡',
+  WAIT:        '◇',
+  CONFLICT:    '⚠',
+  SELL:        '▼',
+  AVOID:       '✕',
 };
 // Render the timing as a chip. `compact=true` for the watchlist row (icon +
 // short label only); `compact=false` for fuller surfaces (full label).
@@ -12722,24 +12987,24 @@ function renderTimingChip(timing, compact) {
   if (!timing) return '';
   const icon = _TIMING_ICONS[timing.action] || '·';
   const lbl = compact
-    ? (timing.action === 'BUY_NOW'    ? (timing.earlyRally ? 'Buy · Early' : 'Buy')
-     : timing.action === 'BUY_ON_DIP' ? 'Dip'
-     : timing.action === 'DCA'        ? 'DCA'
-     : timing.action === 'WAIT'       ? 'Wait'
-     : timing.action === 'AVOID'      ? 'Avoid'
+    ? (timing.action === 'EARLY_RALLY' ? 'Early'
+     : timing.action === 'BUY_NOW'     ? 'Buy'
+     : timing.action === 'BUY_ON_DIP'  ? 'Dip'
+     : timing.action === 'DCA'         ? 'DCA'
+     : timing.action === 'WAIT'        ? 'Wait'
+     : timing.action === 'AVOID'       ? 'Avoid'
      : '')
     : timing.label;
   // Strip HTML for the title attribute — tooltips show raw text only.
   const plainRationale = String(timing.rationale || '').replace(/<\/?[^>]+>/g, '');
   const tooltip = `${timing.label} · ${timing.window}\n\n${plainRationale}\n\nConfidence ${timing.confidence}%`;
-  // EARLY marker — appears ONLY on the BUY_NOW · price-still-at/below-MA40
-  // branch. The chip itself gets the .early-rally class so the chrome can
-  // pop (gradient border, soft glow) to make it scannable in a list.
-  const earlyMark = timing.earlyRally
-    ? `<span class="early-rally-mark" title="${tip('earlyRally')}">EARLY</span>`
-    : '';
-  return `<span class="timing-chip timing-${timing.action}${timing.earlyRally ? ' early-rally' : ''}" title="${tooltip.replace(/"/g,'&quot;')}">
-    <span class="timing-icon">${icon}</span>${lbl}${earlyMark}
+  // EARLY_RALLY is now its own action with its own icon + label ("◆ Early")
+  // — no longer need the separate "EARLY" badge that previously rode on top
+  // of the BUY_NOW chip. The compact label "Early" + EARLY_RALLY-specific
+  // chip class deliver the same scannability without the duplication that
+  // produced "Buy · Early EARLY" on the watchlist rows (defect 2026-05-19).
+  return `<span class="timing-chip timing-${timing.action}${timing.action === 'EARLY_RALLY' ? ' early-rally' : ''}" title="${tooltip.replace(/"/g,'&quot;')}">
+    <span class="timing-icon">${icon}</span>${lbl}
   </span>`;
 }
 
@@ -14555,14 +14820,15 @@ function _classifyTimingFromCache(m) {
 // Short label for the timing chip when shown as a stock attribute.
 function _timingShortLabel(action) {
   switch (action) {
-    case 'BUY_NOW':    return 'Buy now';
-    case 'BUY_ON_DIP': return 'On dip';
-    case 'DCA':        return 'DCA';
-    case 'WAIT':       return 'Wait';
-    case 'CONFLICT':   return 'Conflict';
-    case 'SELL':       return 'Sell';
-    case 'AVOID':      return 'Avoid';
-    default:           return '';
+    case 'BUY_NOW':     return 'Buy now';
+    case 'EARLY_RALLY': return 'Ahead of rally';
+    case 'BUY_ON_DIP':  return 'On dip';
+    case 'DCA':         return 'DCA';
+    case 'WAIT':        return 'Wait';
+    case 'CONFLICT':    return 'Conflict';
+    case 'SELL':        return 'Sell';
+    case 'AVOID':       return 'Avoid';
+    default:            return '';
   }
 }
 
@@ -14741,6 +15007,17 @@ const GOAL_DEFS = {
 
 function showView(view) {
   _currentView = view;
+  // Close the mobile drawer when switching tabs so the new view isn't
+  // hidden behind it...
+  closeMobileMenu();
+  // ...EXCEPT when landing on Watchlist with no ticker selected on a
+  // mobile-width viewport: there the sidebar IS the primary affordance,
+  // and the user has no other way to discover the watchlist (the empty
+  // state alone doesn't reveal that the hamburger holds the list).
+  // Auto-opening the drawer makes the page immediately usable.
+  if (view === 'watchlist' && !_selected && window.innerWidth <= 768) {
+    document.body.classList.add('menu-open');
+  }
   document.querySelectorAll('.tab').forEach(t => {
     const active = t.dataset.view === view;
     t.classList.toggle('active', active);
@@ -17956,8 +18233,9 @@ function _renderPicksTimingPills() {
   host.innerHTML = `
     <span class="picks-period-lbl" style="margin-right:8px;">Buy timing</span>
     <button class="picks-period-pill ${mode === null ? 'active' : ''}" onclick="setPicksTimingFilter(null)" title="Show all picks regardless of buy timing">All</button>
-    ${pill('BUY_NOW',    'Buy now',    'Show only picks where the model favours immediate entry')}
-    ${pill('BUY_ON_DIP', 'On dip',     'Show only picks that are stretched / overbought — wait for a pullback')}
+    ${pill('BUY_NOW',     'Buy now',        'Show only picks where the model favours immediate entry (trend confirmed, not stretched)')}
+    ${pill('EARLY_RALLY', 'Ahead of rally', 'Show only picks where the model has turned bullish BUT price is still at/below MA40 and RSI is not stretched — entry near trend support, not chasing a breakout')}
+    ${pill('BUY_ON_DIP',  'On dip',         'Show only picks that are stretched / overbought — wait for a pullback')}
     ${pill('DCA',        'DCA',        'Show only picks where high vol favours dollar-cost-averaging')}
     ${pill('WAIT',       'Wait',       'Show only picks with no clear entry trigger')}
     ${pill('CONFLICT',   'Conflict',   'Show only picks where verdict and forecast disagree — speculative')}
@@ -19363,16 +19641,41 @@ function selectTicker(t) {
   _selected = t;
   renderWatchlist($('search').value);
   renderMain();
+  // On mobile, close the sidebar drawer so the chart is visible.
+  closeMobileMenu();
+}
+
+// Mobile sidebar drawer (<=768px breakpoint). On desktop the sidebar
+// is always inline; these helpers are no-ops there because the CSS
+// only positions/animates the sidebar at the mobile breakpoint.
+function toggleMobileMenu() {
+  document.body.classList.toggle('menu-open');
+}
+function closeMobileMenu() {
+  document.body.classList.remove('menu-open');
 }
 
 function renderMain() {
   const root = $('content');
   if (!_selected || !_data[_selected]) {
     if (!_selected) {
-      root.innerHTML = `<div id="empty-state">
-        <div class="big">📈</div>
-        <div class="msg">Pick a stock from the watchlist or add one to begin.</div>
-      </div>`;
+      // Empty-state copy diverges by viewport — on phones the sidebar is
+      // an off-canvas drawer (invisible until tapped) so the desktop
+      // "from the watchlist" wording would point at something the user
+      // can't see. Give phone users an explicit "Open Watchlist" CTA
+      // that calls toggleMobileMenu() so the discoverability gap closes.
+      const isPhone = window.innerWidth <= 768;
+      root.innerHTML = isPhone
+        ? `<div id="empty-state">
+            <div class="big">📈</div>
+            <div class="msg">Tap below to open your watchlist and pick a stock.</div>
+            <button class="btn btn-primary" style="margin-top:14px; padding:10px 18px; font-size:14px;" onclick="toggleMobileMenu()">☰ Open Watchlist</button>
+            <div class="msg" style="margin-top:18px; font-size:11px; color:var(--muted);">Or use <b>+ Add Stock</b> in the top bar.</div>
+          </div>`
+        : `<div id="empty-state">
+            <div class="big">📈</div>
+            <div class="msg">Pick a stock from the watchlist or add one to begin.</div>
+          </div>`;
       return;
     }
     root.innerHTML = `<div id="empty-state"><div class="big">⏳</div><div class="msg">Loading ${_selected}…</div></div>`;
