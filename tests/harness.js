@@ -203,6 +203,7 @@ function loadApp() {
     // Sectors page tile rendering + filter state
     'renderTilesFromCache', 'selectGoal', '_sectorsFilters', '_currentGoal',
     'buildSectorsCache', '_applySectorsFilters', '_verdictTooltip',
+    'renderPickRow', 'renderTimingChip',
     // Sidebar toggle (topbar)
     '_applyTopbarSidebarToggle', 'toggleSidebar', '_isCockpitSidebarCollapsed',
     'LS_KEY_COCKPIT_SIDEBAR',

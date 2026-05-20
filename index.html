@@ -4393,6 +4393,44 @@ body { padding-bottom: 44px; }
   letter-spacing: .02em;
   vertical-align: middle;
 }
+.help-tag.muted {
+  background: var(--raised);
+  border-color: var(--line);
+  color: var(--dim);
+}
+
+/* Inline action button rendered inside AI-modal error messages — gives the
+   user a one-click escape from the dead-Gemini-key wall by enabling the
+   in-browser model and retrying. */
+.ai-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  background: linear-gradient(135deg, rgba(83,58,253,.18), rgba(191,90,242,.14));
+  border: 1px solid rgba(83,58,253,.55);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all .15s;
+}
+.ai-action-btn:hover {
+  background: linear-gradient(135deg, rgba(83,58,253,.32), rgba(191,90,242,.24));
+  border-color: rgb(191,90,242);
+}
+
+/* Inline note shown under the "Switching to in-browser model" loading line.
+   Explains why the dispatcher fell back so the user understands the wait. */
+.ai-fallback-note {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.45;
+  font-style: italic;
+}
 .ai-spin {
   display: inline-block;
   width: 14px;
@@ -12002,23 +12040,23 @@ body.menu-open #mobile-menu-backdrop { display: block; }
     </div>
     <div class="modal-body">
       <div class="modal-row">
-        <label for="api-key">Finnhub API key (primary)</label>
-        <input id="api-key" type="password" placeholder="Paste your Finnhub key for live data">
-        <div class="help-text">Free tier: 60 calls/min. Get a key at <a href="https://finnhub.io/register" target="_blank">finnhub.io/register</a>. Without a key, the app runs on synthetic data so you can explore the features.</div>
+        <label for="api-key">Finnhub API key</label>
+        <input id="api-key" type="password" placeholder="Paste your key — runs in DEMO mode without one">
+        <div class="help-text">Free 60 calls/min at <a href="https://finnhub.io/register" target="_blank">finnhub.io/register</a>.</div>
       </div>
       <div class="modal-row">
-        <label for="td-api-key">Twelve Data API key (optional · cross-check)</label>
-        <input id="td-api-key" type="password" placeholder="Paste your Twelve Data key for a second-source price">
-        <div class="help-text">If set, every stock you view fetches a second-source quote from Twelve Data and shows the delta vs Finnhub. Helps catch stale or anomalous data. Free tier: 800/day, 8/min — kept under the limit by caching cross-check prices for 60s. Get a key at <a href="https://twelvedata.com/register" target="_blank">twelvedata.com/register</a>.</div>
+        <label for="td-api-key">Twelve Data API key <span class="help-tag muted">optional · cross-check</span></label>
+        <input id="td-api-key" type="password" placeholder="Second-source price sanity check">
+        <div class="help-text">Free 800/day at <a href="https://twelvedata.com/register" target="_blank">twelvedata.com/register</a>.</div>
       </div>
       <div class="modal-row">
-        <label for="gemini-api-key">Google Gemini API key (optional · AI explanations)</label>
-        <input id="gemini-api-key" type="password" placeholder="Paste your Gemini key to unlock the AI features">
-        <div class="help-text">Powers the <b>Why this verdict?</b> narrator and the <b>Resolve conflict</b> panel on the ticker dashboard. Without a key those buttons stay hidden and the rest of the app is unchanged. <b>Free tier:</b> ~15 requests/min, 1M tokens/day, no credit card required. Get a key in 2 minutes at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>. Answers are cached per (ticker · day) to keep usage well under the free cap. If a deployment-wide key is baked into the source by the operator, the storage status below shows it as <i>inherited from deployment-wide baked key</i> — pasting a personal key here overrides that for this browser only.</div>
+        <label for="gemini-api-key">Google Gemini API key <span class="help-tag muted">optional · AI</span></label>
+        <input id="gemini-api-key" type="password" placeholder="Paste your Gemini key for AI explanations">
+        <div class="help-text">Powers <b>Why this verdict?</b> and <b>Resolve conflict</b>. Free at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> (~15/min, no card). Answers cached 24h per ticker.</div>
       </div>
       <div class="modal-row">
-        <label><input type="checkbox" id="local-llm-enabled"> In-browser LLM fallback <span class="help-tag">no key needed · ~400 MB one-time download</span></label>
-        <div class="help-text">When the Gemini key is missing, revoked, or rejected, fall back to a small instruct model (Qwen2.5-0.5B, ~400 MB Q4) that runs <b>entirely in your browser</b> via WebGPU when available. First activation downloads the model from a CDN; transformers.js caches it in your browser's IndexedDB so the second visit is instant. Quality is materially lower than Gemini Flash (it's a 500 M parameter model vs Gemini's billions) but the output is genuinely useful for the 3-4 sentence verdict explanation. <b>Cost:</b> $0/month. <b>Trade-off:</b> a few seconds of "Generating…" instead of Gemini's instant streaming. Toggle OFF if you'd rather see a clear "no key" error than wait for the local model.</div>
+        <label><input type="checkbox" id="local-llm-enabled"> In-browser LLM fallback <span class="help-tag">no key · ~400 MB once</span></label>
+        <div class="help-text">Falls back to a local Qwen2.5-0.5B model when Gemini is missing or revoked. First click downloads ~400 MB (cached forever). Lower quality than Gemini, but $0 and offline.</div>
       </div>
       <div class="modal-row">
         <label>Storage status</label>
@@ -12977,8 +13015,66 @@ let FINBERT_ENABLED = localStorage.getItem(LS_KEY_FINBERT) === '1';
 // downloads the model (~400 MB Q4-quantised, cached in IndexedDB so the
 // second visit is instant). WebGPU-accelerated when available, falls back
 // to WASM CPU on older browsers.
+//
+// 2026-05-20 "make Ask Gemini seamless" change:
+// Smart default — if the user has NEVER touched the checkbox AND has no
+// Gemini key reachable, default to ON so the AI features work out of the
+// box. If they HAVE a Gemini key, default to OFF (no need to pre-bias
+// toward a 400 MB download). Explicit '0' from Settings always wins so
+// the user can opt out.
 const LS_KEY_LOCAL_LLM = 'sp_local_llm_enabled';
-let LOCAL_LLM_ENABLED = localStorage.getItem(LS_KEY_LOCAL_LLM) === '1';
+function _defaultLocalLlmEnabled() {
+  const stored = localStorage.getItem(LS_KEY_LOCAL_LLM);
+  if (stored !== null) return stored === '1';
+  const hasGemini = !!(GEMINI_API_KEY && GEMINI_API_KEY.trim());
+  return !hasGemini;
+}
+let LOCAL_LLM_ENABLED = _defaultLocalLlmEnabled();
+
+// Dead-Gemini-key cache — when Google returns a terminal-key shape
+// ('leaked' / 'auth') we remember the fingerprint of THAT key value so
+// subsequent clicks within 24h skip the doomed Gemini round-trip entirely.
+// The cache survives page reload (persisted in localStorage) and is
+// scoped per key value, so pasting a fresh key clears its effect.
+const LS_KEY_GEMINI_DEAD = 'sp_gemini_dead_keys';
+const GEMINI_DEAD_TTL_MS = 24 * 60 * 60 * 1000;
+function _geminiKeyFingerprint(key) {
+  const s = String(key || '').trim();
+  if (!s) return '';
+  // Length + prefix6 + suffix4 is enough to disambiguate within a single
+  // user's lifetime without storing the full secret in the dead-list slot.
+  return s.length + ':' + s.slice(0, 6) + ':' + s.slice(-4);
+}
+function _isGeminiKeyDead(key) {
+  const fp = _geminiKeyFingerprint(key);
+  if (!fp) return false;
+  try {
+    const raw = localStorage.getItem(LS_KEY_GEMINI_DEAD);
+    if (!raw) return false;
+    const m = JSON.parse(raw) || {};
+    const entry = m[fp];
+    if (!entry) return false;
+    if (Date.now() - (entry.ts || 0) > GEMINI_DEAD_TTL_MS) {
+      delete m[fp];
+      try { localStorage.setItem(LS_KEY_GEMINI_DEAD, JSON.stringify(m)); } catch (e) {}
+      return false;
+    }
+    return true;
+  } catch (e) { return false; }
+}
+function _markGeminiKeyDead(key, reason) {
+  const fp = _geminiKeyFingerprint(key);
+  if (!fp) return;
+  try {
+    const raw = localStorage.getItem(LS_KEY_GEMINI_DEAD);
+    const m = (raw ? JSON.parse(raw) : null) || {};
+    m[fp] = { ts: Date.now(), reason: String(reason || '') };
+    localStorage.setItem(LS_KEY_GEMINI_DEAD, JSON.stringify(m));
+  } catch (e) { /* quota / private mode — non-fatal */ }
+}
+function _clearAllGeminiDeadCache() {
+  try { localStorage.removeItem(LS_KEY_GEMINI_DEAD); } catch (e) {}
+}
 let LAST_VERDICTS = JSON.parse(localStorage.getItem(LS_KEY_VERDICTS) || '{}');
 let SAVED_BUNDLES = loadBundles();
 let _lastBuiltPortfolio = null;
@@ -15059,32 +15155,52 @@ async function callLLM(prompt, opts) {
   }
   const promise = (async () => {
     try {
-      // Path 1: remote (Gemini) when a key is present. Falls back to local
-      // when Gemini returns 'leaked' / 'auth' (terminal-key shapes) AND the
-      // local-LLM toggle is on.
-      if (hasRemoteLLM()) {
+      // Skip Gemini if we already proved THIS key is dead (within 24h).
+      // Saves a doomed 1-2s network round-trip on every subsequent click
+      // until either (a) the key value changes (paste a new one) or (b)
+      // the cache entry ages out.
+      const remoteUsable = hasRemoteLLM() && !_isGeminiKeyDead(GEMINI_API_KEY);
+      // Path 1: remote (Gemini) when a key is present and not known-dead.
+      if (remoteUsable) {
         const remote = await _callGeminiLLM(prompt, opts);
         if (remote.ok) {
           if (cacheKey) _llmCacheSet(cacheKey, remote.text);
           return remote;
         }
-        // Fall back to local LLM ONLY on terminal-key errors. Don't fall
-        // back on 'rate_limit' (caller should retry) or 'network' (likely
-        // transient) — those would mask a recoverable issue.
+        // 'leaked' and 'auth' are TERMINAL — the key cannot be saved by
+        // waiting. Mark dead so future calls skip Gemini, AND if the user
+        // has not explicitly disabled the in-browser fallback, auto-enable
+        // it so the fallback fires on this same call. This is what makes
+        // the experience seamless: one click recovers from a dead key.
         const terminal = remote.error === 'leaked' || remote.error === 'auth';
+        if (terminal) {
+          _markGeminiKeyDead(GEMINI_API_KEY, remote.error);
+          if (localStorage.getItem(LS_KEY_LOCAL_LLM) !== '0' && !LOCAL_LLM_ENABLED) {
+            // Promote in memory + persist so the Settings checkbox reflects
+            // the new state and renderKeyStorageStatus shows the local row.
+            LOCAL_LLM_ENABLED = true;
+            try { localStorage.setItem(LS_KEY_LOCAL_LLM, '1'); } catch (e) {}
+          }
+        }
         if (terminal && LOCAL_LLM_ENABLED) {
+          // Tell the caller we're switching before callLocalLLM starts —
+          // the modal handler uses this to swap "Asking Gemini..." for
+          // "Switching to in-browser model..." instantly.
+          if (typeof opts.onFallback === 'function') {
+            try { opts.onFallback(remote.error); } catch (e) {}
+          }
           const local = await callLocalLLM(prompt, opts);
           if (local.ok) {
             if (cacheKey) _llmCacheSet(cacheKey, local.text);
-            // Attach the original remote error so the UI can surface a
-            // "Gemini key X — using local model instead" disclosure.
             return { ...local, fellBackFrom: remote.error };
           }
           return local;
         }
         return remote;
       }
-      // Path 2: no remote key but local is enabled.
+      // Path 2: no remote key (or the saved one is known-dead) but local
+      // is enabled. Most fresh visitors with no key land here directly
+      // thanks to the smart default in _defaultLocalLlmEnabled.
       if (LOCAL_LLM_ENABLED) {
         const local = await callLocalLLM(prompt, opts);
         if (local.ok && cacheKey) _llmCacheSet(cacheKey, local.text);
@@ -15400,7 +15516,8 @@ async function whyVerdict(ticker) {
     if (body) body.innerHTML = `<div class="ai-body">${_renderLLMMarkdown(txt)}<span class="ai-cursor"></span></div>`;
   };
   const onProgress = (info) => _renderLocalLlmProgress(info, ticker);
-  const out = await callLLM(_aiPromptForVerdict(ctx), { cacheKey, maxTokens: 250, onChunk: renderPartial, onProgress });
+  const onFallback = (reason) => _renderFallbackSwitch(reason, ticker, ctx);
+  const out = await callLLM(_aiPromptForVerdict(ctx), { cacheKey, maxTokens: 250, onChunk: renderPartial, onProgress, onFallback });
   const modal = document.getElementById('ai-modal');
   if (!modal || modal.classList.contains('hidden')) return;
   if (_selected !== ticker) return;
@@ -15450,7 +15567,8 @@ async function resolveConflict(ticker) {
     if (body) body.innerHTML = `<div class="ai-body">${_renderLLMMarkdown(txt)}<span class="ai-cursor"></span></div>`;
   };
   const onProgress = (info) => _renderLocalLlmProgress(info, ticker);
-  const out = await callLLM(_aiPromptForConflict(ctx), { cacheKey, maxTokens: 300, onChunk: renderPartial, onProgress });
+  const onFallback = (reason) => _renderFallbackSwitch(reason, ticker, ctx);
+  const out = await callLLM(_aiPromptForConflict(ctx), { cacheKey, maxTokens: 300, onChunk: renderPartial, onProgress, onFallback });
   const modal = document.getElementById('ai-modal');
   if (!modal || modal.classList.contains('hidden')) return;
   if (_selected !== ticker) return;
@@ -15479,6 +15597,45 @@ function _aiSourceTag(out) {
     return `<span class="ai-src" title="Local in-browser model (Qwen2.5-0.5B-Instruct). Runs entirely in your browser via transformers.js + WebGPU when available. Quality lower than Gemini but $0 / no key. ~400 MB cached in IndexedDB.">Local · Qwen2.5-0.5B${fellBack}</span>`;
   }
   return `<span class="ai-src" title="Live Gemini 2.0 Flash response, streamed. Cached locally for the next 24h.">Gemini 2.0 Flash</span>`;
+}
+
+// Modal-text swap fired by callLLM when it falls back from Gemini → local.
+// Without this the modal would keep saying "Asking Gemini..." while the
+// local model loads (which can take seconds), confusing the user. The
+// swap to "Switching to in-browser model..." makes the transition visible.
+function _renderFallbackSwitch(reason, ticker, ctx) {
+  if (_selected !== ticker) return;
+  const m = document.getElementById('ai-modal');
+  if (!m || m.classList.contains('hidden')) return;
+  const body = document.getElementById('ai-modal-body');
+  if (!body) return;
+  const reasonLabel = reason === 'leaked' ? 'is disabled by Google'
+                    : reason === 'auth'   ? 'was rejected'
+                    : `errored (${reason})`;
+  body.innerHTML = `
+    <div class="ai-loading"><span class="ai-spin"></span> Gemini key ${reasonLabel} — <b>switching to in-browser model</b> automatically.</div>
+    <div class="ai-fallback-note">First run downloads ~400 MB (cached forever). The next click on any ticker will skip Gemini and go straight here.</div>
+    <div class="ai-progress-host"></div>`;
+}
+
+// Inline "Switch to in-browser model & retry" button rendered inside the
+// leaked/auth error message. Only matters when the user has explicitly
+// disabled the local-LLM fallback in Settings — otherwise callLLM's
+// auto-promote logic already enables it before they see the error.
+function _enableLocalAndRetry() {
+  LOCAL_LLM_ENABLED = true;
+  try { localStorage.setItem(LS_KEY_LOCAL_LLM, '1'); } catch (e) {}
+  // Decide which handler to retry by reading the modal title — both
+  // handlers prefix the title distinctively. Falls through to a generic
+  // close if neither pattern matches (defensive).
+  const title = ((document.getElementById('ai-modal-title') || {}).textContent || '');
+  closeAIModal();
+  if (!_selected) return;
+  if (/^Resolving the conflict/i.test(title)) {
+    resolveConflict(_selected);
+  } else {
+    whyVerdict(_selected);
+  }
 }
 
 // Render transformers.js model-load progress events into a small inline bar
@@ -15512,9 +15669,15 @@ function _renderLocalLlmProgress(info, ticker) {
 
 function _aiErrorMsg(out) {
   const link = `<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>`;
-  if (out.error === 'no_key')            return `Add a Gemini key in <b>⚙ Settings</b> to enable this — or tick the <b>in-browser LLM fallback</b> checkbox to run a local model with no key. Free Gemini key at ${link}.`;
-  if (out.error === 'leaked')            return `<b style="color:var(--bear)">This Gemini key is disabled.</b> Google's secret-scanner revokes API keys it finds in public source code or quota is set to zero, so the response says <i>"reported as leaked"</i> or <i>"limit: 0"</i>. Waiting will not fix it — open <b>⚙ Settings</b> and paste your own Gemini key from ${link} (free, no card, 2-minute setup), <i>or</i> tick the in-browser LLM fallback to skip keys entirely. Your personal key stays in this browser only.`;
-  if (out.error === 'auth')              return `<b style="color:var(--bear)">Gemini key rejected (HTTP 401/403).</b> Open <b>⚙ Settings</b> and paste a fresh key from ${link}.`;
+  // Inline one-click escape from terminal-key errors. Only meaningful when
+  // LOCAL_LLM_ENABLED is FALSE (otherwise callLLM already auto-fell-back
+  // and the user never sees a leaked/auth error in the first place).
+  const switchBtn = !LOCAL_LLM_ENABLED
+    ? `<div style="margin-top:14px"><button class="ai-action-btn" onclick="_enableLocalAndRetry()">✦ Switch to in-browser model &amp; retry</button></div>`
+    : '';
+  if (out.error === 'no_key')            return `Add a Gemini key in <b>⚙ Settings</b> to enable this — or tick the <b>in-browser LLM fallback</b> checkbox to run a local model with no key. Free Gemini key at ${link}.${switchBtn}`;
+  if (out.error === 'leaked')            return `<b style="color:var(--bear)">This Gemini key is disabled.</b> Google's secret-scanner revokes API keys it finds in public source code or quota is set to zero, so the response says <i>"reported as leaked"</i> or <i>"limit: 0"</i>. Waiting will not fix it — paste a fresh key in <b>⚙ Settings</b> from ${link} (free, 2 minutes) <i>or</i> use the button below to switch to the in-browser model.${switchBtn}`;
+  if (out.error === 'auth')              return `<b style="color:var(--bear)">Gemini key rejected (HTTP 401/403).</b> Open <b>⚙ Settings</b> and paste a fresh key from ${link}.${switchBtn}`;
   if (out.error === 'rate_limit')        return `Gemini free-tier rate limit hit (~15/min). Wait a minute and click again — cached answers stay free.`;
   if (out.error === 'blocked')           return `Gemini's safety filter blocked the response${out.detail ? ` (${_escapeHtml(out.detail)})` : ''}. Try again — usually transient on financial prompts.`;
   if (out.error === 'empty')             return `${out.source === 'local' ? 'Local model' : 'Gemini'} returned no answer. Try again.`;
@@ -20274,22 +20437,22 @@ function renderPickRow(m, rank) {
         </div>`;
       })() : ''}
       ${(() => {
-        const primary = m.forecasts.find(f => f.months === 12) || m.forecasts[0];
-        const others  = m.forecasts.filter(f => f !== primary);
+        // All horizons render inline as equal cells. The grid is 4 columns
+        // (history + 12M + 24M + 36M) — DOM and CSS contract match. Earlier
+        // implementation used a <details>+summary disclosure that stacked 24M
+        // and 36M vertically inside a single grid column, producing the
+        // asymmetric layout RCA-2026-05-20 fixed.
+        const sorted = [...m.forecasts].sort((a, b) => a.months - b.months);
         const fcCell = (f) => {
           const fdir = f.expReturn >= 0 ? 'up' : 'down';
           const tipKey = f.months === 12 ? 'forecast12' : f.months === 24 ? 'forecast24' : 'forecast36';
-          return `<div class="pick-fc" title="${tip(tipKey)}\n\n— Confidence —\n${tip('confidence')}" style="cursor:help">
+          return `<div class="pick-fc" title="${tip(tipKey)}\n\nConfidence ${f.confidence}% — ${tip('confidence')}" style="cursor:help">
             <div class="pick-fc-h">${f.months}-Month</div>
             <div class="pick-fc-pct ${fdir}">${f.expReturn >= 0 ? '+' : ''}${f.expReturn.toFixed(1)}%</div>
             <div class="pick-fc-px">→ $${fmt(f.expPrice)}</div>
-            <div class="pick-fc-conf"><div class="bar"><div class="fill" style="width:${f.confidence}%"></div></div><span>${f.confidence}%</span></div>
           </div>`;
         };
-        const longer = others.length
-          ? `<details class="pick-fc-longer" onclick="event.stopPropagation()"><summary>+${others.length} longer ▾</summary><div class="pick-fc-longer-row">${others.map(fcCell).join('')}</div></details>`
-          : '';
-        return fcCell(primary) + longer;
+        return sorted.map(fcCell).join('');
       })()}
     </div>
   </div>`;
@@ -22181,74 +22344,69 @@ function renderKeyStorageStatus() {
   const tdSrc  = keySourceFor(LS_KEY_TD,     LS_KEY_TD_BACKUP);
   const gemSrc = keySourceFor(LS_KEY_GEMINI, LS_KEY_GEMINI_BACKUP);
   const lines = [];
-  // Finnhub status
+  // Finnhub
   if (fhSrc === 'baked' && !s.finnhub.has) {
-    lines.push(`<span style="color:var(--accent)">⊕ Finnhub key inherited from <b>deployment-wide</b> baked key (operator-provided · shared across all visitors)</span>`);
+    lines.push(`<span style="color:var(--accent)">⊕ Finnhub · baked (shared)</span>`);
   } else if (s.finnhub.has && s.finnhub.hasBackup && s.finnhub.inSync) {
-    lines.push(`<span style="color:var(--bull)">✓ Finnhub key saved on this browser (primary + backup, in sync)${_bakedKeyFor(LS_KEY_API) ? ' — overrides the deployment-wide baked key' : ''}</span>`);
+    lines.push(`<span style="color:var(--bull)">✓ Finnhub · live</span>`);
   } else if (s.finnhub.has) {
-    lines.push(`<span style="color:var(--warn)">⚠ Finnhub key saved on this browser but backup is out of sync — click Save to re-sync</span>`);
+    lines.push(`<span style="color:var(--warn)">⚠ Finnhub · backup out of sync — click Save</span>`);
   } else {
-    lines.push(`<span style="color:var(--muted)">○ Finnhub key not set (app runs in DEMO mode)</span>`);
+    lines.push(`<span style="color:var(--muted)">○ Finnhub not set · DEMO mode</span>`);
   }
-  // Twelve Data status
+  // Twelve Data
   if (tdSrc === 'baked' && !s.td.has) {
-    lines.push(`<span style="color:var(--accent)">⊕ Twelve Data key inherited from <b>deployment-wide</b> baked key (operator-provided · shared across all visitors)</span>`);
+    lines.push(`<span style="color:var(--accent)">⊕ Twelve Data · baked (shared)</span>`);
   } else if (s.td.has && s.td.hasBackup && s.td.inSync) {
-    lines.push(`<span style="color:var(--bull)">✓ Twelve Data key saved on this browser (primary + backup, in sync)${_bakedKeyFor(LS_KEY_TD) ? ' — overrides the deployment-wide baked key' : ''}</span>`);
+    lines.push(`<span style="color:var(--bull)">✓ Twelve Data · cross-check on</span>`);
   } else if (s.td.has) {
-    lines.push(`<span style="color:var(--warn)">⚠ Twelve Data key saved on this browser but backup is out of sync — click Save to re-sync</span>`);
+    lines.push(`<span style="color:var(--warn)">⚠ Twelve Data · backup out of sync — click Save</span>`);
   } else {
-    lines.push(`<span style="color:var(--muted)">○ Twelve Data key not set (no cross-check)</span>`);
+    lines.push(`<span style="color:var(--muted)">○ Twelve Data not set</span>`);
   }
-  // Gemini status — mirror Finnhub/Twelve Data: surface the baked
-  // deployment-wide inheritance branch so visitors with no personal
-  // key see whether AI features are still enabled via the operator's
-  // baked key.
+  // Gemini
   if (gemSrc === 'baked' && !s.gemini.has) {
-    lines.push(`<span style="color:var(--accent)">⊕ Gemini key inherited from <b>deployment-wide</b> baked key (operator-provided · shared across all visitors · AI features enabled)</span>`);
+    lines.push(`<span style="color:var(--accent)">⊕ Gemini · baked (shared) · AI on</span>`);
   } else if (s.gemini.has && s.gemini.hasBackup && s.gemini.inSync) {
-    lines.push(`<span style="color:var(--bull)">✓ Gemini key saved on this browser (primary + backup, in sync)${_bakedKeyFor(LS_KEY_GEMINI) ? ' — overrides the deployment-wide baked key' : ' — AI features enabled'}</span>`);
+    lines.push(`<span style="color:var(--bull)">✓ Gemini · AI on</span>`);
   } else if (s.gemini.has) {
-    lines.push(`<span style="color:var(--warn)">⚠ Gemini key saved on this browser but backup is out of sync — click Save to re-sync</span>`);
+    lines.push(`<span style="color:var(--warn)">⚠ Gemini · backup out of sync — click Save</span>`);
   } else if (LOCAL_LLM_ENABLED) {
-    lines.push(`<span style="color:var(--muted)">○ Gemini key not set — using <b>in-browser LLM fallback</b> instead (slower, ~400 MB cached)</span>`);
+    lines.push(`<span style="color:var(--muted)">○ Gemini not set · using in-browser model</span>`);
   } else {
-    lines.push(`<span style="color:var(--muted)">○ Gemini key not set (AI features hidden — the rest of the app is unaffected). Tick the in-browser LLM fallback above for a no-key option.</span>`);
+    lines.push(`<span style="color:var(--muted)">○ Gemini not set · AI off</span>`);
   }
-  // In-browser LLM status — only surface when ENABLED, otherwise the line
-  // is noise (the rest of the app behaves identically).
+  // In-browser LLM — only surface when ON.
   if (LOCAL_LLM_ENABLED) {
     const ready = (typeof _localLlmReady === 'function') ? _localLlmReady() : false;
-    if (ready) {
-      lines.push(`<span style="color:var(--bull)">✓ In-browser LLM ready (Qwen2.5-0.5B-Instruct, cached in IndexedDB)</span>`);
-    } else {
-      lines.push(`<span style="color:var(--accent)">⊕ In-browser LLM enabled — first click of "Why this verdict?" will download ~400 MB (one-time, cached forever)</span>`);
-    }
+    lines.push(ready
+      ? `<span style="color:var(--bull)">✓ In-browser model · ready</span>`
+      : `<span style="color:var(--accent)">⊕ In-browser model · downloads ~400 MB on first use</span>`);
   }
+  const fmtAgo = (ms) => {
+    const ago = Math.floor(ms / 1000);
+    if (ago < 60) return `${ago}s`;
+    if (ago < 3600) return `${Math.floor(ago/60)}m`;
+    if (ago < 86400) return `${Math.floor(ago/3600)}h`;
+    return `${Math.floor(ago/86400)}d`;
+  };
   if (s.savedAt > 0) {
-    const ago = Math.floor((Date.now() - s.savedAt) / 1000);
-    const fmt = ago < 60 ? `${ago}s ago` : ago < 3600 ? `${Math.floor(ago/60)}m ago` : ago < 86400 ? `${Math.floor(ago/3600)}h ago` : `${Math.floor(ago/86400)}d ago`;
-    lines.push(`<span style="color:var(--dim)">Keys last saved: ${fmt}</span>`);
+    lines.push(`<span style="color:var(--dim)">Keys saved ${fmtAgo(Date.now() - s.savedAt)} ago</span>`);
   }
-  // User-data persistence (watchlist / favorites / sim set / bundles) — every
-  // list now uses the same primary+backup pattern as the API keys.
+  // User data — only flag what's anomalous; clean state stays silent.
   const d = dataStorageStatus();
   const row = (label, p, count) => {
-    if (p.has && p.hasBackup && p.inSync) return `<span style="color:var(--bull)">✓ ${label} (${count}) — saved + mirrored</span>`;
-    if (p.has) return `<span style="color:var(--warn)">⚠ ${label} (${count}) — backup out of sync</span>`;
-    return `<span style="color:var(--muted)">○ ${label} (empty)</span>`;
+    if (p.has && p.hasBackup && p.inSync) return `<span style="color:var(--bull)">✓ ${label} ${count}</span>`;
+    if (p.has) return `<span style="color:var(--warn)">⚠ ${label} ${count} · backup off</span>`;
+    return `<span style="color:var(--muted)">○ ${label} 0</span>`;
   };
   lines.push(row('Watchlist', d.watchlist, Array.isArray(WATCHLIST) ? WATCHLIST.length : 0));
   lines.push(row('Favorites', d.favorites, FAVORITES.size));
   lines.push(row('Sim Set',  d.simSet,    SIM_SET.size));
   lines.push(row('Bundles',  d.bundles,   Array.isArray(SAVED_BUNDLES) ? SAVED_BUNDLES.length : 0));
   if (d.savedAt > 0) {
-    const ago2 = Math.floor((Date.now() - d.savedAt) / 1000);
-    const fmt2 = ago2 < 60 ? `${ago2}s ago` : ago2 < 3600 ? `${Math.floor(ago2/60)}m ago` : ago2 < 86400 ? `${Math.floor(ago2/3600)}h ago` : `${Math.floor(ago2/86400)}d ago`;
-    lines.push(`<span style="color:var(--dim)">Data last saved: ${fmt2}</span>`);
+    lines.push(`<span style="color:var(--dim)">Data saved ${fmtAgo(Date.now() - d.savedAt)} ago · per-origin · Export to migrate</span>`);
   }
-  lines.push(`<span style="color:var(--dim); font-style:italic;">Everything lives in localStorage at this URL's origin. localStorage is per-origin — moving the app to a new domain starts with empty storage. Use Export all data → Import data to migrate.</span>`);
   host.innerHTML = lines.join('<br>');
 }
 
@@ -22436,6 +22594,11 @@ async function saveSettings() {
   API_KEY = newKey;
   TD_API_KEY = newTdKey;
   GEMINI_API_KEY = newGemKey;
+  // When the user pastes a different Gemini key, forget the dead-key cache —
+  // the new key value deserves a fresh attempt. (Keeping the cache would
+  // cause callLLM to silently skip the new key if its fingerprint happened
+  // to be in the stale dead-list, though that's astronomically unlikely.)
+  if (gemKeyChanged) _clearAllGeminiDeadCache();
   const localLlmChanged = newLocalLlm !== LOCAL_LLM_ENABLED;
   LOCAL_LLM_ENABLED = newLocalLlm;
   try { localStorage.setItem(LS_KEY_LOCAL_LLM, LOCAL_LLM_ENABLED ? '1' : '0'); } catch (e) {}
