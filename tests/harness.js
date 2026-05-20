@@ -187,6 +187,11 @@ function loadApp() {
     // Pure math
     'computeVerdict', 'computeRiskMetrics', 'computeBeta', 'computeHHI',
     'buildForecast', 'computeBuyTiming', 'posNegFor', 'hhiLabel',
+    // Buy-timing alerts (2026-05-20)
+    'detectTimingAlerts', 'notifyTimingChanges', '_timingFromBundle',
+    'LAST_TIMINGS', 'BUY_ALERTS_ON',
+    'LS_KEY_BUY_ALERTS', 'LS_KEY_TIMINGS',
+    '_BUY_TIER_ACTIONS', '_BUY_ACTION_LABELS',
     // Data
     '_TOP_13F_INVESTORS', 'STRATEGY_DEFS', 'STOCK_CATALOG', 'ETF_ROLES',
     // Stubbable hooks
