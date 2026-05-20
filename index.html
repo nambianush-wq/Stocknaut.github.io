@@ -14762,6 +14762,11 @@ document.addEventListener('keydown', (e) => {
 
 async function whyVerdict(ticker) {
   ticker = ticker || _selected;
+  // Diagnostic breadcrumb — if user reports "click does nothing" but this log
+  // does appear in DevTools, we know the click DID fire and the failure is
+  // downstream (modal not rendering, network error). If the log doesn't appear,
+  // the click never fired (cached old JS, JS error elsewhere, etc.).
+  try { console.log('[StockPulse] whyVerdict click:', ticker, 'hasLLM=', hasLLM()); } catch (e) {}
   if (!hasLLM()) {
     _aiModalShow('AI explanations require a key',
       `<div class="ai-empty">Add a Google Gemini key in <b>⚙ Settings</b> to unlock AI explanations. Free tier — no credit card required at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</div>`,
@@ -14775,6 +14780,11 @@ async function whyVerdict(ticker) {
       '');
     return;
   }
+  // Visible safety net — a toast confirms the click was registered even if
+  // the modal fails to render for any reason (CSS regression, modal element
+  // missing from DOM, etc.). Easier than asking a non-technical user to open
+  // DevTools.
+  try { showToast({ title: '✦ Asking Gemini…', body: `${ticker} · ${ctx.v.label}`, type: 'info' }); } catch (e) {}
   _aiModalShow(`Why ${ticker} reads as ${ctx.v.label}`,
     `<div class="ai-loading"><span class="ai-spin"></span> Asking Gemini why ${ticker} is rated <b>${ctx.v.label}</b>…</div>`,
     '');
@@ -14800,6 +14810,7 @@ async function whyVerdict(ticker) {
 
 async function resolveConflict(ticker) {
   ticker = ticker || _selected;
+  try { console.log('[StockPulse] resolveConflict click:', ticker, 'hasLLM=', hasLLM()); } catch (e) {}
   if (!hasLLM()) {
     _aiModalShow('AI explanations require a key',
       `<div class="ai-empty">Add a Google Gemini key in <b>⚙ Settings</b> to get a concrete conflict-resolution suggestion.</div>`,
@@ -14813,6 +14824,7 @@ async function resolveConflict(ticker) {
       '');
     return;
   }
+  try { showToast({ title: '✦ Asking Gemini…', body: `${ticker} · resolving CONFLICT`, type: 'info' }); } catch (e) {}
   _aiModalShow(`Resolving the conflict on ${ticker}`,
     `<div class="ai-loading"><span class="ai-spin"></span> Asking Gemini how to resolve the CONFLICT on ${ticker}…</div>`,
     '');
