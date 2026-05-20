@@ -38,16 +38,38 @@ StockPulse has two on-demand Gemini-powered surfaces on the ticker dashboard:
 **Both gated on `hasLLM()`** — when no Gemini key is present (neither local nor baked), buttons hide and the app behaves identically.
 
 **Key code anchors:**
-- `callLLM(prompt, opts)` — provider-agnostic helper, currently talks to `gemini-2.5-flash` via v1beta REST. Returns `{ok, text, error}`. Single seam for future provider swaps / in-browser fallback.
+- `callLLM(prompt, opts)` — provider-agnostic helper, currently talks to `gemini-2.0-flash` via v1beta REST with SSE streaming when `opts.onChunk` is set. Returns `{ok, text, error}`. Single seam for future provider swaps / in-browser fallback.
 - `_aiContextSnapshot(ticker)` — compact factual block (verdict + signals + 12M forecast + timing + last 5 headlines) consumed by both prompt builders.
 - `_aiPromptForVerdict(ctx)` / `_aiPromptForConflict(ctx)` — prompt templates. One place to audit / iterate prompt wording.
-- `whyVerdict(ticker)` / `resolveConflict(ticker)` — UI handlers wired via inline `onclick=`.
+- `whyVerdict(ticker)` / `resolveConflict(ticker)` — UI handlers wired via inline `onclick=`. Render into a body-level `#ai-modal` so they survive `renderMain()` re-paints from async fetch completions.
 - TIP dictionary entries `whyVerdict` + `resolveConflict` carry the layman-language tooltips.
-- `_SP_BAKED_KEYS.gemini` — deployment-wide baked key (same model as Finnhub / Twelve Data).
-- `LS_KEY_GEMINI` + `LS_KEY_GEMINI_BACKUP` — dual-slot per-browser persistence.
+- `_SP_BAKED_KEYS.gemini` — kept empty intentionally. See "Why Gemini cannot be baked publicly" below.
+- `LS_KEY_GEMINI` + `LS_KEY_GEMINI_BACKUP` — dual-slot per-browser persistence (personal keys, safe — stay local).
 - 24h per-`(ticker · day · verdict-score)` localStorage cache (`sp_llm_cache:` prefix) — repeat clicks cost zero tokens.
 
 **Commit history note (search-aid):** the AI module was inadvertently bundled into commit `0e5e06c` ("RCA: Sidebar-toggle tooltip stale-state") because the parallel sidebar-tooltip fix was committed via `git commit -a` while the AI work was uncommitted in the working tree. The follow-up commit `19a9efa` ("AI features: ...") added only the baked Gemini key + status-display parity, hence its small diff. `git log -S 'function callLLM' -- index.html` is the reliable way to find when the module landed.
+
+---
+
+## Why Gemini CANNOT be baked publicly (2026-05-19 RCA)
+
+**Rule:** `_SP_BAKED_KEYS.gemini` MUST stay empty. Personal keys go in Settings only.
+
+**Incident:** a baked Gemini API key was committed (`19a9efa`) and pushed to both public remotes. Within ~30 minutes Google's secret-scanner detected it on the public GitHub repo + Pages URL and revoked it. The user's very first click of "Why this verdict?" hit a 429 with `"limit: 0, model: gemini-2.0-flash"`; the same key returned 403 `"Your API key was reported as leaked"` on other Gemini models. The UI mis-classified the 429 as a transient rate-limit and told the user "wait a minute and try again" — which would never have helped because the key was permanently disabled.
+
+**Root reason this is different from Finnhub / Twelve Data:**
+Google actively scans public source-code platforms (GitHub, GitHub Pages, npm, pastebin) for API keys and automatically revokes any it finds. Finnhub and Twelve Data don't do this — they tolerate publicly-baked keys because their abuse profile is "burn through a free-tier quota of stock quotes", which is uninteresting. Gemini's abuse profile is "burn through someone's LLM token budget", which is **attractive enough that Google built a scanner**. Any LLM provider's key has the same property.
+
+**Cost of recovery:**
+- The leaked key is in commit history forever, even after deletion. Anyone running `git log -p` can read it.
+- The user must **rotate the key** at https://aistudio.google.com/apikey — delete the leaked one, generate a new one.
+- The new key MUST be pasted into Settings, never into source.
+
+**Code-level guards in place:**
+1. The `gemini:` slot in `_SP_BAKED_KEYS` has an inline `// DO NOT BAKE` comment with a pointer back to this section.
+2. `callLLM` now classifies `429 + "limit: 0"` and `403 + "reported as leaked"` as a distinct `'leaked'` error type so the UI tells the user "this key is disabled, paste your own" instead of "wait a minute" (`_aiErrorMsg`).
+
+**Future LLM providers**: when adding Anthropic / Groq / OpenRouter / etc., the same rule applies — the corresponding baked-key slot must stay empty and users must BYO. Document the rule in this section if a new provider lands.
 
 ---
 
