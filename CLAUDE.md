@@ -28,48 +28,56 @@ The `stocknaut` remote was originally set up as a force-push (the destination re
 
 ---
 
-## AI features — where they live (2026-05-19)
+## AI features — where they live (2026-05-19, Gemini removed 2026-05-20)
 
-StockPulse has two on-demand Gemini-powered surfaces on the ticker dashboard:
+StockPulse has two on-demand Groq-powered surfaces on the ticker dashboard:
 
 - **"✦ Why this verdict?"** button in the verdict card → narrates the heat-score signals + recent news in plain English (3-4 sentences).
 - **"✦ Resolve this conflict"** button under the timing card, shown only when `computeBuyTiming()` returns `CONFLICT` → suggests a concrete posture (DCA / wait / skip).
 
-**Both gated on `hasLLM()`** — when no Gemini key is present (neither local nor baked), buttons hide and the app behaves identically.
+**Both gated on `hasLLM()`** — when no Groq key is present and the in-browser fallback isn't enabled, buttons hide and the app behaves identically.
+
+**Provider chain (callLLM dispatcher):** `cache → Groq → in-browser local (Qwen2.5-0.5B)`
+
+Gemini was added 2026-05-19, repeatedly hit key-revocation issues (the public-Pages URL got Google's secret-scanner to revoke any baked key within minutes; even personal keys ran into project-quota=0 once Google flagged a project), and was removed entirely 2026-05-20. Groq fills the same niche with sub-second responses, higher RPM, and Llama 3.3 70B quality.
 
 **Key code anchors:**
-- `callLLM(prompt, opts)` — provider-agnostic helper, currently talks to `gemini-2.0-flash` via v1beta REST with SSE streaming when `opts.onChunk` is set. Returns `{ok, text, error}`. Single seam for future provider swaps / in-browser fallback.
+- `callLLM(prompt, opts)` — provider-agnostic dispatcher. Tries Groq if a key is set and not dead-cached, falls back to local. Returns `{ok, text, error}`. The provider chain is built per-call so adding a new provider is one line.
+- `_callGroqLLM(prompt, opts)` — Groq endpoint (`api.groq.com/openai/v1/chat/completions`, OpenAI-compatible). Streams via standard SSE `data: {...}\n\n` chunks with `choices[0].delta.content`.
+- `callLocalLLM(prompt, opts)` — transformers.js + Qwen2.5-0.5B-Instruct, lazy-loaded on first use (~400 MB, cached in IndexedDB forever).
 - `_aiContextSnapshot(ticker)` — compact factual block (verdict + signals + 12M forecast + timing + last 5 headlines) consumed by both prompt builders.
 - `_aiPromptForVerdict(ctx)` / `_aiPromptForConflict(ctx)` — prompt templates. One place to audit / iterate prompt wording.
 - `whyVerdict(ticker)` / `resolveConflict(ticker)` — UI handlers wired via inline `onclick=`. Render into a body-level `#ai-modal` so they survive `renderMain()` re-paints from async fetch completions.
 - TIP dictionary entries `whyVerdict` + `resolveConflict` carry the layman-language tooltips.
-- `_SP_BAKED_KEYS.gemini` — kept empty intentionally. See "Why Gemini cannot be baked publicly" below.
-- `LS_KEY_GEMINI` + `LS_KEY_GEMINI_BACKUP` — dual-slot per-browser persistence (personal keys, safe — stay local).
+- `_SP_BAKED_KEYS` — must NOT carry any LLM provider slot. See "Why LLM keys cannot be baked publicly" below.
+- `LS_KEY_GROQ` + `LS_KEY_GROQ_BACKUP` — dual-slot per-browser persistence (personal keys, safe — stay local).
+- `LS_KEY_GEMINI` + `LS_KEY_GEMINI_BACKUP` — legacy slots, kept declared so import paths for old backups don't crash. No active read or write.
 - 24h per-`(ticker · day · verdict-score)` localStorage cache (`sp_llm_cache:` prefix) — repeat clicks cost zero tokens.
+- Dead-key cache (`sp_gemini_dead_keys` — legacy LS slot name, now holds Groq fingerprints too via `_isRemoteKeyDead('groq', key)`) — provider-scoped, 24h TTL.
 
-**Commit history note (search-aid):** the AI module was inadvertently bundled into commit `0e5e06c` ("RCA: Sidebar-toggle tooltip stale-state") because the parallel sidebar-tooltip fix was committed via `git commit -a` while the AI work was uncommitted in the working tree. The follow-up commit `19a9efa` ("AI features: ...") added only the baked Gemini key + status-display parity, hence its small diff. `git log -S 'function callLLM' -- index.html` is the reliable way to find when the module landed.
+**Commit history note (search-aid):** the AI module was inadvertently bundled into commit `0e5e06c` ("RCA: Sidebar-toggle tooltip stale-state") because the parallel sidebar-tooltip fix was committed via `git commit -a` while the AI work was uncommitted in the working tree. The follow-up commit `19a9efa` ("AI features: ...") added only the baked Gemini key + status-display parity, hence its small diff. `git log -S 'function callLLM' -- index.html` is the reliable way to find when the module landed. Gemini was removed in the 2026-05-20 commit ("Remove Gemini, keep Groq as the only remote LLM").
 
 ---
 
-## Why Gemini CANNOT be baked publicly (2026-05-19 RCA)
+## Why LLM keys CANNOT be baked publicly (2026-05-19 RCA, generalised 2026-05-20)
 
-**Rule:** `_SP_BAKED_KEYS.gemini` MUST stay empty. Personal keys go in Settings only.
+**Rule:** `_SP_BAKED_KEYS` must NOT carry any LLM provider slot. Personal keys go in Settings only. This rule applies to Gemini, Groq, Anthropic, OpenAI, OpenRouter, Mistral, Cohere — every commercial LLM provider operates an active scanner that revokes leaked keys, often within minutes.
 
-**Incident:** a baked Gemini API key was committed (`19a9efa`) and pushed to both public remotes. Within ~30 minutes Google's secret-scanner detected it on the public GitHub repo + Pages URL and revoked it. The user's very first click of "Why this verdict?" hit a 429 with `"limit: 0, model: gemini-2.0-flash"`; the same key returned 403 `"Your API key was reported as leaked"` on other Gemini models. The UI mis-classified the 429 as a transient rate-limit and told the user "wait a minute and try again" — which would never have helped because the key was permanently disabled.
+**Original incident (Gemini, 2026-05-19):** a baked Gemini API key was committed (`19a9efa`) and pushed to both public remotes. Within ~30 minutes Google's secret-scanner detected it on the public GitHub repo + Pages URL and revoked it. The user's very first click of "Why this verdict?" hit a 429 with `"limit: 0, model: gemini-2.0-flash"`; the same key returned 403 `"Your API key was reported as leaked"` on other Gemini models. After multiple key rotations also failed (Google's revocation was project-wide, not just per-key), Gemini was removed entirely 2026-05-20 in favour of Groq as the sole remote provider.
 
 **Root reason this is different from Finnhub / Twelve Data:**
-Google actively scans public source-code platforms (GitHub, GitHub Pages, npm, pastebin) for API keys and automatically revokes any it finds. Finnhub and Twelve Data don't do this — they tolerate publicly-baked keys because their abuse profile is "burn through a free-tier quota of stock quotes", which is uninteresting. Gemini's abuse profile is "burn through someone's LLM token budget", which is **attractive enough that Google built a scanner**. Any LLM provider's key has the same property.
+LLM API keys have a **valuable abuse profile** ("burn someone's LLM token budget") that justifies the providers building automated scanners. Finnhub / Twelve Data have a low-value abuse profile ("burn through a free-tier quota of stock quotes") and don't bother — they tolerate publicly-baked keys. Any LLM provider's key has the same auto-revocation property.
 
-**Cost of recovery:**
+**Cost of recovery if it happens again:**
 - The leaked key is in commit history forever, even after deletion. Anyone running `git log -p` can read it.
-- The user must **rotate the key** at https://aistudio.google.com/apikey — delete the leaked one, generate a new one.
+- The user must rotate the key at the provider's console (Groq: https://console.groq.com/keys).
 - The new key MUST be pasted into Settings, never into source.
 
 **Code-level guards in place:**
-1. The `gemini:` slot in `_SP_BAKED_KEYS` has an inline `// DO NOT BAKE` comment with a pointer back to this section.
-2. `callLLM` now classifies `429 + "limit: 0"` and `403 + "reported as leaked"` as a distinct `'leaked'` error type so the UI tells the user "this key is disabled, paste your own" instead of "wait a minute" (`_aiErrorMsg`).
+1. `_SP_BAKED_KEYS` has an inline comment near the top warning that no LLM slot may exist.
+2. `callLLM` classifies terminal-key responses (`leaked` / `auth`) and routes around them: dead-key fingerprint cached in localStorage for 24h, in-browser model auto-promoted on first detection, mid-stream UI swap so the user never sees a "wait a minute" dead-end.
 
-**Future LLM providers**: when adding Anthropic / Groq / OpenRouter / etc., the same rule applies — the corresponding baked-key slot must stay empty and users must BYO. Document the rule in this section if a new provider lands.
+**Future LLM providers**: when adding Anthropic / OpenRouter / etc., the same rule applies — no baked-key slot, BYO only. Document the rule in this section if a new provider lands.
 
 ---
 
