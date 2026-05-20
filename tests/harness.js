@@ -192,6 +192,11 @@ function loadApp() {
     'LAST_TIMINGS', 'BUY_ALERTS_ON',
     'LS_KEY_BUY_ALERTS', 'LS_KEY_TIMINGS',
     '_BUY_TIER_ACTIONS', '_BUY_ACTION_LABELS',
+    // Buy-alert card visual layer
+    'showBuyAlertCard', 'dismissBuyAlertEl', 'snoozeBuyAlert', '_isSnoozed',
+    '_buildBuyAlertCardHtml', '_buyAlertTierClass', '_esc',
+    'BUY_SNOOZE', 'LS_KEY_BUY_SNOOZE', 'BUY_SNOOZE_MS',
+    'BUY_ALERT_LIFE_MS', 'BUY_ALERT_MAX_VISIBLE',
     // Data
     '_TOP_13F_INVESTORS', 'STRATEGY_DEFS', 'STOCK_CATALOG', 'ETF_ROLES',
     // Stubbable hooks
