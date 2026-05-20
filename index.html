@@ -1439,6 +1439,171 @@ input:focus, select:focus {
   to { opacity: 0; transform: translateX(20px); }
 }
 
+/* Buy-timing alert cards — richer than the toast: pulsing ticker badge,
+   sparkline, action buttons, draining auto-dismiss bar. Lives top-right so
+   it doesn't fight the bottom-right toast host. Stacks up to 3 visible. */
+#buy-alert-stack {
+  position: fixed;
+  top: 72px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 2100;
+  pointer-events: none;
+  max-width: 340px;
+}
+@media (max-width: 720px) {
+  #buy-alert-stack { top: 64px; right: 12px; left: 12px; max-width: none; }
+}
+.buy-alert {
+  position: relative;
+  background: linear-gradient(180deg, rgba(48,209,88,.06), var(--panel) 28%);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--bull);
+  border-radius: 12px;
+  padding: 14px 16px 18px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.45), 0 0 0 1px rgba(48,209,88,.05);
+  pointer-events: auto;
+  overflow: hidden;
+  animation: buy-alert-in .42s cubic-bezier(.2,.8,.2,1);
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.buy-alert:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px rgba(0,0,0,.55), 0 0 0 1px rgba(48,209,88,.18);
+}
+.buy-alert.tier-dip   { border-left-color: var(--accent); background: linear-gradient(180deg, rgba(0,119,255,.06), var(--panel) 28%); }
+.buy-alert.tier-early { border-left-color: var(--violet, #bf5af2); background: linear-gradient(180deg, rgba(191,90,242,.06), var(--panel) 28%); }
+.buy-alert-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.buy-alert-badge {
+  position: relative;
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(48,209,88,.22), rgba(48,209,88,.08));
+  border: 1px solid rgba(48,209,88,.35);
+  font-size: 12px; font-weight: 700; letter-spacing: .02em;
+  color: var(--text);
+  flex: 0 0 auto;
+}
+.buy-alert-badge::after {
+  content: '';
+  position: absolute; inset: -3px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(48,209,88,.55);
+  animation: buy-alert-pulse 1.6s ease-out infinite;
+  pointer-events: none;
+}
+.buy-alert.tier-dip   .buy-alert-badge { background: linear-gradient(135deg, rgba(0,119,255,.22), rgba(0,119,255,.08)); border-color: rgba(0,119,255,.35); }
+.buy-alert.tier-dip   .buy-alert-badge::after { border-color: rgba(0,119,255,.55); }
+.buy-alert.tier-early .buy-alert-badge { background: linear-gradient(135deg, rgba(191,90,242,.22), rgba(191,90,242,.08)); border-color: rgba(191,90,242,.4); }
+.buy-alert.tier-early .buy-alert-badge::after { border-color: rgba(191,90,242,.55); }
+.buy-alert-titles { flex: 1; min-width: 0; }
+.buy-alert-action {
+  font-size: 12px; font-weight: 700; letter-spacing: .04em;
+  color: var(--bull); text-transform: uppercase;
+  display: flex; align-items: center; gap: 6px;
+}
+.buy-alert.tier-dip   .buy-alert-action { color: var(--accent); }
+.buy-alert.tier-early .buy-alert-action { color: var(--violet, #bf5af2); }
+.buy-alert-name {
+  font-size: 12.5px; color: var(--muted); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.buy-alert-close {
+  background: transparent; border: 0; color: var(--dim);
+  width: 26px; height: 26px; border-radius: 6px; cursor: pointer;
+  font-size: 16px; line-height: 1; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s;
+}
+.buy-alert-close:hover { background: var(--raised); color: var(--text); }
+.buy-alert-mid {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 0;
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+  margin-bottom: 10px;
+}
+.buy-alert-price {
+  font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.buy-alert-change {
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+  padding: 2px 6px; border-radius: 4px;
+}
+.buy-alert-change.up   { color: var(--bull); background: rgba(48,209,88,.08); }
+.buy-alert-change.down { color: var(--bear); background: rgba(255,69,58,.08); }
+.buy-alert-spark { margin-left: auto; }
+.buy-alert-foot {
+  display: flex; gap: 8px;
+}
+.buy-alert-btn {
+  flex: 1;
+  background: var(--raised); border: 1px solid var(--line);
+  color: var(--text); font-size: 11.5px; font-weight: 600;
+  padding: 7px 10px; border-radius: 7px;
+  cursor: pointer; text-align: center;
+  transition: background .15s, border-color .15s, color .15s, transform .1s;
+}
+.buy-alert-btn:hover { background: var(--bg); border-color: var(--accent); color: var(--accent); }
+.buy-alert-btn:active { transform: scale(.97); }
+.buy-alert-btn.primary {
+  background: linear-gradient(180deg, rgba(48,209,88,.22), rgba(48,209,88,.10));
+  border-color: rgba(48,209,88,.45);
+  color: var(--bull);
+}
+.buy-alert-btn.primary:hover {
+  background: linear-gradient(180deg, rgba(48,209,88,.32), rgba(48,209,88,.16));
+  border-color: rgba(48,209,88,.7);
+  color: var(--text);
+}
+.buy-alert.tier-dip   .buy-alert-btn.primary { background: linear-gradient(180deg, rgba(0,119,255,.22), rgba(0,119,255,.10)); border-color: rgba(0,119,255,.45); color: var(--accent); }
+.buy-alert.tier-dip   .buy-alert-btn.primary:hover { background: linear-gradient(180deg, rgba(0,119,255,.32), rgba(0,119,255,.16)); border-color: rgba(0,119,255,.7); color: var(--text); }
+.buy-alert.tier-early .buy-alert-btn.primary { background: linear-gradient(180deg, rgba(191,90,242,.22), rgba(191,90,242,.10)); border-color: rgba(191,90,242,.45); color: var(--violet, #bf5af2); }
+.buy-alert.tier-early .buy-alert-btn.primary:hover { background: linear-gradient(180deg, rgba(191,90,242,.32), rgba(191,90,242,.16)); border-color: rgba(191,90,242,.7); color: var(--text); }
+.buy-alert-progress {
+  position: absolute; left: 0; bottom: 0;
+  height: 3px; background: var(--bull); opacity: .65;
+  border-bottom-left-radius: 12px;
+  width: 100%;
+  transform-origin: left center;
+  animation: buy-alert-drain var(--buy-alert-life, 12s) linear forwards;
+}
+.buy-alert.tier-dip   .buy-alert-progress { background: var(--accent); }
+.buy-alert.tier-early .buy-alert-progress { background: var(--violet, #bf5af2); }
+.buy-alert:hover .buy-alert-progress { animation-play-state: paused; }
+.buy-alert.dismissing { animation: buy-alert-out .25s cubic-bezier(.4,0,.6,1) forwards; }
+@keyframes buy-alert-in {
+  from { opacity: 0; transform: translateX(110%) scale(.96); }
+  60%  { opacity: 1; transform: translateX(-4px) scale(1.01); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes buy-alert-out {
+  to { opacity: 0; transform: translateX(110%); }
+}
+@keyframes buy-alert-pulse {
+  0%   { transform: scale(1);   opacity: .9; }
+  70%  { transform: scale(1.18); opacity: 0; }
+  100% { transform: scale(1.18); opacity: 0; }
+}
+@keyframes buy-alert-drain {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .buy-alert { animation: none; }
+  .buy-alert-badge::after { animation: none; }
+  .buy-alert-progress { animation: none; transform: scaleX(0); }
+}
+
 /* Top tab navigation */
 .tab-nav {
   display: flex;
@@ -12109,6 +12274,7 @@ body.menu-open #mobile-menu-backdrop { display: block; }
 </div>
 
 <div id="toast-host"></div>
+<div id="buy-alert-stack" aria-live="polite" aria-label="Buy-timing alerts"></div>
 
 <footer id="sp-footer" role="contentinfo" aria-label="Disclaimer">
   <span class="sp-footer-lbl">Disclaimer:</span>
@@ -15660,10 +15826,9 @@ function _renderFallbackSwitch(info, ticker, ctx) {
   // Back-compat: callers used to pass just a reason string; now they pass
   // an object. Normalise so existing call sites keep working.
   let from, to, reason;
-  if (typeof info === 'string') { reason = info; from = 'gemini'; to = 'local'; }
+  if (typeof info === 'string') { reason = info; from = 'groq'; to = 'local'; }
   else { ({ from, to, reason } = info || {}); }
-  const providerLabel = (p) => p === 'gemini' ? 'Gemini'
-                              : p === 'groq'   ? 'Groq'
+  const providerLabel = (p) => p === 'groq'   ? 'Groq'
                               : p === 'local'  ? 'in-browser model'
                               : p || 'remote';
   const reasonLabel = reason === 'leaked' ? 'disabled by the provider'
@@ -15743,7 +15908,7 @@ function _aiErrorMsg(out) {
   if (out.error === 'blocked')           return `Groq's safety filter blocked the response${out.detail ? ` (${_escapeHtml(out.detail)})` : ''}. Try again — usually transient on financial prompts.`;
   if (out.error === 'empty')             return `${out.source === 'local' ? 'Local model' : 'Groq'} returned no answer. Try again.`;
   if (out.error === 'network')           return `Network error reaching Groq: <code>${_escapeHtml(out.detail || '')}</code>. Check connectivity and retry. (Tip: enable the in-browser LLM fallback in Settings to keep working offline.)`;
-  if (out.error === 'local_unavailable') return `<b style="color:var(--bear)">In-browser model couldn't load.</b> ${_escapeHtml(out.detail || 'unknown')}. Most common causes: (1) the CDN at <code>cdn.jsdelivr.net/npm/@huggingface/transformers</code> is blocked, (2) the browser doesn't support WebAssembly + WebGPU/WASM SIMD (need Chrome 113+ / Edge / Safari 18+ / Firefox 121+), or (3) IndexedDB quota is too small to cache the 400 MB model. Open Settings and either add a Gemini key OR untick the in-browser fallback.`;
+  if (out.error === 'local_unavailable') return `<b style="color:var(--bear)">In-browser model couldn't load.</b> ${_escapeHtml(out.detail || 'unknown')}. Most common causes: (1) the CDN at <code>cdn.jsdelivr.net/npm/@huggingface/transformers</code> is blocked, (2) the browser doesn't support WebAssembly + WebGPU/WASM SIMD (need Chrome 113+ / Edge / Safari 18+ / Firefox 121+), or (3) IndexedDB quota is too small to cache the 400 MB model. Open Settings and either add a Groq key OR untick the in-browser fallback.`;
   if (out.error === 'local_error')       return `<b style="color:var(--bear)">In-browser model failed to generate:</b> <code>${_escapeHtml(out.detail || 'unknown')}</code>. The model loaded but inference crashed (typically WebGPU memory exhaustion on a small GPU). Try refreshing or paste a Groq key in Settings.`;
   return `AI call failed: ${_escapeHtml(out.error || 'unknown')}${out.detail ? ` — ${_escapeHtml(out.detail).slice(0, 200)}` : ''}.`;
 }
@@ -22238,19 +22403,132 @@ function detectTimingAlerts(newData) {
   try { localStorage.setItem(LS_KEY_TIMINGS, JSON.stringify(LAST_TIMINGS)); } catch (e) {}
   return changes;
 }
+// Per-ticker snooze map { TICKER: timestampMs_until }. Lives in LS so a
+// snooze survives a refresh. Pruned lazily on each detect pass.
+const LS_KEY_BUY_SNOOZE = 'sp_buy_alert_snooze';
+let BUY_SNOOZE = (() => { try { return JSON.parse(localStorage.getItem(LS_KEY_BUY_SNOOZE) || '{}'); } catch (e) { return {}; } })();
+const BUY_SNOOZE_MS = 60 * 60 * 1000; // 1 hour
+function _isSnoozed(ticker) {
+  const until = BUY_SNOOZE[ticker];
+  if (!until) return false;
+  if (Date.now() >= until) { delete BUY_SNOOZE[ticker]; return false; }
+  return true;
+}
+function snoozeBuyAlert(ticker) {
+  BUY_SNOOZE[ticker] = Date.now() + BUY_SNOOZE_MS;
+  try { localStorage.setItem(LS_KEY_BUY_SNOOZE, JSON.stringify(BUY_SNOOZE)); } catch (e) {}
+}
+// Tier class mapping for the alert card's accent color
+function _buyAlertTierClass(action) {
+  if (action === 'BUY_ON_DIP') return 'tier-dip';
+  if (action === 'EARLY_RALLY') return 'tier-early';
+  return 'tier-now';
+}
+// Escape user-facing strings before insertion into innerHTML
+function _esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+// Build the inner HTML for one buy-alert card.
+function _buildBuyAlertCardHtml(change) {
+  const t = change.ticker;
+  const tier = _buyAlertTierClass(change.to);
+  const label = _BUY_ACTION_LABELS[change.to] || change.to;
+  // Pull the latest bundle for price + sparkline. Tolerate missing data.
+  const d = (typeof _data !== 'undefined') ? _data[t] : null;
+  let price = '—', changePct = null, spark = '';
+  if (d && d.bars && d.bars.length >= 2) {
+    const closes = d.bars.map(b => b.close);
+    const last = closes[closes.length - 1];
+    const wkAgo = closes.length >= 5 ? closes[closes.length - 5] : closes[0];
+    price = '$' + (typeof fmt === 'function' ? fmt(last) : last.toFixed(2));
+    changePct = wkAgo ? ((last - wkAgo) / wkAgo) * 100 : null;
+    const samples = closes.slice(-12);
+    if (typeof sparklineSvg === 'function') spark = sparklineSvg(samples, 80, 26);
+  }
+  const changeHtml = changePct == null ? '' :
+    `<span class="buy-alert-change ${changePct >= 0 ? 'up' : 'down'}" title="1-week price change">${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%</span>`;
+  return `
+    <div class="buy-alert-head">
+      <div class="buy-alert-badge" aria-hidden="true">${_esc(t)}</div>
+      <div class="buy-alert-titles">
+        <div class="buy-alert-action">${_esc(label)} window opened</div>
+        <div class="buy-alert-name" title="${_esc(t)} timing signal">${_esc(t)} just entered ${_esc(label.toLowerCase())} territory</div>
+      </div>
+      <button type="button" class="buy-alert-close" data-act="dismiss" aria-label="Dismiss alert">&times;</button>
+    </div>
+    <div class="buy-alert-mid">
+      <div>
+        <div class="buy-alert-price">${_esc(price)}</div>
+        ${changeHtml}
+      </div>
+      <div class="buy-alert-spark" aria-hidden="true">${spark}</div>
+    </div>
+    <div class="buy-alert-foot">
+      <button type="button" class="buy-alert-btn" data-act="snooze" title="Hide alerts for ${_esc(t)} for the next hour">Snooze 1h</button>
+      <button type="button" class="buy-alert-btn primary" data-act="open" title="Jump to the ${_esc(t)} dashboard">Open ${_esc(t)} →</button>
+    </div>
+    <div class="buy-alert-progress" aria-hidden="true"></div>`;
+}
+// Render one buy-alert card into the stack. Auto-dismisses after 12s (paused
+// on hover via CSS). Click "Open" → selectTicker + show Watchlist tab.
+// Click "Snooze 1h" → suppresses re-fire for this ticker for an hour.
+const BUY_ALERT_LIFE_MS = 12000;
+const BUY_ALERT_MAX_VISIBLE = 3;
+function showBuyAlertCard(change) {
+  const host = (typeof document !== 'undefined') ? document.getElementById('buy-alert-stack') : null;
+  if (!host) return null;
+  // Cap the stack — drop the oldest when a 4th arrives so the user always
+  // sees the most recent transitions on top of the stack.
+  while (host.children.length >= BUY_ALERT_MAX_VISIBLE) {
+    const oldest = host.firstElementChild;
+    if (!oldest) break;
+    oldest.classList.add('dismissing');
+    oldest.remove();
+  }
+  const el = document.createElement('div');
+  el.className = 'buy-alert ' + _buyAlertTierClass(change.to);
+  el.style.setProperty('--buy-alert-life', (BUY_ALERT_LIFE_MS / 1000) + 's');
+  el.innerHTML = _buildBuyAlertCardHtml(change);
+  // Auto-dismiss timer (animation handles visual countdown; we just remove)
+  let timer = setTimeout(() => dismissBuyAlertEl(el), BUY_ALERT_LIFE_MS);
+  // Pause auto-dismiss on hover for accessibility (CSS pauses the progress
+  // bar; this pauses the actual removal). Resume on mouseleave.
+  el.addEventListener('mouseenter', () => { if (timer) { clearTimeout(timer); timer = null; } });
+  el.addEventListener('mouseleave', () => { if (!timer) timer = setTimeout(() => dismissBuyAlertEl(el), BUY_ALERT_LIFE_MS); });
+  // Action button delegation
+  el.addEventListener('click', (e) => {
+    const target = e.target.closest('[data-act]');
+    if (!target) return;
+    const act = target.getAttribute('data-act');
+    if (act === 'dismiss') {
+      dismissBuyAlertEl(el);
+    } else if (act === 'snooze') {
+      snoozeBuyAlert(change.ticker);
+      if (typeof showToast === 'function') showToast({ title: change.ticker + ' snoozed for 1h', body: 'You won’t see another buy-alert for this ticker until then.', type: '' });
+      dismissBuyAlertEl(el);
+    } else if (act === 'open') {
+      if (typeof selectTicker === 'function') selectTicker(change.ticker);
+      if (typeof showView === 'function') showView('watchlist');
+      dismissBuyAlertEl(el);
+    }
+  });
+  host.appendChild(el);
+  return el;
+}
+function dismissBuyAlertEl(el) {
+  if (!el || !el.parentNode) return;
+  el.classList.add('dismissing');
+  setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 260);
+}
 function notifyTimingChanges(changes) {
-  if (!BUY_ALERTS_ON || changes.length === 0) return;
-  for (const c of changes) {
-    const label = _BUY_ACTION_LABELS[c.to] || c.to;
-    showToast({
-      title: c.ticker + ' · ' + label + ' window opened',
-      body: c.from === '-'
-        ? 'Timing engine just flagged ' + c.ticker + ' as ' + label.toLowerCase() + '. Open the ticker for the signal breakdown.'
-        : c.ticker + ' timing flipped ' + c.from + ' → ' + c.to + '. Open the ticker for the signal breakdown.',
-      type: 'bull',
-    });
-    if (window.Notification && Notification.permission === 'granted') {
+  if (!BUY_ALERTS_ON || !Array.isArray(changes) || changes.length === 0) return;
+  // Filter snoozed tickers — they were granted a 1h cooldown by the user.
+  const fired = changes.filter(c => !_isSnoozed(c.ticker));
+  for (const c of fired) {
+    showBuyAlertCard(c);
+    if (typeof window !== 'undefined' && window.Notification && Notification.permission === 'granted') {
       try {
+        const label = _BUY_ACTION_LABELS[c.to] || c.to;
         new Notification('StockPulse · ' + c.ticker + ' — ' + label, {
           body: 'Timing window opened. Tap to open the dashboard.',
           icon: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="%2330d158"/></svg>',
