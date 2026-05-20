@@ -185,6 +185,72 @@ const SCENARIOS = [
   results.push({ name: '6. seamless leaked → auto-enable + fallback', pass: r6_pass, detail: '' });
   results.push({ name: '7. dead-key short-circuit', pass: r7_pass, detail: '' });
 
+  // ---- 2026-05-20 Groq scenarios ----
+  //
+  // 8. Gemini dead → Groq tried next, succeeds (chain priority works).
+  // 9. No Gemini key, only Groq key set → Groq is tried directly, no
+  //    spurious Gemini round-trip.
+  // 10. Both Gemini AND Groq dead → falls through to local model.
+
+  // Reset state for scenario 8.
+  app.localStorage.removeItem('sp_gemini_dead_keys');
+  app.localStorage.removeItem('sp_local_llm_enabled');
+  vm.runInContext('LOCAL_LLM_ENABLED = false; GEMINI_API_KEY = "gem-test-key"; GROQ_API_KEY = "grq-test-key";', app);
+
+  // Scenario 8 — Gemini returns leaked, Groq returns 200 OK
+  let s8_geminiCalls = 0, s8_groqCalls = 0;
+  app.fetch = async (url) => {
+    if (String(url).includes('generativelanguage.googleapis.com')) {
+      s8_geminiCalls++;
+      return makeRes(403, JSON.stringify({ error: { message: 'API key reported as leaked' } }));
+    }
+    if (String(url).includes('api.groq.com')) {
+      s8_groqCalls++;
+      return makeRes(200, JSON.stringify({ choices: [{ message: { content: 'Groq response OK' } }] }));
+    }
+    return makeRes(500, 'unexpected URL');
+  };
+  app.window.fetch = app.fetch;
+  const r8 = await callLLM('test 8', { cacheKey: null });
+  const r8_pass = r8.ok === true && r8.source === 'groq' && s8_geminiCalls === 1 && s8_groqCalls === 1 && r8.text === 'Groq response OK';
+  console.log(`  ${r8_pass ? 'PASS' : 'FAIL'}  8. Groq fallback: Gemini leaked → Groq tried + succeeds`);
+  console.log(`        ok=${r8.ok} src=${r8.source} geminiCalls=${s8_geminiCalls} groqCalls=${s8_groqCalls} text="${(r8.text||'').slice(0,30)}"`);
+
+  // Scenario 9 — No Gemini key, Groq directly
+  app.localStorage.removeItem('sp_gemini_dead_keys');
+  vm.runInContext('GEMINI_API_KEY = ""; GROQ_API_KEY = "grq-test-key";', app);
+  let s9_geminiCalls = 0, s9_groqCalls = 0;
+  app.fetch = async (url) => {
+    if (String(url).includes('generativelanguage.googleapis.com')) { s9_geminiCalls++; return makeRes(500, 'should not be called'); }
+    if (String(url).includes('api.groq.com')) { s9_groqCalls++; return makeRes(200, JSON.stringify({ choices: [{ message: { content: 'direct Groq' } }] })); }
+    return makeRes(500, 'unexpected URL');
+  };
+  app.window.fetch = app.fetch;
+  const r9 = await callLLM('test 9', { cacheKey: null });
+  const r9_pass = r9.ok === true && r9.source === 'groq' && s9_geminiCalls === 0 && s9_groqCalls === 1;
+  console.log(`  ${r9_pass ? 'PASS' : 'FAIL'}  9. Groq-only: no Gemini key → Groq called directly (no Gemini round-trip)`);
+  console.log(`        ok=${r9.ok} src=${r9.source} geminiCalls=${s9_geminiCalls} groqCalls=${s9_groqCalls}`);
+
+  // Scenario 10 — Both remotes dead → falls back to local
+  app.localStorage.removeItem('sp_gemini_dead_keys');
+  app.localStorage.removeItem('sp_local_llm_enabled');
+  vm.runInContext('GEMINI_API_KEY = "gem-test-key"; GROQ_API_KEY = "grq-test-key"; LOCAL_LLM_ENABLED = false;', app);
+  app.fetch = async (url) => {
+    if (String(url).includes('generativelanguage.googleapis.com')) return makeRes(403, JSON.stringify({ error: { message: 'API key reported as leaked' } }));
+    if (String(url).includes('api.groq.com')) return makeRes(401, JSON.stringify({ error: { message: 'Invalid API Key' } }));
+    return makeRes(500, 'unexpected URL');
+  };
+  app.window.fetch = app.fetch;
+  const r10 = await callLLM('test 10', { cacheKey: null });
+  const localEnabledAfter10 = vm.runInContext('LOCAL_LLM_ENABLED', app);
+  const r10_pass = r10.ok === true && r10.source === 'local' && r10.fellBackFrom === 'leaked' && localEnabledAfter10 === true;
+  console.log(`  ${r10_pass ? 'PASS' : 'FAIL'}  10. Both remotes dead → falls back to local + auto-enables LOCAL_LLM_ENABLED`);
+  console.log(`        ok=${r10.ok} src=${r10.source} fellBack=${r10.fellBackFrom} localEnabled=${localEnabledAfter10}`);
+
+  results.push({ name: '8. Groq fallback after Gemini leaked', pass: r8_pass, detail: '' });
+  results.push({ name: '9. Groq-only direct path', pass: r9_pass, detail: '' });
+  results.push({ name: '10. Both remotes dead → local', pass: r10_pass, detail: '' });
+
   let pass = 0, fail = 0;
   for (const r of results) {
     const tag = r.pass ? 'PASS' : 'FAIL';

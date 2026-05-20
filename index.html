@@ -12052,11 +12052,16 @@ body.menu-open #mobile-menu-backdrop { display: block; }
       <div class="modal-row">
         <label for="gemini-api-key">Google Gemini API key <span class="help-tag muted">optional · AI</span></label>
         <input id="gemini-api-key" type="password" placeholder="Paste your Gemini key for AI explanations">
-        <div class="help-text">Powers <b>Why this verdict?</b> and <b>Resolve conflict</b>. Free at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> (~15/min, no card). Answers cached 24h per ticker.</div>
+        <div class="help-text">Tried first. Free at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> (~15/min, no card).</div>
+      </div>
+      <div class="modal-row">
+        <label for="groq-api-key">Groq API key <span class="help-tag muted">optional · faster fallback</span></label>
+        <input id="groq-api-key" type="password" placeholder="Paste your Groq key (used when Gemini is unavailable)">
+        <div class="help-text">Tried second. Faster (~500 tok/s) and higher RPM than Gemini's free tier. Free at <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a>.</div>
       </div>
       <div class="modal-row">
         <label><input type="checkbox" id="local-llm-enabled"> In-browser LLM fallback <span class="help-tag">no key · ~400 MB once</span></label>
-        <div class="help-text">Falls back to a local Qwen2.5-0.5B model when Gemini is missing or revoked. First click downloads ~400 MB (cached forever). Lower quality than Gemini, but $0 and offline.</div>
+        <div class="help-text">Last resort when both remotes fail. First click downloads Qwen2.5-0.5B (~400 MB, cached forever). Lower quality, but $0 and offline.</div>
       </div>
       <div class="modal-row">
         <label>Storage status</label>
@@ -12173,6 +12178,14 @@ const LS_KEY_TD_BACKUP  = 'sp_td_key_backup';
 // visitors would hit rate limits within minutes.
 const LS_KEY_GEMINI       = 'sp_gemini_key';
 const LS_KEY_GEMINI_BACKUP = 'sp_gemini_key_backup';
+// Groq — alternative remote LLM provider, added 2026-05-20. Same BYO
+// pattern as Gemini (per-browser localStorage, no baked key — Groq has
+// the same scanner-revocation policy as Google). The dispatcher tries
+// Gemini first, then Groq, then the in-browser model. Groq's free tier
+// is materially faster + higher RPM than Gemini's, so it's a strong
+// fallback option even when Gemini is healthy.
+const LS_KEY_GROQ         = 'sp_groq_key';
+const LS_KEY_GROQ_BACKUP  = 'sp_groq_key_backup';
 const LS_KEY_KEYS_SAVED_AT = 'sp_keys_saved_at';
 // Backup slots for every persisted user-data list, mirroring the API-key
 // resilience pattern. Any user data that takes effort to rebuild gets a
@@ -12256,11 +12269,14 @@ function keyStorageStatus() {
     const tdBak = localStorage.getItem(LS_KEY_TD_BACKUP) || '';
     const gem = localStorage.getItem(LS_KEY_GEMINI) || '';
     const gemBak = localStorage.getItem(LS_KEY_GEMINI_BACKUP) || '';
+    const grq = localStorage.getItem(LS_KEY_GROQ) || '';
+    const grqBak = localStorage.getItem(LS_KEY_GROQ_BACKUP) || '';
     const savedAt = parseInt(localStorage.getItem(LS_KEY_KEYS_SAVED_AT) || '0', 10);
     return {
       finnhub: { has: !!api, hasBackup: !!apiBak, inSync: api === apiBak },
       td:      { has: !!td,  hasBackup: !!tdBak, inSync: td === tdBak },
       gemini:  { has: !!gem, hasBackup: !!gemBak, inSync: gem === gemBak },
+      groq:    { has: !!grq, hasBackup: !!grqBak, inSync: grq === grqBak },
       savedAt,
     };
   } catch (e) {
@@ -12268,6 +12284,7 @@ function keyStorageStatus() {
       finnhub: { has: false, hasBackup: false, inSync: false },
       td:      { has: false, hasBackup: false, inSync: false },
       gemini:  { has: false, hasBackup: false, inSync: false },
+      groq:    { has: false, hasBackup: false, inSync: false },
       savedAt: 0,
     };
   }
@@ -12999,6 +13016,7 @@ let WATCHLIST = loadWatchlist();
 let API_KEY = loadKey(LS_KEY_API, LS_KEY_API_BACKUP);
 let TD_API_KEY = loadKey(LS_KEY_TD, LS_KEY_TD_BACKUP);
 let GEMINI_API_KEY = loadKey(LS_KEY_GEMINI, LS_KEY_GEMINI_BACKUP);
+let GROQ_API_KEY = loadKey(LS_KEY_GROQ, LS_KEY_GROQ_BACKUP);
 let REFRESH_SEC = parseInt(localStorage.getItem(LS_KEY_REFRESH) || '300', 10);
 let NOTIFY_ON_CHANGE = (localStorage.getItem(LS_KEY_NOTIFY) || 'true') === 'true';
 // FinBERT (in-browser, free) news-sentiment toggle. When ON, the news card
@@ -13031,50 +13049,55 @@ function _defaultLocalLlmEnabled() {
 }
 let LOCAL_LLM_ENABLED = _defaultLocalLlmEnabled();
 
-// Dead-Gemini-key cache — when Google returns a terminal-key shape
-// ('leaked' / 'auth') we remember the fingerprint of THAT key value so
-// subsequent clicks within 24h skip the doomed Gemini round-trip entirely.
-// The cache survives page reload (persisted in localStorage) and is
-// scoped per key value, so pasting a fresh key clears its effect.
-const LS_KEY_GEMINI_DEAD = 'sp_gemini_dead_keys';
-const GEMINI_DEAD_TTL_MS = 24 * 60 * 60 * 1000;
-function _geminiKeyFingerprint(key) {
+// Dead-remote-LLM-key cache — when a provider returns a terminal-key shape
+// ('leaked' / 'auth') we remember the fingerprint of THAT key so subsequent
+// clicks within 24h skip the doomed network round-trip entirely. Scoped
+// per provider + per key value, so pasting a fresh key clears its effect.
+// Generalised 2026-05-20 from Gemini-only to multi-provider (Gemini + Groq).
+const LS_KEY_REMOTE_LLM_DEAD = 'sp_gemini_dead_keys';   // legacy slot name preserved for migration
+const REMOTE_LLM_DEAD_TTL_MS = 24 * 60 * 60 * 1000;
+function _remoteKeyFingerprint(provider, key) {
   const s = String(key || '').trim();
   if (!s) return '';
-  // Length + prefix6 + suffix4 is enough to disambiguate within a single
-  // user's lifetime without storing the full secret in the dead-list slot.
-  return s.length + ':' + s.slice(0, 6) + ':' + s.slice(-4);
+  // provider:length:prefix6:suffix4 — short enough to fit many entries in
+  // localStorage, unique enough to disambiguate within a single user.
+  return `${provider}:${s.length}:${s.slice(0, 6)}:${s.slice(-4)}`;
 }
-function _isGeminiKeyDead(key) {
-  const fp = _geminiKeyFingerprint(key);
+function _isRemoteKeyDead(provider, key) {
+  const fp = _remoteKeyFingerprint(provider, key);
   if (!fp) return false;
   try {
-    const raw = localStorage.getItem(LS_KEY_GEMINI_DEAD);
+    const raw = localStorage.getItem(LS_KEY_REMOTE_LLM_DEAD);
     if (!raw) return false;
     const m = JSON.parse(raw) || {};
     const entry = m[fp];
     if (!entry) return false;
-    if (Date.now() - (entry.ts || 0) > GEMINI_DEAD_TTL_MS) {
+    if (Date.now() - (entry.ts || 0) > REMOTE_LLM_DEAD_TTL_MS) {
       delete m[fp];
-      try { localStorage.setItem(LS_KEY_GEMINI_DEAD, JSON.stringify(m)); } catch (e) {}
+      try { localStorage.setItem(LS_KEY_REMOTE_LLM_DEAD, JSON.stringify(m)); } catch (e) {}
       return false;
     }
     return true;
   } catch (e) { return false; }
 }
-function _markGeminiKeyDead(key, reason) {
-  const fp = _geminiKeyFingerprint(key);
+function _markRemoteKeyDead(provider, key, reason) {
+  const fp = _remoteKeyFingerprint(provider, key);
   if (!fp) return;
   try {
-    const raw = localStorage.getItem(LS_KEY_GEMINI_DEAD);
+    const raw = localStorage.getItem(LS_KEY_REMOTE_LLM_DEAD);
     const m = (raw ? JSON.parse(raw) : null) || {};
     m[fp] = { ts: Date.now(), reason: String(reason || '') };
-    localStorage.setItem(LS_KEY_GEMINI_DEAD, JSON.stringify(m));
+    localStorage.setItem(LS_KEY_REMOTE_LLM_DEAD, JSON.stringify(m));
   } catch (e) { /* quota / private mode — non-fatal */ }
 }
-function _clearAllGeminiDeadCache() {
-  try { localStorage.removeItem(LS_KEY_GEMINI_DEAD); } catch (e) {}
+function _clearAllRemoteLlmDeadCache() {
+  try { localStorage.removeItem(LS_KEY_REMOTE_LLM_DEAD); } catch (e) {}
 }
+// Back-compat aliases so any in-flight callers / tests that still use the
+// old Gemini-specific names keep working. Safe to drop in a future cleanup.
+const _isGeminiKeyDead = (key) => _isRemoteKeyDead('gemini', key);
+const _markGeminiKeyDead = (key, reason) => _markRemoteKeyDead('gemini', key, reason);
+const _clearAllGeminiDeadCache = _clearAllRemoteLlmDeadCache;
 let LAST_VERDICTS = JSON.parse(localStorage.getItem(LS_KEY_VERDICTS) || '{}');
 let SAVED_BUNDLES = loadBundles();
 let _lastBuiltPortfolio = null;
@@ -15086,16 +15109,30 @@ async function callLocalLLM(prompt, opts) {
 // under cap with this caching even for power users.
 // ============================================================
 
-// hasLLM — true when SOME LLM is available (remote Gemini key OR in-browser
+// hasLLM — true when SOME LLM is available (any remote key OR in-browser
 // fallback). The buttons render whenever this is true; the actual routing
-// (remote vs local) is decided inside callLLM at call time.
+// (which remote, or local) is decided inside callLLM at call time.
 function hasLLM() {
-  if (GEMINI_API_KEY && GEMINI_API_KEY.trim()) return true;
+  if (hasGeminiKey()) return true;
+  if (hasGroqKey()) return true;
   if (LOCAL_LLM_ENABLED) return true;
   return false;
 }
-// hasRemoteLLM — used by callLLM to decide which path to take first.
-function hasRemoteLLM() { return !!(GEMINI_API_KEY && GEMINI_API_KEY.trim()); }
+function hasGeminiKey() { return !!(GEMINI_API_KEY && GEMINI_API_KEY.trim()); }
+function hasGroqKey()   { return !!(GROQ_API_KEY && GROQ_API_KEY.trim()); }
+// hasRemoteLLM — true when ANY remote provider's key is set. Used by
+// the UI to choose between "Asking Gemini..." / "Asking Groq..." /
+// "Asking in-browser model..." loading text.
+function hasRemoteLLM() { return hasGeminiKey() || hasGroqKey(); }
+// hasUsableRemote — same as hasRemoteLLM minus any keys we've already
+// proven dead in the last 24h. Used by the dispatcher and by the UI's
+// askingLabel logic to avoid saying "Asking Gemini..." when we know the
+// Gemini key is dead-cached and will be skipped.
+function hasUsableRemote() {
+  if (hasGeminiKey() && !_isRemoteKeyDead('gemini', GEMINI_API_KEY)) return true;
+  if (hasGroqKey()   && !_isRemoteKeyDead('groq',   GROQ_API_KEY))   return true;
+  return false;
+}
 
 const _llmInflight = new Map();   // dedupe concurrent calls (same prompt key)
 const LLM_CACHE_PREFIX = 'sp_llm_cache:';
@@ -15123,6 +15160,11 @@ function _llmCacheSet(key, text) {
 // ~1-2s. Without streaming and on 2.5-flash the same prompt was taking
 // 3-5s wall-clock — that's what the user reported as "very slow".
 const GEMINI_MODEL = 'gemini-2.0-flash';
+// Groq model — Llama 3.3 70B on Groq's LPU inference runs at ~500 tok/s,
+// usually returning the full 130-word explanation in well under 1 s.
+// Quality is competitive with Gemini Flash on the reasoning task we
+// actually use the LLM for (verdict explanation, conflict resolution).
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 // Provider-agnostic LLM call. Returns { ok, text, error }.
 //   opts.cacheKey  — required for caching; pass null to bypass
@@ -15155,58 +15197,67 @@ async function callLLM(prompt, opts) {
   }
   const promise = (async () => {
     try {
-      // Skip Gemini if we already proved THIS key is dead (within 24h).
-      // Saves a doomed 1-2s network round-trip on every subsequent click
-      // until either (a) the key value changes (paste a new one) or (b)
-      // the cache entry ages out.
-      const remoteUsable = hasRemoteLLM() && !_isGeminiKeyDead(GEMINI_API_KEY);
-      // Path 1: remote (Gemini) when a key is present and not known-dead.
-      if (remoteUsable) {
-        const remote = await _callGeminiLLM(prompt, opts);
-        if (remote.ok) {
-          if (cacheKey) _llmCacheSet(cacheKey, remote.text);
-          return remote;
-        }
-        // 'leaked' and 'auth' are TERMINAL — the key cannot be saved by
-        // waiting. Mark dead so future calls skip Gemini, AND if the user
-        // has not explicitly disabled the in-browser fallback, auto-enable
-        // it so the fallback fires on this same call. This is what makes
-        // the experience seamless: one click recovers from a dead key.
-        const terminal = remote.error === 'leaked' || remote.error === 'auth';
-        if (terminal) {
-          _markGeminiKeyDead(GEMINI_API_KEY, remote.error);
-          if (localStorage.getItem(LS_KEY_LOCAL_LLM) !== '0' && !LOCAL_LLM_ENABLED) {
-            // Promote in memory + persist so the Settings checkbox reflects
-            // the new state and renderKeyStorageStatus shows the local row.
-            LOCAL_LLM_ENABLED = true;
-            try { localStorage.setItem(LS_KEY_LOCAL_LLM, '1'); } catch (e) {}
-          }
-        }
-        if (terminal && LOCAL_LLM_ENABLED) {
-          // Tell the caller we're switching before callLocalLLM starts —
-          // the modal handler uses this to swap "Asking Gemini..." for
-          // "Switching to in-browser model..." instantly.
-          if (typeof opts.onFallback === 'function') {
-            try { opts.onFallback(remote.error); } catch (e) {}
-          }
-          const local = await callLocalLLM(prompt, opts);
-          if (local.ok) {
-            if (cacheKey) _llmCacheSet(cacheKey, local.text);
-            return { ...local, fellBackFrom: remote.error };
-          }
-          return local;
-        }
-        return remote;
+      // Provider chain — try each usable remote in priority order, then
+      // fall back to in-browser local. Dead keys (marked within 24h) are
+      // skipped without a network round-trip.
+      //
+      // Priority: Gemini → Groq → local
+      //   • Gemini first because it was integrated first; users without
+      //     Groq still get full functionality.
+      //   • Groq second — faster + higher RPM, ideal as Gemini's fallback.
+      //   • Local last — works without any key but slower + lower quality.
+      const providerChain = [];
+      if (hasGeminiKey() && !_isRemoteKeyDead('gemini', GEMINI_API_KEY)) {
+        providerChain.push({ name: 'gemini', fn: _callGeminiLLM, key: GEMINI_API_KEY });
       }
-      // Path 2: no remote key (or the saved one is known-dead) but local
-      // is enabled. Most fresh visitors with no key land here directly
-      // thanks to the smart default in _defaultLocalLlmEnabled.
+      if (hasGroqKey() && !_isRemoteKeyDead('groq', GROQ_API_KEY)) {
+        providerChain.push({ name: 'groq', fn: _callGroqLLM, key: GROQ_API_KEY });
+      }
+      let lastRemoteResult = null;
+      for (let i = 0; i < providerChain.length; i++) {
+        const p = providerChain[i];
+        if (i > 0 && typeof opts.onFallback === 'function') {
+          // Mid-chain transition (e.g. Gemini → Groq) — let the UI swap text
+          try { opts.onFallback({ from: providerChain[i - 1].name, to: p.name, reason: lastRemoteResult && lastRemoteResult.error }); } catch (e) {}
+        }
+        const out = await p.fn(prompt, opts);
+        if (out.ok) {
+          if (cacheKey) _llmCacheSet(cacheKey, out.text);
+          return out;
+        }
+        const terminal = out.error === 'leaked' || out.error === 'auth';
+        if (terminal) _markRemoteKeyDead(p.name, p.key, out.error);
+        lastRemoteResult = out;
+        // Only continue to the next provider on TERMINAL errors. Transient
+        // ones ('rate_limit' / 'network' / 'blocked') should surface so the
+        // caller can retry — silently retrying a different provider would
+        // mask a recoverable issue and burn through the next free tier.
+        if (!terminal) return out;
+      }
+      // All remotes exhausted (or none configured). Auto-promote local
+      // when we hit a terminal failure and the user hasn't explicitly
+      // disabled it — this is what makes the "Gemini revoked" recovery
+      // happen on the same click.
+      if (lastRemoteResult && (lastRemoteResult.error === 'leaked' || lastRemoteResult.error === 'auth')) {
+        if (localStorage.getItem(LS_KEY_LOCAL_LLM) !== '0' && !LOCAL_LLM_ENABLED) {
+          LOCAL_LLM_ENABLED = true;
+          try { localStorage.setItem(LS_KEY_LOCAL_LLM, '1'); } catch (e) {}
+        }
+      }
       if (LOCAL_LLM_ENABLED) {
+        if (lastRemoteResult && typeof opts.onFallback === 'function') {
+          // Final transition into the local model.
+          const fromName = providerChain.length ? providerChain[providerChain.length - 1].name : 'remote';
+          try { opts.onFallback({ from: fromName, to: 'local', reason: lastRemoteResult.error }); } catch (e) {}
+        }
         const local = await callLocalLLM(prompt, opts);
         if (local.ok && cacheKey) _llmCacheSet(cacheKey, local.text);
+        if (local.ok && lastRemoteResult) return { ...local, fellBackFrom: lastRemoteResult.error };
         return local;
       }
-      return { ok: false, error: 'no_key', text: '' };
+      // No local fallback enabled — return the last remote error, or
+      // no_key if there were no providers to try.
+      return lastRemoteResult || { ok: false, error: 'no_key', text: '' };
     } finally {
       if (cacheKey) _llmInflight.delete(cacheKey);
     }
@@ -15315,6 +15366,100 @@ async function _callGeminiLLM(prompt, opts) {
     return { ok: true, text: clean, source: 'live' };
   } catch (e) {
     return { ok: false, error: 'network', text: '', detail: e.message || String(e) };
+  }
+}
+
+// Groq-specific path. Same shape as _callGeminiLLM and callLocalLLM —
+// returns { ok, text, error, source: 'groq' }. Groq exposes an OpenAI-
+// compatible /v1/chat/completions endpoint, so the request body is the
+// standard ChatCompletions shape and streaming uses standard `data: {...}`
+// SSE chunks with `delta.content` fragments.
+async function _callGroqLLM(prompt, opts) {
+  opts = opts || {};
+  const stream = typeof opts.onChunk === 'function';
+  try {
+    const url = 'https://api.groq.com/openai/v1/chat/completions';
+    const body = {
+      model: GROQ_MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: opts.temp != null ? opts.temp : 0.3,
+      max_tokens: opts.maxTokens || 250,
+      stream,
+    };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      const detailLc = (detail || '').toLowerCase();
+      // Groq surfaces a "key revoked / disabled" through 401 with a body
+      // message containing "invalid api key" or "api key has been revoked".
+      // Treat as 'leaked' (terminal) so the dispatcher falls through to the
+      // next provider — mirrors Gemini's classification.
+      const leakedShape = detailLc.includes('revoked')
+                       || detailLc.includes('disabled')
+                       || detailLc.includes('invalid api key')
+                       || detailLc.includes('api_key_invalid');
+      if (leakedShape) return { ok: false, error: 'leaked', text: '', detail, source: 'groq' };
+      if (res.status === 401 || res.status === 403) return { ok: false, error: 'auth', text: '', detail, source: 'groq' };
+      if (res.status === 429) return { ok: false, error: 'rate_limit', text: '', detail, source: 'groq' };
+      return { ok: false, error: 'api_error', text: '', detail: `HTTP ${res.status} ${detail.slice(0, 200)}`, source: 'groq' };
+    }
+    if (!stream) {
+      const data = await res.json();
+      const text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (!text) return { ok: false, error: 'empty', text: '', source: 'groq' };
+      return { ok: true, text: String(text).trim(), source: 'groq' };
+    }
+    if (!res.body || !res.body.getReader) {
+      // Older browser fallback — parse the whole JSON
+      const data = await res.json().catch(() => null);
+      const text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+      if (!text) return { ok: false, error: 'empty', text: '', source: 'groq' };
+      const clean = String(text).trim();
+      try { opts.onChunk(clean); } catch (e) {}
+      return { ok: true, text: clean, source: 'groq' };
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    let full = '';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) !== -1) {
+        const eventBlock = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        const dataLines = eventBlock.split('\n')
+          .filter(l => l.startsWith('data: '))
+          .map(l => l.slice(6).trim());
+        for (const payload of dataLines) {
+          if (!payload || payload === '[DONE]') continue;
+          try {
+            const obj = JSON.parse(payload);
+            // OpenAI-compatible stream chunk: choices[0].delta.content
+            const delta = obj && obj.choices && obj.choices[0] && obj.choices[0].delta;
+            const txt = delta && delta.content;
+            if (txt) {
+              full += txt;
+              try { opts.onChunk(full.trim()); } catch (e) {}
+            }
+          } catch (e) { /* malformed event, skip */ }
+        }
+      }
+    }
+    const clean = full.trim();
+    if (!clean) return { ok: false, error: 'empty', text: '', source: 'groq' };
+    return { ok: true, text: clean, source: 'groq' };
+  } catch (e) {
+    return { ok: false, error: 'network', text: '', detail: e.message || String(e), source: 'groq' };
   }
 }
 
@@ -15491,8 +15636,17 @@ async function whyVerdict(ticker) {
       '');
     return;
   }
-  const usingLocalOnly = !hasRemoteLLM() && LOCAL_LLM_ENABLED;
-  const askingLabel = usingLocalOnly ? 'in-browser model' : 'Gemini';
+  // askingLabel — what the modal says BEFORE the network call lands.
+  // Pick based on which provider the dispatcher will actually try first:
+  //   - first non-dead remote key (Gemini, then Groq)
+  //   - or "in-browser model" if no remote is usable
+  // This avoids the misleading "Asking Gemini..." text when the saved
+  // Gemini key is already dead-cached and the dispatcher will skip it.
+  const usingLocalOnly = !hasUsableRemote() && LOCAL_LLM_ENABLED;
+  const askingLabel = usingLocalOnly ? 'in-browser model'
+                    : (hasGeminiKey() && !_isRemoteKeyDead('gemini', GEMINI_API_KEY)) ? 'Gemini'
+                    : (hasGroqKey() && !_isRemoteKeyDead('groq', GROQ_API_KEY))     ? 'Groq'
+                    : 'in-browser model';
   // Visible safety net — a toast confirms the click was registered even if
   // the modal fails to render for any reason (CSS regression, modal element
   // missing from DOM, etc.). Easier than asking a non-technical user to open
@@ -15550,8 +15704,17 @@ async function resolveConflict(ticker) {
       '');
     return;
   }
-  const usingLocalOnly = !hasRemoteLLM() && LOCAL_LLM_ENABLED;
-  const askingLabel = usingLocalOnly ? 'in-browser model' : 'Gemini';
+  // askingLabel — what the modal says BEFORE the network call lands.
+  // Pick based on which provider the dispatcher will actually try first:
+  //   - first non-dead remote key (Gemini, then Groq)
+  //   - or "in-browser model" if no remote is usable
+  // This avoids the misleading "Asking Gemini..." text when the saved
+  // Gemini key is already dead-cached and the dispatcher will skip it.
+  const usingLocalOnly = !hasUsableRemote() && LOCAL_LLM_ENABLED;
+  const askingLabel = usingLocalOnly ? 'in-browser model'
+                    : (hasGeminiKey() && !_isRemoteKeyDead('gemini', GEMINI_API_KEY)) ? 'Gemini'
+                    : (hasGroqKey() && !_isRemoteKeyDead('groq', GROQ_API_KEY))     ? 'Groq'
+                    : 'in-browser model';
   try { showToast({ title: `✦ Asking ${askingLabel}…`, body: `${ticker} · resolving CONFLICT`, type: 'info' }); } catch (e) {}
   const loadingHint = usingLocalOnly && !_localLlmReady()
     ? `<div class="ai-loading"><span class="ai-spin"></span> Loading in-browser model — first run downloads ~400 MB, then it's cached forever.</div>
@@ -15583,39 +15746,56 @@ async function resolveConflict(ticker) {
      <div class="ai-foot-note">AI-suggested posture · not investment advice · size to your own risk tolerance.</div>`;
 }
 
-// Source-tag chip rendered in the modal footer. Encodes (cache | live Gemini
-// | in-browser local model | fallback-after-Gemini-error) into a single
-// reusable HTML snippet so the two callers stay in sync.
+// Source-tag chip rendered in the modal footer. Encodes (cache | Gemini |
+// Groq | local | fallback-after-remote-error) into a single reusable
+// HTML snippet so the two callers stay in sync.
 function _aiSourceTag(out) {
   if (out.source === 'cache') {
     return `<span class="ai-src" title="Served from this browser's cache — no token cost. Cache TTL is 24h.">cached</span>`;
   }
   if (out.source === 'local') {
     const fellBack = out.fellBackFrom
-      ? ` (Gemini ${out.fellBackFrom} → fell back to local)`
+      ? ` (remote ${out.fellBackFrom} → local)`
       : '';
-    return `<span class="ai-src" title="Local in-browser model (Qwen2.5-0.5B-Instruct). Runs entirely in your browser via transformers.js + WebGPU when available. Quality lower than Gemini but $0 / no key. ~400 MB cached in IndexedDB.">Local · Qwen2.5-0.5B${fellBack}</span>`;
+    return `<span class="ai-src" title="Local in-browser model (Qwen2.5-0.5B-Instruct). Runs via transformers.js + WebGPU when available. Quality lower than Gemini/Groq but $0 / no key. ~400 MB cached in IndexedDB.">Local · Qwen2.5-0.5B${fellBack}</span>`;
+  }
+  if (out.source === 'groq') {
+    return `<span class="ai-src" title="Live Groq response (Llama 3.3 70B on LPU inference). Cached locally for the next 24h.">Groq · Llama 3.3 70B</span>`;
   }
   return `<span class="ai-src" title="Live Gemini 2.0 Flash response, streamed. Cached locally for the next 24h.">Gemini 2.0 Flash</span>`;
 }
 
-// Modal-text swap fired by callLLM when it falls back from Gemini → local.
-// Without this the modal would keep saying "Asking Gemini..." while the
-// local model loads (which can take seconds), confusing the user. The
-// swap to "Switching to in-browser model..." makes the transition visible.
-function _renderFallbackSwitch(reason, ticker, ctx) {
+// Modal-text swap fired by callLLM when it transitions between providers
+// (Gemini → Groq, Groq → local, etc.). Without this the modal would keep
+// saying "Asking Gemini..." while the next provider loads, confusing the
+// user. Now accepts a richer { from, to, reason } payload so the message
+// names the actual transition.
+function _renderFallbackSwitch(info, ticker, ctx) {
   if (_selected !== ticker) return;
   const m = document.getElementById('ai-modal');
   if (!m || m.classList.contains('hidden')) return;
   const body = document.getElementById('ai-modal-body');
   if (!body) return;
-  const reasonLabel = reason === 'leaked' ? 'is disabled by Google'
-                    : reason === 'auth'   ? 'was rejected'
-                    : `errored (${reason})`;
+  // Back-compat: callers used to pass just a reason string; now they pass
+  // an object. Normalise so existing call sites keep working.
+  let from, to, reason;
+  if (typeof info === 'string') { reason = info; from = 'gemini'; to = 'local'; }
+  else { ({ from, to, reason } = info || {}); }
+  const providerLabel = (p) => p === 'gemini' ? 'Gemini'
+                              : p === 'groq'   ? 'Groq'
+                              : p === 'local'  ? 'in-browser model'
+                              : p || 'remote';
+  const reasonLabel = reason === 'leaked' ? 'disabled by the provider'
+                    : reason === 'auth'   ? 'rejected (invalid key)'
+                    : reason ? `errored (${reason})`
+                    : 'unavailable';
+  const note = to === 'local'
+    ? `<div class="ai-fallback-note">First run downloads ~400 MB (cached forever). The next click on any ticker will skip ${providerLabel(from)} and go straight here.</div>
+       <div class="ai-progress-host"></div>`
+    : `<div class="ai-fallback-note">${providerLabel(to)} is faster than ${providerLabel(from)} on this kind of prompt — should still feel instant.</div>`;
   body.innerHTML = `
-    <div class="ai-loading"><span class="ai-spin"></span> Gemini key ${reasonLabel} — <b>switching to in-browser model</b> automatically.</div>
-    <div class="ai-fallback-note">First run downloads ~400 MB (cached forever). The next click on any ticker will skip Gemini and go straight here.</div>
-    <div class="ai-progress-host"></div>`;
+    <div class="ai-loading"><span class="ai-spin"></span> ${providerLabel(from)} is ${reasonLabel} — <b>switching to ${providerLabel(to)}</b> automatically.</div>
+    ${note}`;
 }
 
 // Inline "Switch to in-browser model & retry" button rendered inside the
@@ -15675,8 +15855,8 @@ function _aiErrorMsg(out) {
   const switchBtn = !LOCAL_LLM_ENABLED
     ? `<div style="margin-top:14px"><button class="ai-action-btn" onclick="_enableLocalAndRetry()">✦ Switch to in-browser model &amp; retry</button></div>`
     : '';
-  if (out.error === 'no_key')            return `Add a Gemini key in <b>⚙ Settings</b> to enable this — or tick the <b>in-browser LLM fallback</b> checkbox to run a local model with no key. Free Gemini key at ${link}.${switchBtn}`;
-  if (out.error === 'leaked')            return `<b style="color:var(--bear)">This Gemini key is disabled.</b> Google's secret-scanner revokes API keys it finds in public source code or quota is set to zero, so the response says <i>"reported as leaked"</i> or <i>"limit: 0"</i>. Waiting will not fix it — paste a fresh key in <b>⚙ Settings</b> from ${link} (free, 2 minutes) <i>or</i> use the button below to switch to the in-browser model.${switchBtn}`;
+  if (out.error === 'no_key')            return `Add a <b>Gemini</b> or <b>Groq</b> key in <b>⚙ Settings</b> — or tick the <b>in-browser LLM fallback</b> for a no-key option. Free Gemini key at ${link}.${switchBtn}`;
+  if (out.error === 'leaked')            return `<b style="color:var(--bear)">${out.source === 'groq' ? 'Groq' : 'Gemini'} key is disabled.</b> The provider's scanner revokes API keys that leak into public source. Paste a fresh key in <b>⚙ Settings</b> (Gemini: ${link}; Groq: <a href="https://console.groq.com/keys" target="_blank">console.groq.com/keys</a>) <i>or</i> use the button below to switch to the in-browser model.${switchBtn}`;
   if (out.error === 'auth')              return `<b style="color:var(--bear)">Gemini key rejected (HTTP 401/403).</b> Open <b>⚙ Settings</b> and paste a fresh key from ${link}.${switchBtn}`;
   if (out.error === 'rate_limit')        return `Gemini free-tier rate limit hit (~15/min). Wait a minute and click again — cached answers stay free.`;
   if (out.error === 'blocked')           return `Gemini's safety filter blocked the response${out.detail ? ` (${_escapeHtml(out.detail)})` : ''}. Try again — usually transient on financial prompts.`;
@@ -22328,6 +22508,8 @@ function openSettings() {
   if (tdInput) tdInput.value = TD_API_KEY;
   const gemInput = $('gemini-api-key');
   if (gemInput) gemInput.value = GEMINI_API_KEY;
+  const groqInput = $('groq-api-key');
+  if (groqInput) groqInput.value = GROQ_API_KEY;
   const localLlmInput = $('local-llm-enabled');
   if (localLlmInput) localLlmInput.checked = LOCAL_LLM_ENABLED;
   $('refresh-interval').value = String(REFRESH_SEC);
@@ -22343,6 +22525,7 @@ function renderKeyStorageStatus() {
   const fhSrc  = keySourceFor(LS_KEY_API,    LS_KEY_API_BACKUP);
   const tdSrc  = keySourceFor(LS_KEY_TD,     LS_KEY_TD_BACKUP);
   const gemSrc = keySourceFor(LS_KEY_GEMINI, LS_KEY_GEMINI_BACKUP);
+  const grqSrc = keySourceFor(LS_KEY_GROQ,   LS_KEY_GROQ_BACKUP);
   const lines = [];
   // Finnhub
   if (fhSrc === 'baked' && !s.finnhub.has) {
@@ -22366,15 +22549,23 @@ function renderKeyStorageStatus() {
   }
   // Gemini
   if (gemSrc === 'baked' && !s.gemini.has) {
-    lines.push(`<span style="color:var(--accent)">⊕ Gemini · baked (shared) · AI on</span>`);
+    lines.push(`<span style="color:var(--accent)">⊕ Gemini · baked (shared)</span>`);
   } else if (s.gemini.has && s.gemini.hasBackup && s.gemini.inSync) {
-    lines.push(`<span style="color:var(--bull)">✓ Gemini · AI on</span>`);
+    lines.push(`<span style="color:var(--bull)">✓ Gemini · primary</span>`);
   } else if (s.gemini.has) {
     lines.push(`<span style="color:var(--warn)">⚠ Gemini · backup out of sync — click Save</span>`);
-  } else if (LOCAL_LLM_ENABLED) {
-    lines.push(`<span style="color:var(--muted)">○ Gemini not set · using in-browser model</span>`);
   } else {
-    lines.push(`<span style="color:var(--muted)">○ Gemini not set · AI off</span>`);
+    lines.push(`<span style="color:var(--muted)">○ Gemini not set</span>`);
+  }
+  // Groq
+  if (s.groq.has && s.groq.hasBackup && s.groq.inSync) {
+    lines.push(`<span style="color:var(--bull)">✓ Groq · fallback</span>`);
+  } else if (s.groq.has) {
+    lines.push(`<span style="color:var(--warn)">⚠ Groq · backup out of sync — click Save</span>`);
+  } else if (!s.gemini.has && !LOCAL_LLM_ENABLED) {
+    lines.push(`<span style="color:var(--muted)">○ Groq not set · AI off</span>`);
+  } else {
+    lines.push(`<span style="color:var(--muted)">○ Groq not set</span>`);
   }
   // In-browser LLM — only surface when ON.
   if (LOCAL_LLM_ENABLED) {
@@ -22425,6 +22616,7 @@ function exportKeys() {
       finnhub:    API_KEY || '',
       twelvedata: TD_API_KEY || '',
       gemini:     GEMINI_API_KEY || '',
+      groq:       GROQ_API_KEY || '',
     },
     watchlist:  Array.isArray(WATCHLIST) ? WATCHLIST.slice() : [],
     favorites:  [...FAVORITES],
@@ -22474,6 +22666,7 @@ function importKeysFromFile() {
           const fh = (parsed.keys.finnhub || '').trim();
           const td = (parsed.keys.twelvedata || '').trim();
           const gem = (parsed.keys.gemini || '').trim();
+          const grq = (parsed.keys.groq || '').trim();
           if (fh) { $('api-key').value = fh; API_KEY = fh; persistKey(LS_KEY_API, LS_KEY_API_BACKUP, fh); restored.keys++; }
           if (td) { $('td-api-key').value = td; TD_API_KEY = td; persistKey(LS_KEY_TD, LS_KEY_TD_BACKUP, td); restored.keys++; }
           if (gem) {
@@ -22481,6 +22674,13 @@ function importKeysFromFile() {
             if (gemInput) gemInput.value = gem;
             GEMINI_API_KEY = gem;
             persistKey(LS_KEY_GEMINI, LS_KEY_GEMINI_BACKUP, gem);
+            restored.keys++;
+          }
+          if (grq) {
+            const grqInput = $('groq-api-key');
+            if (grqInput) grqInput.value = grq;
+            GROQ_API_KEY = grq;
+            persistKey(LS_KEY_GROQ, LS_KEY_GROQ_BACKUP, grq);
             restored.keys++;
           }
         }
@@ -22529,17 +22729,18 @@ function importKeysFromFile() {
         }
       } else {
         // Legacy v1 TXT — keys only
-        let fh = '', td = '', gem = '';
+        let fh = '', td = '', gem = '', grq = '';
         text.split('\n').forEach(line => {
-          const m = line.match(/^\s*(FINNHUB|TWELVEDATA|GEMINI)\s*=\s*(.*?)\s*$/i);
+          const m = line.match(/^\s*(FINNHUB|TWELVEDATA|GEMINI|GROQ)\s*=\s*(.*?)\s*$/i);
           if (m) {
             const k = m[1].toUpperCase();
             if (k === 'FINNHUB') fh = m[2];
             else if (k === 'TWELVEDATA') td = m[2];
             else if (k === 'GEMINI') gem = m[2];
+            else if (k === 'GROQ') grq = m[2];
           }
         });
-        if (!fh && !td && !gem) {
+        if (!fh && !td && !gem && !grq) {
           showToast({ title: 'No data found in file', body: 'File must be a stockpulse-backup JSON or a legacy keys.txt.', type: 'bear' });
           return;
         }
@@ -22550,6 +22751,13 @@ function importKeysFromFile() {
           if (gemInput) gemInput.value = gem;
           GEMINI_API_KEY = gem;
           persistKey(LS_KEY_GEMINI, LS_KEY_GEMINI_BACKUP, gem);
+          restored.keys++;
+        }
+        if (grq) {
+          const grqInput = $('groq-api-key');
+          if (grqInput) grqInput.value = grq;
+          GROQ_API_KEY = grq;
+          persistKey(LS_KEY_GROQ, LS_KEY_GROQ_BACKUP, grq);
           restored.keys++;
         }
       }
@@ -22584,6 +22792,8 @@ async function saveSettings() {
   const newTdKey = tdInput ? tdInput.value.trim() : TD_API_KEY;
   const gemInput = $('gemini-api-key');
   const newGemKey = gemInput ? gemInput.value.trim() : GEMINI_API_KEY;
+  const groqInput = $('groq-api-key');
+  const newGroqKey = groqInput ? groqInput.value.trim() : GROQ_API_KEY;
   const localLlmInput = $('local-llm-enabled');
   const newLocalLlm = localLlmInput ? !!localLlmInput.checked : LOCAL_LLM_ENABLED;
   const newRefresh = parseInt($('refresh-interval').value, 10);
@@ -22591,14 +22801,16 @@ async function saveSettings() {
   const keyChanged = newKey !== API_KEY;
   const tdKeyChanged = newTdKey !== TD_API_KEY;
   const gemKeyChanged = newGemKey !== GEMINI_API_KEY;
+  const groqKeyChanged = newGroqKey !== GROQ_API_KEY;
   API_KEY = newKey;
   TD_API_KEY = newTdKey;
   GEMINI_API_KEY = newGemKey;
-  // When the user pastes a different Gemini key, forget the dead-key cache —
-  // the new key value deserves a fresh attempt. (Keeping the cache would
-  // cause callLLM to silently skip the new key if its fingerprint happened
-  // to be in the stale dead-list, though that's astronomically unlikely.)
-  if (gemKeyChanged) _clearAllGeminiDeadCache();
+  GROQ_API_KEY = newGroqKey;
+  // Always clear the dead-LLM-key cache on Save — defensive against the
+  // "I re-pasted the same key, why is Gemini still being skipped?" failure
+  // mode. The cache is purely a performance optimisation; clearing it is
+  // safe (worst case is one extra doomed round-trip on the next call).
+  _clearAllRemoteLlmDeadCache();
   const localLlmChanged = newLocalLlm !== LOCAL_LLM_ENABLED;
   LOCAL_LLM_ENABLED = newLocalLlm;
   try { localStorage.setItem(LS_KEY_LOCAL_LLM, LOCAL_LLM_ENABLED ? '1' : '0'); } catch (e) {}
@@ -22608,11 +22820,12 @@ async function saveSettings() {
   const apiResult = persistKey(LS_KEY_API, LS_KEY_API_BACKUP, API_KEY);
   const tdResult  = persistKey(LS_KEY_TD,  LS_KEY_TD_BACKUP,  TD_API_KEY);
   const gemResult = persistKey(LS_KEY_GEMINI, LS_KEY_GEMINI_BACKUP, GEMINI_API_KEY);
+  const grqResult = persistKey(LS_KEY_GROQ, LS_KEY_GROQ_BACKUP, GROQ_API_KEY);
   try { localStorage.setItem(LS_KEY_KEYS_SAVED_AT, String(Date.now())); } catch (e) {}
   try { localStorage.setItem(LS_KEY_REFRESH, String(REFRESH_SEC)); } catch (e) {}
   try { localStorage.setItem(LS_KEY_NOTIFY, String(NOTIFY_ON_CHANGE)); } catch (e) {}
   // Warn if storage failed silently
-  if ((newKey && !apiResult.okPrimary) || (newTdKey && !tdResult.okPrimary) || (newGemKey && !gemResult.okPrimary)) {
+  if ((newKey && !apiResult.okPrimary) || (newTdKey && !tdResult.okPrimary) || (newGemKey && !gemResult.okPrimary) || (newGroqKey && !grqResult.okPrimary)) {
     showToast({ title: 'Warning: keys may not have saved', body: 'Your browser may be in private mode or localStorage is full. Try again or export your keys.', type: 'bear' });
   }
   updateModeIndicators();
@@ -22622,9 +22835,9 @@ async function saveSettings() {
     Object.keys(_crossCheckCache).forEach(k => delete _crossCheckCache[k]);
     if (_selected && _data[_selected]) renderMain();
   }
-  if ((gemKeyChanged || localLlmChanged) && _selected && _data[_selected]) {
+  if ((gemKeyChanged || groqKeyChanged || localLlmChanged) && _selected && _data[_selected]) {
     // Re-render so the "Why?" / "Resolve conflict" buttons appear or disappear
-    // (they're gated on hasLLM() which now considers the local-LLM toggle too).
+    // (they're gated on hasLLM() which considers Gemini + Groq + local).
     renderMain();
   }
   if (keyChanged) {

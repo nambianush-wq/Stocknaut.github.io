@@ -228,9 +228,12 @@ function loadApp() {
     'fetchTickerBundle', 'fetchBars', 'fetchQuote', 'fetchFinnhubProfile', 'fetchFinnhubMetrics',
     'fetchYahooWeekly', 'fetchTwelveDataWeekly',
     'isLive', 'fmt', 'API_KEY', 'TD_API_KEY',
-    // AI / LLM helpers (2026-05-19 leaked-key RCA — smoke needs to invoke
-    // callLLM with a stubbed fetch to exercise the error classifier)
-    'callLLM', 'hasLLM', 'GEMINI_API_KEY', 'LS_KEY_GEMINI',
+    // AI / LLM helpers (2026-05-19 leaked-key RCA + 2026-05-20 Groq fallback —
+    // smoke needs to invoke callLLM with a stubbed fetch to exercise the
+    // multi-provider dispatcher)
+    'callLLM', 'hasLLM', 'hasGeminiKey', 'hasGroqKey', 'hasRemoteLLM', 'hasUsableRemote',
+    'GEMINI_API_KEY', 'GROQ_API_KEY', 'LOCAL_LLM_ENABLED',
+    'LS_KEY_GEMINI', 'LS_KEY_GROQ', 'LS_KEY_LOCAL_LLM',
   ];
   const exportTrailer = ';(' + exported.map(n =>
     `(typeof ${n} !== 'undefined') && (globalThis.${n} = ${n})`
