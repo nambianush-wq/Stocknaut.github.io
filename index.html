@@ -4352,6 +4352,47 @@ body { padding-bottom: 44px; }
   animation: ai-blink 0.9s steps(2, end) infinite;
 }
 @keyframes ai-blink { to { opacity: 0; } }
+
+/* In-browser-LLM model-download progress UI inside the modal */
+.ai-progress-host { margin-top: 10px; }
+.ai-progress-line {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.ai-progress-line code {
+  background: var(--raised);
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 10.5px;
+}
+.ai-progress-bar {
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.ai-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, rgb(83,58,253), rgb(191,90,242));
+  transition: width 0.2s ease-out;
+}
+
+/* Settings help-tag — small inline pill next to a checkbox label */
+.help-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  background: rgba(83,58,253,.15);
+  border: 1px solid rgba(83,58,253,.35);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  vertical-align: middle;
+}
 .ai-spin {
   display: inline-block;
   width: 14px;
@@ -11976,6 +12017,10 @@ body.menu-open #mobile-menu-backdrop { display: block; }
         <div class="help-text">Powers the <b>Why this verdict?</b> narrator and the <b>Resolve conflict</b> panel on the ticker dashboard. Without a key those buttons stay hidden and the rest of the app is unchanged. <b>Free tier:</b> ~15 requests/min, 1M tokens/day, no credit card required. Get a key in 2 minutes at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>. Answers are cached per (ticker · day) to keep usage well under the free cap. If a deployment-wide key is baked into the source by the operator, the storage status below shows it as <i>inherited from deployment-wide baked key</i> — pasting a personal key here overrides that for this browser only.</div>
       </div>
       <div class="modal-row">
+        <label><input type="checkbox" id="local-llm-enabled"> In-browser LLM fallback <span class="help-tag">no key needed · ~400 MB one-time download</span></label>
+        <div class="help-text">When the Gemini key is missing, revoked, or rejected, fall back to a small instruct model (Qwen2.5-0.5B, ~400 MB Q4) that runs <b>entirely in your browser</b> via WebGPU when available. First activation downloads the model from a CDN; transformers.js caches it in your browser's IndexedDB so the second visit is instant. Quality is materially lower than Gemini Flash (it's a 500 M parameter model vs Gemini's billions) but the output is genuinely useful for the 3-4 sentence verdict explanation. <b>Cost:</b> $0/month. <b>Trade-off:</b> a few seconds of "Generating…" instead of Gemini's instant streaming. Toggle OFF if you'd rather see a clear "no key" error than wait for the local model.</div>
+      </div>
+      <div class="modal-row">
         <label>Storage status</label>
         <div id="settings-key-status" class="help-text" style="line-height:1.6"></div>
         <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
@@ -12925,6 +12970,15 @@ let NOTIFY_ON_CHANGE = (localStorage.getItem(LS_KEY_NOTIFY) || 'true') === 'true
 // by transformers.js itself — second visit is instant).
 const LS_KEY_FINBERT = 'sp_finbert_enabled';
 let FINBERT_ENABLED = localStorage.getItem(LS_KEY_FINBERT) === '1';
+// In-browser LLM fallback — Qwen2.5-0.5B-Instruct via transformers.js (same
+// lib that powers FinBERT). When ON, the "Why this verdict?" and "Resolve
+// conflict" buttons fall back to a locally-running ~400 MB ONNX model
+// instead of returning 'no_key' / 'leaked' / 'auth' errors. First activation
+// downloads the model (~400 MB Q4-quantised, cached in IndexedDB so the
+// second visit is instant). WebGPU-accelerated when available, falls back
+// to WASM CPU on older browsers.
+const LS_KEY_LOCAL_LLM = 'sp_local_llm_enabled';
+let LOCAL_LLM_ENABLED = localStorage.getItem(LS_KEY_LOCAL_LLM) === '1';
 let LAST_VERDICTS = JSON.parse(localStorage.getItem(LS_KEY_VERDICTS) || '{}');
 let SAVED_BUNDLES = loadBundles();
 let _lastBuiltPortfolio = null;
@@ -14763,6 +14817,154 @@ function toggleFinBERT() {
 }
 
 // ============================================================
+// In-browser LLM fallback — Qwen2.5-0.5B-Instruct via transformers.js
+// ============================================================
+// Mirrors the FinBERT lazy-load pattern but for a text-generation pipeline.
+// Activates only when LOCAL_LLM_ENABLED is true AND the remote (Gemini)
+// path is unavailable (no key / leaked / auth-rejected). The 2026-05-19
+// Gemini-leaked-key RCA showed that any baked LLM key on a public origin
+// gets revoked by the provider's scanner within minutes — this fallback
+// makes the AI features work even with no key on the device.
+//
+// Model: onnx-community/Qwen2.5-0.5B-Instruct
+//   - 500M params, instruction-tuned, Q4 quantised ≈ 400 MB
+//   - WebGPU when available (fast); WASM CPU fallback (slow but works)
+//   - First activation downloads from the @huggingface/transformers CDN
+//     and caches in IndexedDB; second activation is instant
+//   - Quality is MATERIALLY lower than Gemini Flash — fine for the 3-4
+//     sentence verdict explanation, weaker on the multi-block conflict
+//     resolver. Surface this honestly via a "Local model" source tag.
+// ============================================================
+const LOCAL_LLM_MODEL = 'onnx-community/Qwen2.5-0.5B-Instruct';
+let _localLlmGenerator = null;
+let _localLlmTransformersMod = null;
+let _localLlmLoadPromise = null;
+let _localLlmLoadError = null;
+let _localLlmProgress = null;   // { file, loaded, total, progress } — last progress event for the UI
+
+function _localLlmReady() { return !!_localLlmGenerator; }
+function _localLlmLastProgress() { return _localLlmProgress; }
+
+async function _loadLocalLLM(onProgress) {
+  if (_localLlmGenerator) return _localLlmGenerator;
+  if (_localLlmLoadError) return null;
+  if (_localLlmLoadPromise) {
+    // Another caller is already loading — chain on to receive progress.
+    if (onProgress) {
+      const prev = _localLlmProgress;
+      if (prev) try { onProgress(prev); } catch (e) {}
+    }
+    return _localLlmLoadPromise;
+  }
+  _localLlmLoadPromise = (async () => {
+    try {
+      const mod = _localLlmTransformersMod
+        || (_localLlmTransformersMod = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.2'));
+      const device = (typeof navigator !== 'undefined' && navigator.gpu) ? 'webgpu' : 'wasm';
+      const progress_callback = (info) => {
+        _localLlmProgress = info;
+        if (onProgress) try { onProgress(info); } catch (e) {}
+      };
+      const generator = await mod.pipeline('text-generation', LOCAL_LLM_MODEL, {
+        device,
+        dtype: 'q4',
+        progress_callback,
+      });
+      _localLlmGenerator = generator;
+      return generator;
+    } catch (e) {
+      console.warn('Local LLM load failed — falling back to error path:', e);
+      _localLlmLoadError = e;
+      _localLlmLoadPromise = null;
+      return null;
+    }
+  })();
+  return _localLlmLoadPromise;
+}
+
+// callLocalLLM — same contract as the Gemini path in callLLM. Returns
+//   { ok, text, error, source: 'local' }.
+// Supports streaming via opts.onChunk(partialText). Uses TextStreamer
+// from transformers.js to emit accumulated text on every new token.
+async function callLocalLLM(prompt, opts) {
+  opts = opts || {};
+  const generator = await _loadLocalLLM(opts.onProgress);
+  if (!generator) {
+    return {
+      ok: false,
+      error: 'local_unavailable',
+      text: '',
+      detail: _localLlmLoadError ? (_localLlmLoadError.message || String(_localLlmLoadError)) : 'unknown load failure',
+    };
+  }
+  const mod = _localLlmTransformersMod;
+  // Build a chat-template-friendly message list. Qwen2.5 instruct expects
+  // role/content pairs; the pipeline applies the chat template internally.
+  const messages = [
+    { role: 'system', content: 'You are a careful financial-context explainer for a retail investor. Use plain English, hedge appropriately, never recommend a price target, never promise outcomes.' },
+    { role: 'user', content: prompt },
+  ];
+  let streamer = null;
+  let streamedText = '';
+  if (opts.onChunk && mod && mod.TextStreamer && generator.tokenizer) {
+    streamer = new mod.TextStreamer(generator.tokenizer, {
+      skip_prompt: true,
+      skip_special_tokens: true,
+      callback_function: (token) => {
+        // transformers.js calls back per-decoded-string-chunk. Accumulate
+        // and emit the running total so the modal renders progressively.
+        streamedText += token;
+        try { opts.onChunk(streamedText.trim()); } catch (e) {}
+      },
+    });
+  }
+  try {
+    const out = await generator(messages, {
+      max_new_tokens: opts.maxTokens || 250,
+      do_sample: false,
+      temperature: opts.temp != null ? opts.temp : 0.3,
+      return_full_text: false,
+      ...(streamer ? { streamer } : {}),
+    });
+    // Extract the assistant text. Pipeline returns either a string (rare,
+    // older versions) or an array where each item carries generated_text.
+    // For chat templates, generated_text is itself the full messages array
+    // including the assistant's reply — pick the last assistant message.
+    let text = '';
+    if (typeof out === 'string') {
+      text = out;
+    } else if (Array.isArray(out) && out.length) {
+      const last = out[out.length - 1];
+      if (typeof last === 'string') {
+        text = last;
+      } else if (last && typeof last.generated_text === 'string') {
+        text = last.generated_text;
+      } else if (last && Array.isArray(last.generated_text)) {
+        // Chat-template output — find the trailing assistant message
+        const msgs = last.generated_text;
+        for (let i = msgs.length - 1; i >= 0; i--) {
+          if (msgs[i] && msgs[i].role === 'assistant' && typeof msgs[i].content === 'string') {
+            text = msgs[i].content;
+            break;
+          }
+        }
+      }
+    }
+    // Prefer the streamed accumulator when available — it's the canonical
+    // user-visible text and avoids any tokenizer-decode mismatch with the
+    // pipeline's final return shape.
+    if (!text && streamedText) text = streamedText;
+    const clean = (text || '').trim();
+    if (!clean) {
+      return { ok: false, error: 'empty', text: '', source: 'local' };
+    }
+    return { ok: true, text: clean, source: 'local' };
+  } catch (e) {
+    return { ok: false, error: 'local_error', text: '', detail: e.message || String(e), source: 'local' };
+  }
+}
+
+// ============================================================
 // AI features — Google Gemini Flash (free tier) explainability
 // ============================================================
 // Powers two on-demand surfaces on the ticker dashboard:
@@ -14788,7 +14990,16 @@ function toggleFinBERT() {
 // under cap with this caching even for power users.
 // ============================================================
 
-function hasLLM() { return !!(GEMINI_API_KEY && GEMINI_API_KEY.trim()); }
+// hasLLM — true when SOME LLM is available (remote Gemini key OR in-browser
+// fallback). The buttons render whenever this is true; the actual routing
+// (remote vs local) is decided inside callLLM at call time.
+function hasLLM() {
+  if (GEMINI_API_KEY && GEMINI_API_KEY.trim()) return true;
+  if (LOCAL_LLM_ENABLED) return true;
+  return false;
+}
+// hasRemoteLLM — used by callLLM to decide which path to take first.
+function hasRemoteLLM() { return !!(GEMINI_API_KEY && GEMINI_API_KEY.trim()); }
 
 const _llmInflight = new Map();   // dedupe concurrent calls (same prompt key)
 const LLM_CACHE_PREFIX = 'sp_llm_cache:';
@@ -14846,129 +15057,149 @@ async function callLLM(prompt, opts) {
   if (!hasLLM()) {
     return { ok: false, error: 'no_key', text: '' };
   }
-  const stream = typeof opts.onChunk === 'function';
   const promise = (async () => {
     try {
-      const endpoint = stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:${endpoint}${stream ? '&' : '?'}key=${encodeURIComponent(GEMINI_API_KEY)}`;
-      const body = {
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: opts.temp != null ? opts.temp : 0.3,
-          maxOutputTokens: opts.maxTokens || 250,
-        },
-      };
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const detail = await res.text().catch(() => '');
-        // Google has TWO distinct "key permanently dead" signals that the
-        // prior coarse classifier conflated with a transient rate-limit:
-        //   • 403 + "API key ... reported as leaked"  →  scanner-revoked
-        //   • 429 + "limit: 0"                        →  quota allocation = 0
-        // Both are TERMINAL for this key — surface as 'leaked' so the UI
-        // tells the user to paste a NEW key in Settings, not "wait a minute
-        // and try again" (which won't help — the key is disabled).
-        const detailLc = (detail || '').toLowerCase();
-        const leakedShape = detailLc.includes('reported as leaked')
-                         || detailLc.includes('api_key_invalid')
-                         || (res.status === 429 && detailLc.includes('limit: 0'));
-        if (leakedShape) {
-          return { ok: false, error: 'leaked', text: '', detail };
+      // Path 1: remote (Gemini) when a key is present. Falls back to local
+      // when Gemini returns 'leaked' / 'auth' (terminal-key shapes) AND the
+      // local-LLM toggle is on.
+      if (hasRemoteLLM()) {
+        const remote = await _callGeminiLLM(prompt, opts);
+        if (remote.ok) {
+          if (cacheKey) _llmCacheSet(cacheKey, remote.text);
+          return remote;
         }
-        if (res.status === 401 || res.status === 403) {
-          return { ok: false, error: 'auth', text: '', detail };
-        }
-        if (res.status === 429) {
-          return { ok: false, error: 'rate_limit', text: '', detail };
-        }
-        return { ok: false, error: 'api_error', text: '', detail: `HTTP ${res.status} ${detail.slice(0, 200)}` };
-      }
-      // Non-streaming path: parse the whole JSON once and return.
-      if (!stream) {
-        const data = await res.json();
-        const cand = data && data.candidates && data.candidates[0];
-        const text = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
-        if (!text) {
-          const blockReason = data && data.promptFeedback && data.promptFeedback.blockReason;
-          return { ok: false, error: blockReason ? 'blocked' : 'empty', text: '', detail: blockReason || '' };
-        }
-        const clean = text.trim();
-        if (cacheKey) _llmCacheSet(cacheKey, clean);
-        return { ok: true, text: clean, source: 'live' };
-      }
-      // Streaming path: read SSE chunks, accumulate text, fire onChunk
-      // each time so the modal body re-renders progressively. Falls back
-      // to a full-JSON parse if the browser doesn't support ReadableStream
-      // body readers (rare on modern evergreens, but defensive).
-      if (!res.body || !res.body.getReader) {
-        const data = await res.json().catch(() => null);
-        const arr = Array.isArray(data) ? data : (data ? [data] : []);
-        let txt = '';
-        for (const obj of arr) {
-          const cand = obj && obj.candidates && obj.candidates[0];
-          const part = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
-          if (part) txt += part;
-        }
-        const clean = txt.trim();
-        if (!clean) return { ok: false, error: 'empty', text: '' };
-        try { opts.onChunk(clean); } catch (e) {}
-        if (cacheKey) _llmCacheSet(cacheKey, clean);
-        return { ok: true, text: clean, source: 'live' };
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
-      let full = '';
-      let blockReason = null;
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        // SSE events are separated by blank lines. Each event has one or
-        // more `data: <payload>` lines. Gemini puts the whole JSON on a
-        // single data line per chunk.
-        let idx;
-        while ((idx = buf.indexOf('\n\n')) !== -1) {
-          const eventBlock = buf.slice(0, idx);
-          buf = buf.slice(idx + 2);
-          const dataLines = eventBlock.split('\n')
-            .filter(l => l.startsWith('data: '))
-            .map(l => l.slice(6).trim());
-          for (const payload of dataLines) {
-            if (!payload || payload === '[DONE]') continue;
-            try {
-              const obj = JSON.parse(payload);
-              if (obj.promptFeedback && obj.promptFeedback.blockReason) {
-                blockReason = obj.promptFeedback.blockReason;
-              }
-              const cand = obj.candidates && obj.candidates[0];
-              const txt = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
-              if (txt) {
-                full += txt;
-                try { opts.onChunk(full.trim()); } catch (e) {}
-              }
-            } catch (e) { /* malformed event, skip */ }
+        // Fall back to local LLM ONLY on terminal-key errors. Don't fall
+        // back on 'rate_limit' (caller should retry) or 'network' (likely
+        // transient) — those would mask a recoverable issue.
+        const terminal = remote.error === 'leaked' || remote.error === 'auth';
+        if (terminal && LOCAL_LLM_ENABLED) {
+          const local = await callLocalLLM(prompt, opts);
+          if (local.ok) {
+            if (cacheKey) _llmCacheSet(cacheKey, local.text);
+            // Attach the original remote error so the UI can surface a
+            // "Gemini key X — using local model instead" disclosure.
+            return { ...local, fellBackFrom: remote.error };
           }
+          return local;
         }
+        return remote;
       }
-      const clean = full.trim();
-      if (!clean) {
-        return { ok: false, error: blockReason ? 'blocked' : 'empty', text: '', detail: blockReason || '' };
+      // Path 2: no remote key but local is enabled.
+      if (LOCAL_LLM_ENABLED) {
+        const local = await callLocalLLM(prompt, opts);
+        if (local.ok && cacheKey) _llmCacheSet(cacheKey, local.text);
+        return local;
       }
-      if (cacheKey) _llmCacheSet(cacheKey, clean);
-      return { ok: true, text: clean, source: 'live' };
-    } catch (e) {
-      return { ok: false, error: 'network', text: '', detail: e.message || String(e) };
+      return { ok: false, error: 'no_key', text: '' };
     } finally {
       if (cacheKey) _llmInflight.delete(cacheKey);
     }
   })();
   if (cacheKey) _llmInflight.set(cacheKey, promise);
   return promise;
+}
+
+// Gemini-specific path. Same shape as callLocalLLM — returns
+//   { ok, text, error, source: 'live' }.
+async function _callGeminiLLM(prompt, opts) {
+  opts = opts || {};
+  const stream = typeof opts.onChunk === 'function';
+  try {
+    const endpoint = stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:${endpoint}${stream ? '&' : '?'}key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    const body = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: opts.temp != null ? opts.temp : 0.3,
+        maxOutputTokens: opts.maxTokens || 250,
+      },
+    };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      // Google has TWO distinct "key permanently dead" signals that the
+      // prior coarse classifier conflated with a transient rate-limit:
+      //   • 403 + "API key ... reported as leaked"  →  scanner-revoked
+      //   • 429 + "limit: 0"                        →  quota allocation = 0
+      // Both are TERMINAL for this key — surface as 'leaked' so the UI
+      // tells the user to paste a NEW key in Settings, not "wait a minute
+      // and try again" (which won't help — the key is disabled).
+      const detailLc = (detail || '').toLowerCase();
+      const leakedShape = detailLc.includes('reported as leaked')
+                       || detailLc.includes('api_key_invalid')
+                       || (res.status === 429 && detailLc.includes('limit: 0'));
+      if (leakedShape) return { ok: false, error: 'leaked', text: '', detail };
+      if (res.status === 401 || res.status === 403) return { ok: false, error: 'auth', text: '', detail };
+      if (res.status === 429) return { ok: false, error: 'rate_limit', text: '', detail };
+      return { ok: false, error: 'api_error', text: '', detail: `HTTP ${res.status} ${detail.slice(0, 200)}` };
+    }
+    if (!stream) {
+      const data = await res.json();
+      const cand = data && data.candidates && data.candidates[0];
+      const text = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+      if (!text) {
+        const blockReason = data && data.promptFeedback && data.promptFeedback.blockReason;
+        return { ok: false, error: blockReason ? 'blocked' : 'empty', text: '', detail: blockReason || '' };
+      }
+      return { ok: true, text: text.trim(), source: 'live' };
+    }
+    if (!res.body || !res.body.getReader) {
+      const data = await res.json().catch(() => null);
+      const arr = Array.isArray(data) ? data : (data ? [data] : []);
+      let txt = '';
+      for (const obj of arr) {
+        const cand = obj && obj.candidates && obj.candidates[0];
+        const part = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+        if (part) txt += part;
+      }
+      const clean = txt.trim();
+      if (!clean) return { ok: false, error: 'empty', text: '' };
+      try { opts.onChunk(clean); } catch (e) {}
+      return { ok: true, text: clean, source: 'live' };
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    let full = '';
+    let blockReason = null;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) !== -1) {
+        const eventBlock = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        const dataLines = eventBlock.split('\n')
+          .filter(l => l.startsWith('data: '))
+          .map(l => l.slice(6).trim());
+        for (const payload of dataLines) {
+          if (!payload || payload === '[DONE]') continue;
+          try {
+            const obj = JSON.parse(payload);
+            if (obj.promptFeedback && obj.promptFeedback.blockReason) {
+              blockReason = obj.promptFeedback.blockReason;
+            }
+            const cand = obj.candidates && obj.candidates[0];
+            const txt = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+            if (txt) {
+              full += txt;
+              try { opts.onChunk(full.trim()); } catch (e) {}
+            }
+          } catch (e) { /* malformed event, skip */ }
+        }
+      }
+    }
+    const clean = full.trim();
+    if (!clean) return { ok: false, error: blockReason ? 'blocked' : 'empty', text: '', detail: blockReason || '' };
+    return { ok: true, text: clean, source: 'live' };
+  } catch (e) {
+    return { ok: false, error: 'network', text: '', detail: e.message || String(e) };
+  }
 }
 
 // Minimal markdown → HTML so Gemini's natural **bold** / *italic* / line-break
@@ -15133,7 +15364,7 @@ async function whyVerdict(ticker) {
   try { console.log('[StockPulse] whyVerdict click:', ticker, 'hasLLM=', hasLLM()); } catch (e) {}
   if (!hasLLM()) {
     _aiModalShow('AI explanations require a key',
-      `<div class="ai-empty">Add a Google Gemini key in <b>⚙ Settings</b> to unlock AI explanations. Free tier — no credit card required at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</div>`,
+      `<div class="ai-empty">Add a Google Gemini key in <b>⚙ Settings</b> to unlock AI explanations. Free tier — no credit card required at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.<br><br>Alternatively, enable the <b>in-browser LLM fallback</b> in Settings — runs entirely on your device, no key required (~400 MB one-time download).</div>`,
       '');
     return;
   }
@@ -15144,26 +15375,32 @@ async function whyVerdict(ticker) {
       '');
     return;
   }
+  const usingLocalOnly = !hasRemoteLLM() && LOCAL_LLM_ENABLED;
+  const askingLabel = usingLocalOnly ? 'in-browser model' : 'Gemini';
   // Visible safety net — a toast confirms the click was registered even if
   // the modal fails to render for any reason (CSS regression, modal element
   // missing from DOM, etc.). Easier than asking a non-technical user to open
   // DevTools.
-  try { showToast({ title: '✦ Asking Gemini…', body: `${ticker} · ${ctx.v.label}`, type: 'info' }); } catch (e) {}
-  _aiModalShow(`Why ${ticker} reads as ${ctx.v.label}`,
-    `<div class="ai-loading"><span class="ai-spin"></span> Asking Gemini why ${ticker} is rated <b>${ctx.v.label}</b>…</div>`,
-    '');
+  try { showToast({ title: `✦ Asking ${askingLabel}…`, body: `${ticker} · ${ctx.v.label}`, type: 'info' }); } catch (e) {}
+  const loadingHint = usingLocalOnly && !_localLlmReady()
+    ? `<div class="ai-loading"><span class="ai-spin"></span> Loading in-browser model — first run downloads ~400 MB, then it's cached forever.</div>
+       <div class="ai-progress-host"></div>`
+    : `<div class="ai-loading"><span class="ai-spin"></span> Asking ${askingLabel} why ${ticker} is rated <b>${ctx.v.label}</b>…</div>`;
+  _aiModalShow(`Why ${ticker} reads as ${ctx.v.label}`, loadingHint, '');
   const today = new Date().toISOString().slice(0, 10);
   const cacheKey = `why:${ticker}:${today}:${ctx.v.score}`;
   // Streaming render — paint tokens into the modal body as they arrive
-  // (first token typically lands in <700ms). Skip repaints if the user
-  // closed the modal or switched tickers mid-stream.
+  // (first token typically lands in <700ms for Gemini; seconds for the
+  // local model). Skip repaints if the user closed the modal or switched
+  // tickers mid-stream.
   const renderPartial = (txt) => {
     const m = document.getElementById('ai-modal');
     if (!m || m.classList.contains('hidden') || _selected !== ticker) return;
     const body = document.getElementById('ai-modal-body');
     if (body) body.innerHTML = `<div class="ai-body">${_renderLLMMarkdown(txt)}<span class="ai-cursor"></span></div>`;
   };
-  const out = await callLLM(_aiPromptForVerdict(ctx), { cacheKey, maxTokens: 250, onChunk: renderPartial });
+  const onProgress = (info) => _renderLocalLlmProgress(info, ticker);
+  const out = await callLLM(_aiPromptForVerdict(ctx), { cacheKey, maxTokens: 250, onChunk: renderPartial, onProgress });
   const modal = document.getElementById('ai-modal');
   if (!modal || modal.classList.contains('hidden')) return;
   if (_selected !== ticker) return;
@@ -15171,9 +15408,7 @@ async function whyVerdict(ticker) {
     document.getElementById('ai-modal-body').innerHTML = `<div class="ai-error">${_aiErrorMsg(out)}</div>`;
     return;
   }
-  const sourceTag = out.source === 'cache'
-    ? `<span class="ai-src" title="Served from this browser's cache — no token cost. Cache TTL is 24h.">cached</span>`
-    : `<span class="ai-src" title="Live Gemini 2.0 Flash response, streamed. Cached locally for the next 24h.">Gemini 2.0 Flash</span>`;
+  const sourceTag = _aiSourceTag(out);
   // Final paint — drops the typing-cursor that the streaming render leaves
   // at the end of the partial text.
   document.getElementById('ai-modal-body').innerHTML = `<div class="ai-body">${_renderLLMMarkdown(out.text)}</div>`;
@@ -15187,7 +15422,7 @@ async function resolveConflict(ticker) {
   try { console.log('[StockPulse] resolveConflict click:', ticker, 'hasLLM=', hasLLM()); } catch (e) {}
   if (!hasLLM()) {
     _aiModalShow('AI explanations require a key',
-      `<div class="ai-empty">Add a Google Gemini key in <b>⚙ Settings</b> to get a concrete conflict-resolution suggestion.</div>`,
+      `<div class="ai-empty">Add a Google Gemini key in <b>⚙ Settings</b> to get a concrete conflict-resolution suggestion.<br><br>Alternatively, enable the <b>in-browser LLM fallback</b> in Settings — runs entirely on your device, no key required.</div>`,
       '');
     return;
   }
@@ -15198,10 +15433,14 @@ async function resolveConflict(ticker) {
       '');
     return;
   }
-  try { showToast({ title: '✦ Asking Gemini…', body: `${ticker} · resolving CONFLICT`, type: 'info' }); } catch (e) {}
-  _aiModalShow(`Resolving the conflict on ${ticker}`,
-    `<div class="ai-loading"><span class="ai-spin"></span> Asking Gemini how to resolve the CONFLICT on ${ticker}…</div>`,
-    '');
+  const usingLocalOnly = !hasRemoteLLM() && LOCAL_LLM_ENABLED;
+  const askingLabel = usingLocalOnly ? 'in-browser model' : 'Gemini';
+  try { showToast({ title: `✦ Asking ${askingLabel}…`, body: `${ticker} · resolving CONFLICT`, type: 'info' }); } catch (e) {}
+  const loadingHint = usingLocalOnly && !_localLlmReady()
+    ? `<div class="ai-loading"><span class="ai-spin"></span> Loading in-browser model — first run downloads ~400 MB, then it's cached forever.</div>
+       <div class="ai-progress-host"></div>`
+    : `<div class="ai-loading"><span class="ai-spin"></span> Asking ${askingLabel} how to resolve the CONFLICT on ${ticker}…</div>`;
+  _aiModalShow(`Resolving the conflict on ${ticker}`, loadingHint, '');
   const today = new Date().toISOString().slice(0, 10);
   const cacheKey = `conflict:${ticker}:${today}:${ctx.v.score}`;
   const renderPartial = (txt) => {
@@ -15210,7 +15449,8 @@ async function resolveConflict(ticker) {
     const body = document.getElementById('ai-modal-body');
     if (body) body.innerHTML = `<div class="ai-body">${_renderLLMMarkdown(txt)}<span class="ai-cursor"></span></div>`;
   };
-  const out = await callLLM(_aiPromptForConflict(ctx), { cacheKey, maxTokens: 300, onChunk: renderPartial });
+  const onProgress = (info) => _renderLocalLlmProgress(info, ticker);
+  const out = await callLLM(_aiPromptForConflict(ctx), { cacheKey, maxTokens: 300, onChunk: renderPartial, onProgress });
   const modal = document.getElementById('ai-modal');
   if (!modal || modal.classList.contains('hidden')) return;
   if (_selected !== ticker) return;
@@ -15218,24 +15458,69 @@ async function resolveConflict(ticker) {
     document.getElementById('ai-modal-body').innerHTML = `<div class="ai-error">${_aiErrorMsg(out)}</div>`;
     return;
   }
-  const sourceTag = out.source === 'cache'
-    ? `<span class="ai-src" title="Served from this browser's cache — no token cost.">cached</span>`
-    : `<span class="ai-src" title="Live Gemini 2.0 Flash response, streamed. Cached locally for 24h.">Gemini 2.0 Flash</span>`;
+  const sourceTag = _aiSourceTag(out);
   document.getElementById('ai-modal-body').innerHTML = `<div class="ai-body">${_renderLLMMarkdown(out.text)}</div>`;
   document.getElementById('ai-modal-foot').innerHTML =
     `<div class="ai-foot-meta">${sourceTag}</div>
      <div class="ai-foot-note">AI-suggested posture · not investment advice · size to your own risk tolerance.</div>`;
 }
 
+// Source-tag chip rendered in the modal footer. Encodes (cache | live Gemini
+// | in-browser local model | fallback-after-Gemini-error) into a single
+// reusable HTML snippet so the two callers stay in sync.
+function _aiSourceTag(out) {
+  if (out.source === 'cache') {
+    return `<span class="ai-src" title="Served from this browser's cache — no token cost. Cache TTL is 24h.">cached</span>`;
+  }
+  if (out.source === 'local') {
+    const fellBack = out.fellBackFrom
+      ? ` (Gemini ${out.fellBackFrom} → fell back to local)`
+      : '';
+    return `<span class="ai-src" title="Local in-browser model (Qwen2.5-0.5B-Instruct). Runs entirely in your browser via transformers.js + WebGPU when available. Quality lower than Gemini but $0 / no key. ~400 MB cached in IndexedDB.">Local · Qwen2.5-0.5B${fellBack}</span>`;
+  }
+  return `<span class="ai-src" title="Live Gemini 2.0 Flash response, streamed. Cached locally for the next 24h.">Gemini 2.0 Flash</span>`;
+}
+
+// Render transformers.js model-load progress events into a small inline bar
+// in the modal body. transformers.js fires progress_callback with:
+//   { status: 'progress'|'done'|'initiate'|..., file, loaded, total, progress }
+// We only render the percentage + file name. Ignored once the model is loaded
+// (the streaming output will be painting tokens by then).
+function _renderLocalLlmProgress(info, ticker) {
+  if (!info || _selected !== ticker) return;
+  const m = document.getElementById('ai-modal');
+  if (!m || m.classList.contains('hidden')) return;
+  const host = m.querySelector('.ai-progress-host');
+  if (!host) return;
+  // Compute a friendly progress string.
+  let line = '';
+  if (info.status === 'progress' && typeof info.progress === 'number') {
+    const pct = Math.min(100, Math.max(0, info.progress));
+    const mb = info.loaded ? (info.loaded / 1024 / 1024).toFixed(1) : null;
+    const totalMb = info.total ? (info.total / 1024 / 1024).toFixed(0) : null;
+    const file = info.file ? ` · <code>${_escapeHtml(String(info.file)).slice(0, 40)}</code>` : '';
+    const bytes = (mb && totalMb) ? ` (${mb} / ${totalMb} MB)` : '';
+    line = `<div class="ai-progress-line">Downloading ${pct.toFixed(0)}%${bytes}${file}</div>
+            <div class="ai-progress-bar"><div class="ai-progress-fill" style="width:${pct.toFixed(1)}%"></div></div>`;
+  } else if (info.status === 'done') {
+    line = `<div class="ai-progress-line">✓ Model files ready — running inference…</div>`;
+  } else if (info.status === 'ready' || info.status === 'initiate') {
+    line = `<div class="ai-progress-line">${info.status === 'initiate' ? 'Fetching' : 'Loading'} model…</div>`;
+  }
+  if (line) host.innerHTML = line;
+}
+
 function _aiErrorMsg(out) {
   const link = `<a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>`;
-  if (out.error === 'no_key')     return `Add a Gemini key in <b>⚙ Settings</b> to enable this. Free at ${link}.`;
-  if (out.error === 'leaked')     return `<b style="color:var(--bear)">This Gemini key is disabled.</b> Google's secret-scanner revokes API keys it finds in public source code or quota is set to zero, so the response says <i>"reported as leaked"</i> or <i>"limit: 0"</i>. Waiting will not fix it — open <b>⚙ Settings</b> and paste your own Gemini key from ${link} (free, no card, 2-minute setup). Your personal key stays in this browser only and is safe.`;
-  if (out.error === 'auth')       return `<b style="color:var(--bear)">Gemini key rejected (HTTP 401/403).</b> Open <b>⚙ Settings</b> and paste a fresh key from ${link}.`;
-  if (out.error === 'rate_limit') return `Gemini free-tier rate limit hit (~15/min). Wait a minute and click again — cached answers stay free.`;
-  if (out.error === 'blocked')    return `Gemini's safety filter blocked the response${out.detail ? ` (${_escapeHtml(out.detail)})` : ''}. Try again — usually transient on financial prompts.`;
-  if (out.error === 'empty')      return `Gemini returned no answer. Try again.`;
-  if (out.error === 'network')    return `Network error reaching Gemini: <code>${_escapeHtml(out.detail || '')}</code>. Check connectivity and retry.`;
+  if (out.error === 'no_key')            return `Add a Gemini key in <b>⚙ Settings</b> to enable this — or tick the <b>in-browser LLM fallback</b> checkbox to run a local model with no key. Free Gemini key at ${link}.`;
+  if (out.error === 'leaked')            return `<b style="color:var(--bear)">This Gemini key is disabled.</b> Google's secret-scanner revokes API keys it finds in public source code or quota is set to zero, so the response says <i>"reported as leaked"</i> or <i>"limit: 0"</i>. Waiting will not fix it — open <b>⚙ Settings</b> and paste your own Gemini key from ${link} (free, no card, 2-minute setup), <i>or</i> tick the in-browser LLM fallback to skip keys entirely. Your personal key stays in this browser only.`;
+  if (out.error === 'auth')              return `<b style="color:var(--bear)">Gemini key rejected (HTTP 401/403).</b> Open <b>⚙ Settings</b> and paste a fresh key from ${link}.`;
+  if (out.error === 'rate_limit')        return `Gemini free-tier rate limit hit (~15/min). Wait a minute and click again — cached answers stay free.`;
+  if (out.error === 'blocked')           return `Gemini's safety filter blocked the response${out.detail ? ` (${_escapeHtml(out.detail)})` : ''}. Try again — usually transient on financial prompts.`;
+  if (out.error === 'empty')             return `${out.source === 'local' ? 'Local model' : 'Gemini'} returned no answer. Try again.`;
+  if (out.error === 'network')           return `Network error reaching Gemini: <code>${_escapeHtml(out.detail || '')}</code>. Check connectivity and retry. (Tip: enable the in-browser LLM fallback in Settings to keep working offline.)`;
+  if (out.error === 'local_unavailable') return `<b style="color:var(--bear)">In-browser model couldn't load.</b> ${_escapeHtml(out.detail || 'unknown')}. Most common causes: (1) the CDN at <code>cdn.jsdelivr.net/npm/@huggingface/transformers</code> is blocked, (2) the browser doesn't support WebAssembly + WebGPU/WASM SIMD (need Chrome 113+ / Edge / Safari 18+ / Firefox 121+), or (3) IndexedDB quota is too small to cache the 400 MB model. Open Settings and either add a Gemini key OR untick the in-browser fallback.`;
+  if (out.error === 'local_error')       return `<b style="color:var(--bear)">In-browser model failed to generate:</b> <code>${_escapeHtml(out.detail || 'unknown')}</code>. The model loaded but inference crashed (typically WebGPU memory exhaustion on a small GPU). Try refreshing or fall back to a Gemini key in Settings.`;
   return `AI call failed: ${_escapeHtml(out.error || 'unknown')}${out.detail ? ` — ${_escapeHtml(out.detail).slice(0, 200)}` : ''}.`;
 }
 
@@ -21880,6 +22165,8 @@ function openSettings() {
   if (tdInput) tdInput.value = TD_API_KEY;
   const gemInput = $('gemini-api-key');
   if (gemInput) gemInput.value = GEMINI_API_KEY;
+  const localLlmInput = $('local-llm-enabled');
+  if (localLlmInput) localLlmInput.checked = LOCAL_LLM_ENABLED;
   $('refresh-interval').value = String(REFRESH_SEC);
   $('notify-on-change').checked = NOTIFY_ON_CHANGE;
   renderKeyStorageStatus();
@@ -21924,8 +22211,20 @@ function renderKeyStorageStatus() {
     lines.push(`<span style="color:var(--bull)">✓ Gemini key saved on this browser (primary + backup, in sync)${_bakedKeyFor(LS_KEY_GEMINI) ? ' — overrides the deployment-wide baked key' : ' — AI features enabled'}</span>`);
   } else if (s.gemini.has) {
     lines.push(`<span style="color:var(--warn)">⚠ Gemini key saved on this browser but backup is out of sync — click Save to re-sync</span>`);
+  } else if (LOCAL_LLM_ENABLED) {
+    lines.push(`<span style="color:var(--muted)">○ Gemini key not set — using <b>in-browser LLM fallback</b> instead (slower, ~400 MB cached)</span>`);
   } else {
-    lines.push(`<span style="color:var(--muted)">○ Gemini key not set (AI features hidden — the rest of the app is unaffected)</span>`);
+    lines.push(`<span style="color:var(--muted)">○ Gemini key not set (AI features hidden — the rest of the app is unaffected). Tick the in-browser LLM fallback above for a no-key option.</span>`);
+  }
+  // In-browser LLM status — only surface when ENABLED, otherwise the line
+  // is noise (the rest of the app behaves identically).
+  if (LOCAL_LLM_ENABLED) {
+    const ready = (typeof _localLlmReady === 'function') ? _localLlmReady() : false;
+    if (ready) {
+      lines.push(`<span style="color:var(--bull)">✓ In-browser LLM ready (Qwen2.5-0.5B-Instruct, cached in IndexedDB)</span>`);
+    } else {
+      lines.push(`<span style="color:var(--accent)">⊕ In-browser LLM enabled — first click of "Why this verdict?" will download ~400 MB (one-time, cached forever)</span>`);
+    }
   }
   if (s.savedAt > 0) {
     const ago = Math.floor((Date.now() - s.savedAt) / 1000);
@@ -22127,6 +22426,8 @@ async function saveSettings() {
   const newTdKey = tdInput ? tdInput.value.trim() : TD_API_KEY;
   const gemInput = $('gemini-api-key');
   const newGemKey = gemInput ? gemInput.value.trim() : GEMINI_API_KEY;
+  const localLlmInput = $('local-llm-enabled');
+  const newLocalLlm = localLlmInput ? !!localLlmInput.checked : LOCAL_LLM_ENABLED;
   const newRefresh = parseInt($('refresh-interval').value, 10);
   const newNotify = $('notify-on-change').checked;
   const keyChanged = newKey !== API_KEY;
@@ -22135,6 +22436,9 @@ async function saveSettings() {
   API_KEY = newKey;
   TD_API_KEY = newTdKey;
   GEMINI_API_KEY = newGemKey;
+  const localLlmChanged = newLocalLlm !== LOCAL_LLM_ENABLED;
+  LOCAL_LLM_ENABLED = newLocalLlm;
+  try { localStorage.setItem(LS_KEY_LOCAL_LLM, LOCAL_LLM_ENABLED ? '1' : '0'); } catch (e) {}
   REFRESH_SEC = newRefresh;
   NOTIFY_ON_CHANGE = newNotify;
   // Persist with backup slots for resilience against accidental localStorage clear
@@ -22155,8 +22459,9 @@ async function saveSettings() {
     Object.keys(_crossCheckCache).forEach(k => delete _crossCheckCache[k]);
     if (_selected && _data[_selected]) renderMain();
   }
-  if (gemKeyChanged && _selected && _data[_selected]) {
-    // Re-render so the "Why?" / "Resolve conflict" buttons appear or disappear.
+  if ((gemKeyChanged || localLlmChanged) && _selected && _data[_selected]) {
+    // Re-render so the "Why?" / "Resolve conflict" buttons appear or disappear
+    // (they're gated on hasLLM() which now considers the local-LLM toggle too).
     renderMain();
   }
   if (keyChanged) {
