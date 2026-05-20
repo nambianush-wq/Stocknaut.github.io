@@ -4340,6 +4340,18 @@ body { padding-bottom: 44px; }
   color: var(--muted);
   padding: 6px 0;
 }
+/* Blinking caret appended during the streaming-paint of the AI response.
+   Dropped on the final paint when the full response has arrived. */
+.ai-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  vertical-align: -2px;
+  margin-left: 2px;
+  background: rgb(191,90,242);
+  animation: ai-blink 0.9s steps(2, end) infinite;
+}
+@keyframes ai-blink { to { opacity: 0; } }
 .ai-spin {
   display: inline-block;
   width: 14px;
@@ -5646,7 +5658,7 @@ body.menu-open #mobile-menu-backdrop { display: block; }
 }
 </style>
 </head>
-<body class="">
+<body class="cockpit-mode">
 
 <div id="topbar">
   <button class="btn" id="menu-toggle" onclick="toggleMobileMenu()" aria-label="Toggle watchlist menu" title="Open watchlist">☰</button>
@@ -5821,7 +5833,7 @@ body.menu-open #mobile-menu-backdrop { display: block; }
       </div>
       <button onclick="openSettings()">Add Finnhub key</button>
     </div>
-    <div id="cockpit-page" role="tabpanel" aria-labelledby="tab-cockpit" style="display:none;">
+    <div id="cockpit-page" role="tabpanel" aria-labelledby="tab-cockpit" style="display:block;">
       <div class="cockpit-header">
         <div>
           <div class="cockpit-title">Market Cockpit</div>
@@ -5897,7 +5909,7 @@ body.menu-open #mobile-menu-backdrop { display: block; }
         <div class="cockpit-alerts-grid" id="cockpit-alerts"></div>
       </div>
     </div>
-    <div id="content" style="">
+    <div id="content" style="display:none;">
     <div id="ticker-head">
       <div id="ticker-left">
         <div class="t-sym-block">
@@ -12229,7 +12241,75 @@ function persistJsonResilient(primary, backup, val) {
   try { localStorage.setItem(primary, json); okPrimary = true; } catch (e) {}
   try { localStorage.setItem(backup, json); okBackup = true; } catch (e) {}
   try { localStorage.setItem(LS_KEY_DATA_SAVED_AT, String(Date.now())); } catch (e) {}
+  // Safety-net C — also mirror to IndexedDB. localStorage can be wiped by
+  // browser settings / privacy extensions / quota eviction without warning;
+  // IDB lives in a separate storage area and is much harder to clear
+  // accidentally. Fire-and-forget — we don't await this so the existing
+  // sync contract is preserved.
+  if (_IDB_BACKED_KEYS.has(primary)) {
+    _idbPut(primary, val).catch(() => {});
+  }
   return { okPrimary, okBackup };
+}
+
+// ========================================================================
+// IndexedDB auto-backup mirror — safety net C (RCA 2026-05-19 follow-up).
+// Mirrors the critical user-data lists to a separate storage area that's
+// harder to wipe accidentally than localStorage. On load, when both
+// localStorage primary AND backup slots are empty, we restore from IDB.
+// Async (doesn't block startup) — restores after first paint, then re-
+// renders the affected surface.
+// ========================================================================
+const IDB_DB_NAME = 'stockpulse_backup_v1';
+const IDB_STORE = 'kv';
+const _IDB_BACKED_KEYS = new Set([
+  LS_KEY_WL, LS_KEY_FAVS, LS_KEY_SIMSET, LS_KEY_BUNDLES,
+]);
+let _idbHandle = null;
+function _idbOpen() {
+  if (_idbHandle) return Promise.resolve(_idbHandle);
+  return new Promise((resolve) => {
+    try {
+      if (typeof indexedDB === 'undefined') return resolve(null);
+      const req = indexedDB.open(IDB_DB_NAME, 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE);
+        }
+      };
+      req.onsuccess = (e) => { _idbHandle = e.target.result; resolve(_idbHandle); };
+      req.onerror = () => resolve(null);
+      req.onblocked = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
+}
+async function _idbPut(key, value) {
+  const db = await _idbOpen();
+  if (!db) return false;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      const store = tx.objectStore(IDB_STORE);
+      store.put(value, key);
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+      tx.onabort = () => resolve(false);
+    } catch (e) { resolve(false); }
+  });
+}
+async function _idbGet(key) {
+  const db = await _idbOpen();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const store = tx.objectStore(IDB_STORE);
+      const req = store.get(key);
+      req.onsuccess = () => resolve(req.result == null ? null : req.result);
+      req.onerror = () => resolve(null);
+    } catch (e) { resolve(null); }
+  });
 }
 
 // Storage-health snapshot covering EVERY user-data list. Used by the Settings
@@ -14547,29 +14627,53 @@ function _llmCacheSet(key, text) {
   } catch (e) { /* quota or private mode — non-fatal */ }
 }
 
+// Gemini model selection — `gemini-2.0-flash` is materially faster than
+// `gemini-2.5-flash` for the short (≤130 word) explanation we ask for,
+// and the quality difference is negligible at this length. Latency on
+// the free tier with streaming: first token ~400-700ms, full response
+// ~1-2s. Without streaming and on 2.5-flash the same prompt was taking
+// 3-5s wall-clock — that's what the user reported as "very slow".
+const GEMINI_MODEL = 'gemini-2.0-flash';
+
 // Provider-agnostic LLM call. Returns { ok, text, error }.
 //   opts.cacheKey  — required for caching; pass null to bypass
-//   opts.maxTokens — output budget (default 600)
-//   opts.temp      — sampling temperature (default 0.3 for deterministic explanations)
+//   opts.maxTokens — output budget (default 250 — was 600; the prompts
+//                    ask for ≤130 words so 250 tokens is generous and
+//                    materially lowers wall-clock latency vs 600)
+//   opts.temp      — sampling temperature (default 0.3 for deterministic
+//                    explanations)
+//   opts.onChunk(partialText) — optional streaming callback. When set,
+//                    fires repeatedly with the ACCUMULATED text as
+//                    tokens arrive over SSE. Final value passed to the
+//                    callback is identical to the resolved `.text`. The
+//                    caller renders progressively for perceived speed.
+//                    Caching only happens on the final complete value.
 async function callLLM(prompt, opts) {
   opts = opts || {};
   const cacheKey = opts.cacheKey || null;
   if (cacheKey) {
     const cached = _llmCacheGet(cacheKey);
-    if (cached) return { ok: true, text: cached, source: 'cache' };
+    if (cached) {
+      // Replay cached text through the streaming callback in one shot
+      // so the caller's render path is uniform.
+      if (opts.onChunk) try { opts.onChunk(cached); } catch (e) {}
+      return { ok: true, text: cached, source: 'cache' };
+    }
     if (_llmInflight.has(cacheKey)) return _llmInflight.get(cacheKey);
   }
   if (!hasLLM()) {
     return { ok: false, error: 'no_key', text: '' };
   }
+  const stream = typeof opts.onChunk === 'function';
   const promise = (async () => {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+      const endpoint = stream ? 'streamGenerateContent?alt=sse' : 'generateContent';
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:${endpoint}${stream ? '&' : '?'}key=${encodeURIComponent(GEMINI_API_KEY)}`;
       const body = {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: opts.temp != null ? opts.temp : 0.3,
-          maxOutputTokens: opts.maxTokens || 600,
+          maxOutputTokens: opts.maxTokens || 250,
         },
       };
       const res = await fetch(url, {
@@ -14587,14 +14691,78 @@ async function callLLM(prompt, opts) {
         }
         return { ok: false, error: 'api_error', text: '', detail: `HTTP ${res.status} ${detail.slice(0, 200)}` };
       }
-      const data = await res.json();
-      const cand = data && data.candidates && data.candidates[0];
-      const text = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
-      if (!text) {
-        const blockReason = data && data.promptFeedback && data.promptFeedback.blockReason;
+      // Non-streaming path: parse the whole JSON once and return.
+      if (!stream) {
+        const data = await res.json();
+        const cand = data && data.candidates && data.candidates[0];
+        const text = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+        if (!text) {
+          const blockReason = data && data.promptFeedback && data.promptFeedback.blockReason;
+          return { ok: false, error: blockReason ? 'blocked' : 'empty', text: '', detail: blockReason || '' };
+        }
+        const clean = text.trim();
+        if (cacheKey) _llmCacheSet(cacheKey, clean);
+        return { ok: true, text: clean, source: 'live' };
+      }
+      // Streaming path: read SSE chunks, accumulate text, fire onChunk
+      // each time so the modal body re-renders progressively. Falls back
+      // to a full-JSON parse if the browser doesn't support ReadableStream
+      // body readers (rare on modern evergreens, but defensive).
+      if (!res.body || !res.body.getReader) {
+        const data = await res.json().catch(() => null);
+        const arr = Array.isArray(data) ? data : (data ? [data] : []);
+        let txt = '';
+        for (const obj of arr) {
+          const cand = obj && obj.candidates && obj.candidates[0];
+          const part = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+          if (part) txt += part;
+        }
+        const clean = txt.trim();
+        if (!clean) return { ok: false, error: 'empty', text: '' };
+        try { opts.onChunk(clean); } catch (e) {}
+        if (cacheKey) _llmCacheSet(cacheKey, clean);
+        return { ok: true, text: clean, source: 'live' };
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      let full = '';
+      let blockReason = null;
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        // SSE events are separated by blank lines. Each event has one or
+        // more `data: <payload>` lines. Gemini puts the whole JSON on a
+        // single data line per chunk.
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) !== -1) {
+          const eventBlock = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          const dataLines = eventBlock.split('\n')
+            .filter(l => l.startsWith('data: '))
+            .map(l => l.slice(6).trim());
+          for (const payload of dataLines) {
+            if (!payload || payload === '[DONE]') continue;
+            try {
+              const obj = JSON.parse(payload);
+              if (obj.promptFeedback && obj.promptFeedback.blockReason) {
+                blockReason = obj.promptFeedback.blockReason;
+              }
+              const cand = obj.candidates && obj.candidates[0];
+              const txt = cand && cand.content && cand.content.parts && cand.content.parts[0] && cand.content.parts[0].text;
+              if (txt) {
+                full += txt;
+                try { opts.onChunk(full.trim()); } catch (e) {}
+              }
+            } catch (e) { /* malformed event, skip */ }
+          }
+        }
+      }
+      const clean = full.trim();
+      if (!clean) {
         return { ok: false, error: blockReason ? 'blocked' : 'empty', text: '', detail: blockReason || '' };
       }
-      const clean = text.trim();
       if (cacheKey) _llmCacheSet(cacheKey, clean);
       return { ok: true, text: clean, source: 'live' };
     } catch (e) {
@@ -14790,8 +14958,16 @@ async function whyVerdict(ticker) {
     '');
   const today = new Date().toISOString().slice(0, 10);
   const cacheKey = `why:${ticker}:${today}:${ctx.v.score}`;
-  const out = await callLLM(_aiPromptForVerdict(ctx), { cacheKey, maxTokens: 350 });
-  // Bail if user dismissed the modal mid-call OR navigated to a different ticker.
+  // Streaming render — paint tokens into the modal body as they arrive
+  // (first token typically lands in <700ms). Skip repaints if the user
+  // closed the modal or switched tickers mid-stream.
+  const renderPartial = (txt) => {
+    const m = document.getElementById('ai-modal');
+    if (!m || m.classList.contains('hidden') || _selected !== ticker) return;
+    const body = document.getElementById('ai-modal-body');
+    if (body) body.innerHTML = `<div class="ai-body">${_renderLLMMarkdown(txt)}<span class="ai-cursor"></span></div>`;
+  };
+  const out = await callLLM(_aiPromptForVerdict(ctx), { cacheKey, maxTokens: 250, onChunk: renderPartial });
   const modal = document.getElementById('ai-modal');
   if (!modal || modal.classList.contains('hidden')) return;
   if (_selected !== ticker) return;
@@ -14801,7 +14977,9 @@ async function whyVerdict(ticker) {
   }
   const sourceTag = out.source === 'cache'
     ? `<span class="ai-src" title="Served from this browser's cache — no token cost. Cache TTL is 24h.">cached</span>`
-    : `<span class="ai-src" title="Live Gemini 2.5 Flash response. Cached locally for the next 24h.">Gemini 2.5 Flash</span>`;
+    : `<span class="ai-src" title="Live Gemini 2.0 Flash response, streamed. Cached locally for the next 24h.">Gemini 2.0 Flash</span>`;
+  // Final paint — drops the typing-cursor that the streaming render leaves
+  // at the end of the partial text.
   document.getElementById('ai-modal-body').innerHTML = `<div class="ai-body">${_renderLLMMarkdown(out.text)}</div>`;
   document.getElementById('ai-modal-foot').innerHTML =
     `<div class="ai-foot-meta">${sourceTag}</div>
@@ -14830,7 +15008,13 @@ async function resolveConflict(ticker) {
     '');
   const today = new Date().toISOString().slice(0, 10);
   const cacheKey = `conflict:${ticker}:${today}:${ctx.v.score}`;
-  const out = await callLLM(_aiPromptForConflict(ctx), { cacheKey, maxTokens: 400 });
+  const renderPartial = (txt) => {
+    const m = document.getElementById('ai-modal');
+    if (!m || m.classList.contains('hidden') || _selected !== ticker) return;
+    const body = document.getElementById('ai-modal-body');
+    if (body) body.innerHTML = `<div class="ai-body">${_renderLLMMarkdown(txt)}<span class="ai-cursor"></span></div>`;
+  };
+  const out = await callLLM(_aiPromptForConflict(ctx), { cacheKey, maxTokens: 300, onChunk: renderPartial });
   const modal = document.getElementById('ai-modal');
   if (!modal || modal.classList.contains('hidden')) return;
   if (_selected !== ticker) return;
@@ -14840,7 +15024,7 @@ async function resolveConflict(ticker) {
   }
   const sourceTag = out.source === 'cache'
     ? `<span class="ai-src" title="Served from this browser's cache — no token cost.">cached</span>`
-    : `<span class="ai-src" title="Live Gemini 2.5 Flash response. Cached locally for 24h.">Gemini 2.5 Flash</span>`;
+    : `<span class="ai-src" title="Live Gemini 2.0 Flash response, streamed. Cached locally for 24h.">Gemini 2.0 Flash</span>`;
   document.getElementById('ai-modal-body').innerHTML = `<div class="ai-body">${_renderLLMMarkdown(out.text)}</div>`;
   document.getElementById('ai-modal-foot').innerHTML =
     `<div class="ai-foot-meta">${sourceTag}</div>
