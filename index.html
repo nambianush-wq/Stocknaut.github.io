@@ -16533,6 +16533,23 @@ const STOCK_CATALOG = [
   { t:'ARKK', n:'ARK Innovation ETF', i:'ETF · Innovation' },
   { t:'JEPI', n:'JPMorgan Equity Premium Income ETF', i:'ETF · Income' },
   { t:'SCHD', n:'Schwab US Dividend Equity ETF', i:'ETF · Dividend' },
+  // Dual-listed Canadian companies (NYSE listings — Finnhub's name search
+  // misses these because their primary listing is on TSX). All of these
+  // trade on NYSE under the tickers below and are legitimate US-listed.
+  { t:'ENB',  n:'Enbridge Inc.', i:'Oil & Gas' },
+  { t:'TD',   n:'Toronto-Dominion Bank', i:'Banks' },
+  { t:'RY',   n:'Royal Bank of Canada', i:'Banks' },
+  { t:'BNS',  n:'Bank of Nova Scotia', i:'Banks' },
+  { t:'BMO',  n:'Bank of Montreal', i:'Banks' },
+  { t:'CM',   n:'Canadian Imperial Bank of Commerce', i:'Banks' },
+  { t:'SU',   n:'Suncor Energy Inc.', i:'Oil & Gas' },
+  { t:'CNQ',  n:'Canadian Natural Resources Limited', i:'Oil & Gas' },
+  { t:'CP',   n:'Canadian Pacific Kansas City Limited', i:'Industrials' },
+  { t:'CNI',  n:'Canadian National Railway Company', i:'Industrials' },
+  { t:'MFC',  n:'Manulife Financial Corporation', i:'Insurance' },
+  { t:'BCE',  n:'BCE Inc.', i:'Telecom' },
+  { t:'TRP',  n:'TC Energy Corporation', i:'Oil & Gas' },
+  { t:'PBA',  n:'Pembina Pipeline Corporation', i:'Oil & Gas' },
 ];
 
 // Sector roster — used by the peer top-performers card
@@ -16648,32 +16665,57 @@ function isUSListedSymbol(sym) {
 }
 
 async function searchStocks(query) {
-  if (isLive()) {
-    try {
-      // exchange=US scopes Finnhub's global index to US-tradeable listings so we
-      // don't surface .TO / .KS / .KQ / .L results that the rest of the app
-      // cannot consume. Belt-and-suspenders: also filter client-side in case
-      // a non-US symbol leaks through.
-      const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(query)}&exchange=US&token=${encodeURIComponent(API_KEY)}`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const j = await res.json();
-        const seen = new Set();
-        const out = [];
-        for (const r of (j.result || [])) {
-          if (!r.symbol || seen.has(r.symbol)) continue;
-          if (r.type && r.type !== 'Common Stock' && r.type !== 'ETP' && r.type !== 'ETF') continue;
-          const display = r.displaySymbol || r.symbol;
-          if (!isUSListedSymbol(display)) continue;
-          seen.add(r.symbol);
-          out.push({ ticker: display, name: r.description || r.symbol, meta: r.type || '' });
+  // Always check the curated catalog — it acts as a quality overlay for
+  // dual-listed names (Enbridge, TD, Royal Bank, etc.) whose primary
+  // listing on Finnhub is the Canadian one, so Finnhub's exchange=US
+  // search misses them by name even though the US ticker is real.
+  const catalogHits = searchCatalog(query);
+  if (!isLive()) return catalogHits;
+  try {
+    // exchange=US scopes Finnhub's global index to US-tradeable listings so we
+    // don't surface .TO / .KS / .KQ / .L results that the rest of the app
+    // cannot consume. Belt-and-suspenders: also filter client-side in case
+    // a non-US symbol leaks through.
+    const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(query)}&exchange=US&token=${encodeURIComponent(API_KEY)}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const j = await res.json();
+      const seen = new Set();
+      const out = [];
+      // Catalog hits go FIRST when they are name-prefix matches (the
+      // user typed a company name) — guarantees Enbridge etc. show up.
+      const q = query.trim().toLowerCase();
+      for (const c of catalogHits) {
+        const tickerHit = c.ticker.toLowerCase().startsWith(q);
+        const nameHit = c.name.toLowerCase().startsWith(q);
+        if (tickerHit || nameHit) {
+          seen.add(c.ticker);
+          out.push(c);
           if (out.length >= 12) break;
         }
-        if (out.length > 0) return out;
       }
-    } catch (e) { /* fall through to catalog */ }
-  }
-  return searchCatalog(query);
+      for (const r of (j.result || [])) {
+        if (!r.symbol || seen.has(r.symbol)) continue;
+        if (r.type && r.type !== 'Common Stock' && r.type !== 'ETP' && r.type !== 'ETF') continue;
+        const display = r.displaySymbol || r.symbol;
+        if (!isUSListedSymbol(display)) continue;
+        if (seen.has(display)) continue;
+        seen.add(display);
+        out.push({ ticker: display, name: r.description || r.symbol, meta: r.type || '' });
+        if (out.length >= 12) break;
+      }
+      // Top up with remaining catalog hits (non-prefix matches) so the
+      // user always gets something useful even if Finnhub returned nothing.
+      for (const c of catalogHits) {
+        if (out.length >= 12) break;
+        if (seen.has(c.ticker)) continue;
+        seen.add(c.ticker);
+        out.push(c);
+      }
+      if (out.length > 0) return out;
+    }
+  } catch (e) { /* fall through to catalog */ }
+  return catalogHits;
 }
 
 function searchCatalog(query) {
